@@ -1,0 +1,5 @@
+services:
+    App\Shared\Infrastructure\Firebase\FirestoreClientFactory:
+        arguments:
+            $credentialsPath: '%env(FIREBASE_CREDENTIALS)%'
+            $projectId: '%env(FIREBASE_PROJECT_ID)%'

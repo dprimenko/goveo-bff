@@ -1,0 +1,103 @@
+doctrine:
+    dbal:
+        url: '%env(resolve:DATABASE_URL)%'
+        profiling_collect_backtrace: '%kernel.debug%'
+        use_savepoints: true
+        schema_filter: '~^(?!tiger\.|topology\.|pgrouting\.)~'
+        types:
+            geometry: Jsor\Doctrine\PostGIS\Types\GeometryType
+            geography: Jsor\Doctrine\PostGIS\Types\GeographyType
+        mapping_types:
+            geometry: geometry
+            geography: geography
+    orm:
+        auto_generate_proxy_classes: true
+        enable_lazy_ghost_objects: true
+        report_fields_where_declared: true
+        validate_xml_mapping: true
+        naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
+        identity_generation_preferences:
+            Doctrine\DBAL\Platforms\PostgreSQLPlatform: identity
+        auto_mapping: true
+        mappings:
+            Users:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Users/Domain'
+                prefix: 'App\Users\Domain'
+                alias: Users
+            Influencers:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Influencers/Domain'
+                prefix: 'App\Influencers\Domain'
+                alias: Influencers
+            Business:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Business/Domain'
+                prefix: 'App\Business\Domain'
+                alias: Business
+            Partners:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Partners/Domain'
+                prefix: 'App\Partners\Domain'
+                alias: Partners
+            Categories:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Categories/Domain'
+                prefix: 'App\Categories\Domain'
+                alias: Categories
+            GeoStories:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/GeoStories/Domain'
+                prefix: 'App\GeoStories\Domain'
+                alias: GeoStories
+            Notifications:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Notifications/Domain'
+                prefix: 'App\Notifications\Domain'
+                alias: Notifications
+            Products:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Products/Domain'
+                prefix: 'App\Products\Domain'
+                alias: Products
+            Billing:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Billing/Domain'
+                prefix: 'App\Billing\Domain'
+                alias: Billing
+        controller_resolver:
+            auto_mapping: false
+
+when@test:
+    doctrine:
+        dbal:
+            dbname_suffix: '_test%env(default::TEST_TOKEN)%'
+
+when@prod:
+    doctrine:
+        orm:
+            auto_generate_proxy_classes: false
+            proxy_dir: '%kernel.build_dir%/doctrine/orm/Proxies'
+            query_cache_driver:
+                type: pool
+                pool: doctrine.system_cache_pool
+            result_cache_driver:
+                type: pool
+                pool: doctrine.result_cache_pool
+
+    framework:
+        cache:
+            pools:
+                doctrine.result_cache_pool:
+                    adapter: cache.app
+                doctrine.system_cache_pool:
+                    adapter: cache.system

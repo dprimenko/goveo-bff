@@ -1,0 +1,23 @@
+categories_controllers:
+    resource:
+        path: ../src/Categories/Infrastructure/Controller/
+        namespace: App\Categories\Infrastructure\Controller
+    type: attribute
+
+geostories_controllers:
+    resource:
+        path: ../src/GeoStories/Infrastructure/Controller/
+        namespace: App\GeoStories\Infrastructure\Controller
+    type: attribute
+
+products_controllers:
+    resource:
+        path: ../src/Products/Infrastructure/Controller/
+        namespace: App\Products\Infrastructure\Controller
+    type: attribute
+
+billing_controllers:
+    resource:
+        path: ../src/Billing/Infrastructure/Controller/
+        namespace: App\Billing\Infrastructure\Controller
+    type: attribute

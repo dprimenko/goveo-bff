@@ -1,0 +1,38 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/DependencyInjection/'
+            - '../src/Entity/'
+            - '../src/Kernel.php'
+
+    # PostGIS event subscribers
+    Jsor\Doctrine\PostGIS\Event\ORMSchemaEventSubscriber:
+        tags:
+            - { name: doctrine.event_subscriber }
+
+    Jsor\Doctrine\PostGIS\Event\DBALSchemaEventSubscriber:
+        tags:
+            - { name: doctrine.event_subscriber }
+
+    # Keycloak parameters
+    App\Security\KeycloakAuthenticator:
+        arguments:
+            $keycloakUrl: '%env(KEYCLOAK_URL)%'
+            $keycloakRealm: '%env(KEYCLOAK_REALM)%'
+            $keycloakClientId: '%env(KEYCLOAK_CLIENT_ID)%'
+
+    # Firebase / Firestore — data migration commands
+    App\Shared\Infrastructure\Firebase\FirestoreClientFactory:
+        arguments:
+            $credentialsPath: '%env(FIREBASE_CREDENTIALS)%'
+            $projectId: '%env(FIREBASE_PROJECT_ID)%'
+
+    # Supabase — data migration source connection
+    App\Shared\Infrastructure\Migration\SupabaseConnectionFactory:
+        arguments:
+            $databaseUrl: '%env(SUPABASE_DATABASE_URL)%'

@@ -1,0 +1,35 @@
+FROM php:8.2-fpm AS builder
+
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
+RUN apt-get update && apt-get install -y \
+    git unzip curl libpq-dev libonig-dev zlib1g-dev \
+    && docker-php-ext-install pdo pdo_pgsql mbstring opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+COPY docker/php/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+WORKDIR /var/www/html
+COPY . .
+
+RUN composer install --no-dev --no-interaction --optimize-autoloader --classmap-authoritative
+
+FROM php:8.2-fpm AS runtime
+
+RUN apt-get update && apt-get install -y libpq-dev \
+    && docker-php-ext-install pdo pdo_pgsql opcache \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
+COPY docker/php/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
+
+WORKDIR /var/www/html
+COPY --from=builder /var/www/html .
+
+RUN chown -R www-data:www-data /var/www/html/var /var/www/html/vendor
+
+EXPOSE 9000
+CMD ["php-fpm"]
