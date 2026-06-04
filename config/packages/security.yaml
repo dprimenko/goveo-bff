@@ -16,11 +16,9 @@ security:
                 - App\Security\KeycloakAuthenticator
 
     access_control:
-        # Public endpoints
-        - { path: ^/api/v1/categories$, roles: PUBLIC_ACCESS, methods: [GET] }
-        - { path: ^/api/v1/categories/, roles: PUBLIC_ACCESS, methods: [GET] }
-        - { path: ^/api/v1/geostories$, roles: PUBLIC_ACCESS, methods: [GET] }
-        - { path: ^/api/v1/geostories/, roles: PUBLIC_ACCESS, methods: [GET] }
+        # Public BFF endpoints — no auth required, returns only public-safe data
+        - { path: ^/public/, roles: PUBLIC_ACCESS }
+        # Other public endpoints
         - { path: ^/api/v1/webhooks, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
         - { path: ^/health, roles: PUBLIC_ACCESS }

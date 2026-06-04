@@ -7,11 +7,10 @@ namespace App\Categories\Infrastructure\Controller;
 use App\Categories\Domain\Category;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/api/v1/categories', name: 'categories_')]
+#[Route('/public/categories', name: 'pub_categories_')]
 class ListCategoriesController
 {
     public function __construct(
@@ -19,7 +18,7 @@ class ListCategoriesController
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
-    public function __invoke(Request $request): Response
+    public function __invoke(): Response
     {
         $categories = $this->em->getRepository(Category::class)->findBy(
             ['deletedAt' => null],
@@ -28,10 +27,11 @@ class ListCategoriesController
 
         return new JsonResponse(array_map(
             fn (Category $c) => [
-                'id'     => $c->getId(),
-                'name'   => $c->getName(),
-                'image'  => $c->getImage(),
-                'order'  => $c->getOrder(),
+                'id'    => $c->getId(),
+                'slug'  => $c->getSlug(),
+                'name'  => $c->getName(),
+                'image' => $c->getImage(),
+                'order' => $c->getOrder(),
             ],
             $categories,
         ));

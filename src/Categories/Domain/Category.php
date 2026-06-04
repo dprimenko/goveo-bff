@@ -17,6 +17,9 @@ class Category
     #[ORM\Column(type: 'string', length: 255, nullable: true)]
     private ?string $name;
 
+    #[ORM\Column(type: 'string', length: 100, nullable: true, unique: true)]
+    private ?string $slug;
+
     #[ORM\Column(type: 'text', nullable: true)]
     private ?string $image;
 
@@ -38,6 +41,7 @@ class Category
     public function __construct(
         string $id,
         ?string $name = null,
+        ?string $slug = null,
         ?string $image = null,
         ?int $order = null,
         ?string $partner = null,
@@ -46,6 +50,7 @@ class Category
     ) {
         $this->id = $id;
         $this->name = $name;
+        $this->slug = $slug;
         $this->image = $image;
         $this->order = $order;
         $this->partner = $partner;
@@ -56,6 +61,7 @@ class Category
 
     public function getId(): string { return $this->id; }
     public function getName(): ?string { return $this->name; }
+    public function getSlug(): ?string { return $this->slug; }
     public function getImage(): ?string { return $this->image; }
     public function getOrder(): ?int { return $this->order; }
     public function getPartner(): ?string { return $this->partner; }
@@ -66,6 +72,13 @@ class Category
     public function setName(?string $name): self
     {
         $this->name = $name;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function setSlug(?string $slug): self
+    {
+        $this->slug = $slug;
         $this->updatedAt = new \DateTimeImmutable();
         return $this;
     }

@@ -17,8 +17,11 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 /**
  * Migrates Supabase `categories` → local `categories`.
  *
- * IDs are slug strings (e.g. "accesories") converted to deterministic UUID v5.
+ * IDs are slug strings (e.g. "place") converted to deterministic UUID v5.
+ * The original Supabase text ID is stored as `slug` (e.g. "place", "events").
  * The `partner` field is stored as a plain text slug (not a UUID FK).
+ *
+ * Re-running this command is safe: existing rows get their `slug` backfilled.
  *
  * Usage:
  *   docker compose exec php php bin/console goveo:migrate:supabase:categories
@@ -69,24 +72,30 @@ final class ImportCategoriesFromSupabaseCommand extends AbstractSupabaseMigratio
         $created = $skipped = $errors = 0;
 
         foreach ($rows as $row) {
-            $id = $this->toUuid($row['id']);
+            $slug = $row['id'];           // original Supabase text ID, e.g. "place"
+            $id   = $this->toUuid($slug); // deterministic UUID v5
 
-            $exists = (bool) $tgt->fetchOne('SELECT 1 FROM categories WHERE id = ?', [$id]);
-            if ($exists) {
-                $io->writeln(sprintf('  <comment>SKIP</comment>  %s', $row['id']));
+            $hasSlug = (bool) $tgt->fetchOne('SELECT 1 FROM categories WHERE id = ? AND slug IS NOT NULL', [$id]);
+            $exists  = (bool) $tgt->fetchOne('SELECT 1 FROM categories WHERE id = ?', [$id]);
+
+            if ($exists && $hasSlug) {
+                $io->writeln(sprintf('  <comment>SKIP</comment>  %s', $slug));
                 ++$skipped;
                 continue;
             }
 
-            $io->writeln(sprintf('  <info>IMPORT</info> %s → %s  [%s]', $row['id'], $id, $row['name'] ?? ''));
+            $action = $exists ? 'UPDATE' : 'INSERT';
+            $io->writeln(sprintf('  <info>%s</info> %s → %s  [%s]', $action, $slug, $id, $row['name'] ?? ''));
 
             if (!$dryRun) {
                 try {
                     $tgt->executeStatement(
-                        'INSERT INTO categories (id, name, image, "order", partner, created_at, updated_at, deleted_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING',
+                        'INSERT INTO categories (id, slug, name, image, "order", partner, created_at, updated_at, deleted_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug',
                         [
                             $id,
+                            $slug,
                             $row['name'],
                             $row['image'],
                             $row['order'] !== null ? (int) $row['order'] : null,
@@ -97,7 +106,7 @@ final class ImportCategoriesFromSupabaseCommand extends AbstractSupabaseMigratio
                         ]
                     );
                 } catch (\Throwable $e) {
-                    $io->warning(sprintf('  ERROR  %s — %s', $row['id'], $e->getMessage()));
+                    $io->warning(sprintf('  ERROR  %s — %s', $slug, $e->getMessage()));
                     ++$errors;
                     continue;
                 }

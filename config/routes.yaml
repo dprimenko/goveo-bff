@@ -10,6 +10,18 @@ geostories_controllers:
         namespace: App\GeoStories\Infrastructure\Controller
     type: attribute
 
+influencers_controllers:
+    resource:
+        path: ../src/Influencers/Infrastructure/Controller/
+        namespace: App\Influencers\Infrastructure\Controller
+    type: attribute
+
+businesses_controllers:
+    resource:
+        path: ../src/Business/Infrastructure/Controller/
+        namespace: App\Business\Infrastructure\Controller
+    type: attribute
+
 products_controllers:
     resource:
         path: ../src/Products/Infrastructure/Controller/

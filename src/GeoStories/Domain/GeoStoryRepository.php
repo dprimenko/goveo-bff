@@ -45,6 +45,27 @@ interface GeoStoryRepository
      */
     public function findByIdWithDistance(string $id, float $latitude, float $longitude): ?GeoStoryWithDistance;
 
+    /**
+     * Full feed query replacing the Supabase retrieveGeoStories use case.
+     * Supports feedType-based category filtering, pagination, and entity filters.
+     * Only returns published geostories (published_at IS NOT NULL).
+     *
+     * @return array{items: GeoStoryWithDistance[], total: int}
+     */
+    public function findFeed(
+        float $latitude,
+        float $longitude,
+        int $page = 0,
+        int $size = 10,
+        ?float $maxDistMeters = null,
+        ?string $ignoreId = null,
+        ?string $feedType = null,
+        ?string $categoryId = null,
+        ?string $notCategoryId = null,
+        ?string $businessId = null,
+        ?string $influencerId = null,
+    ): array;
+
     public function save(GeoStory $geoStory): void;
     public function delete(GeoStory $geoStory): void;
 }

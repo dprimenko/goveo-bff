@@ -181,6 +181,124 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         return $row !== false ? GeoStoryWithDistance::fromRow($row) : null;
     }
 
+    public function findFeed(
+        float $latitude,
+        float $longitude,
+        int $page = 0,
+        int $size = 10,
+        ?float $maxDistMeters = null,
+        ?string $ignoreId = null,
+        ?string $feedType = null,
+        ?string $categoryId = null,
+        ?string $notCategoryId = null,
+        ?string $businessId = null,
+        ?string $influencerId = null,
+    ): array {
+        $conditions = [
+            'geo.deleted_at IS NULL',
+            'geo.published_at IS NOT NULL',
+        ];
+        $params = [
+            'lat'      => $latitude,
+            'lng'      => $longitude,
+            'limit'    => $size,
+            'offset'   => $page * $size,
+        ];
+
+        if ($ignoreId !== null) {
+            $conditions[] = 'geo.id <> :ignore_id::uuid';
+            $params['ignore_id'] = $ignoreId;
+        }
+
+        if ($maxDistMeters !== null) {
+            $conditions[] = 'ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) <= :max_dist';
+            $params['max_dist'] = $maxDistMeters;
+        }
+
+        if ($businessId !== null) {
+            $conditions[] = 'geo.business_id = :business_id::uuid';
+            $params['business_id'] = $businessId;
+        }
+
+        if ($influencerId !== null) {
+            $conditions[] = 'geo.influencer_id = :influencer_id::uuid';
+            $params['influencer_id'] = $influencerId;
+        }
+
+        // Feed-type category filters use cat.slug via the categories JOIN.
+        // category_id in geostories is a UUID — never compare it against slug strings directly.
+        $orderBy = 'geo.location <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography';
+
+        if ($feedType === 'events' && $categoryId === null) {
+            $conditions[] = "cat.slug = 'events'";
+            $conditions[] = 'geo.started_at >= NOW()';
+            $orderBy = 'geo.started_at ASC';
+        } elseif ($feedType === 'geostories' && $categoryId === null) {
+            $conditions[] = "cat.slug = 'news'";
+            $conditions[] = "geo.created_at >= NOW() - INTERVAL '30 days'";
+        } elseif ($feedType === 'tourism' && $categoryId === null) {
+            $conditions[] = "cat.slug IN ('place', 'nature', 'culture')";
+        } elseif ($feedType === 'local') {
+            $conditions[] = "cat.slug NOT IN ('place', 'events', 'news', 'culture', 'nature')";
+            if ($notCategoryId !== null) {
+                $conditions[] = 'cat.slug != :not_cat';
+                $params['not_cat'] = $notCategoryId;
+            }
+        }
+
+        // Explicit category filter: accepts a UUID (from the category picker) or a slug.
+        if ($categoryId !== null) {
+            $conditions[] = '(cat.id::text = :category_id OR cat.slug = :category_id)';
+            $params['category_id'] = $categoryId;
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        $sql = <<<SQL
+            SELECT
+                geo.id,
+                geo.title,
+                geo.url,
+                geo.meta,
+                geo.likes,
+                geo.started_at,
+                geo.created_at,
+                geo.deleted_at,
+                geo.published_at,
+                ST_Y(geo.location::geometry)                                                        AS lat,
+                ST_X(geo.location::geometry)                                                        AS long,
+                ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography)   AS dist_meters,
+                influ.id     AS influencer_id,
+                influ.name   AS influencer_name,
+                influ.avatar AS influencer_avatar,
+                buss.id      AS business_id,
+                buss.name    AS business_name,
+                buss.avatar  AS business_avatar,
+                buss.meta    AS business_meta,
+                cat.id       AS category_id,
+                cat.name     AS category_name,
+                COUNT(*) OVER() AS total_count
+            FROM geostories geo
+            LEFT JOIN influencers influ ON geo.influencer_id = influ.id
+            LEFT JOIN business    buss  ON geo.business_id   = buss.id
+            LEFT JOIN categories  cat   ON geo.category_id   = cat.id
+            WHERE $where
+            ORDER BY $orderBy
+            LIMIT :limit OFFSET :offset
+        SQL;
+
+        $rows = $this->em->getConnection()
+            ->executeQuery($sql, $params)
+            ->fetchAllAssociative();
+
+        $total = empty($rows) ? 0 : (int) $rows[0]['total_count'];
+
+        return [
+            'items' => array_map(GeoStoryWithDistance::fromRow(...), $rows),
+            'total' => $total,
+        ];
+    }
+
     public function save(GeoStory $geoStory): void
     {
         $this->em->persist($geoStory);
