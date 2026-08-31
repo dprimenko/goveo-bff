@@ -246,8 +246,28 @@ fi
 # ============================================================
 if [ -n "${APPLE_CLIENT_ID}" ]; then
     echo "🔧 [configure-idp] Configurando Apple Identity Provider..."
-    # Convertir \n literales del env var a saltos de línea reales
-    APPLE_KEY_CLEAN=$(printf '%s' "${APPLE_PRIVATE_KEY}" | sed 's/\\n/\n/g')
+    # Convertir \n literales del env var a saltos de línea reales: Apple emite el
+    # .p8 en varias líneas y ningún panel de despliegue admite saltos en un valor.
+    #
+    # La clave va en **dos** campos a propósito. El proveedor declara `privateKey`,
+    # pero su interfaz la pide en `clientSecret` y la marca obligatoria: con sólo
+    # uno de los dos, el proveedor queda a medias y falla al autenticar.
+    # La clave llega en base64 por una razón concreta: el PEM contiene espacios
+    # («BEGIN PRIVATE KEY») y saltos de línea, y ninguno de los dos sobrevive a
+    # un panel de despliegue que escribe un `.env` sin comillas. Peor aún, ese
+    # mismo fichero lo lee Symfony en el BFF, así que un valor mal formado aquí
+    # tumbaba la API entera —que no usa esta variable para nada—.
+    #
+    # En base64 no hay espacios ni saltos, así que atraviesa cualquier panel.
+    if [ -n "${APPLE_PRIVATE_KEY_B64}" ]; then
+        APPLE_KEY_CLEAN=$(printf '%s' "${APPLE_PRIVATE_KEY_B64}" | base64 -d 2>/dev/null)
+        if [ -z "$APPLE_KEY_CLEAN" ]; then
+            echo "❌ [configure-idp] APPLE_PRIVATE_KEY_B64 no es base64 válido"
+        fi
+    else
+        # Compatibilidad: `\n` literales, si alguien la puso en crudo.
+        APPLE_KEY_CLEAN=$(printf '%s' "${APPLE_PRIVATE_KEY}" | sed 's/\\n/\n/g')
+    fi
     if "$KCADM" update identity-provider/instances/apple \
         --config "$KCADM_CONFIG" \
         -r "$REALM" \
@@ -256,7 +276,8 @@ if [ -n "${APPLE_CLIENT_ID}" ]; then
         -s "config.clientId=${APPLE_CLIENT_ID}" \
         -s "config.teamId=${APPLE_TEAM_ID}" \
         -s "config.keyId=${APPLE_KEY_ID}" \
-        -s "config.privateKey=${APPLE_KEY_CLEAN}"; then
+        -s "config.privateKey=${APPLE_KEY_CLEAN}" \
+        -s "config.clientSecret=${APPLE_KEY_CLEAN}"; then
         echo "✅ [configure-idp] Apple Identity Provider activado (client_id=${APPLE_CLIENT_ID})"
         allow_token_exchange apple
         use_auto_link apple

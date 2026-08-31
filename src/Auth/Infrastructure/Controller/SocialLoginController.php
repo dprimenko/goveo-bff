@@ -23,6 +23,16 @@ class SocialLoginController
 {
     private const SUPPORTED_PROVIDERS = ['google', 'apple'];
 
+    /**
+     * Apple no entrega token de acceso: su SDK sólo devuelve el `identityToken`.
+     * Google sí, y su token de acceso es lo que Keycloak sabe validar contra el
+     * endpoint de usuario.
+     */
+    private const TOKEN_TYPES = [
+        'google' => 'urn:ietf:params:oauth:token-type:access_token',
+        'apple'  => 'urn:ietf:params:oauth:token-type:id_token',
+    ];
+
     public function __construct(
         private readonly KeycloakService $keycloak,
     ) {}
@@ -33,15 +43,15 @@ class SocialLoginController
             return new JsonResponse(['error' => sprintf('Provider "%s" is not supported.', $provider)], Response::HTTP_BAD_REQUEST);
         }
 
-        $data = json_decode($request->getContent(), true) ?? [];
-        $accessToken = (string) ($data['access_token'] ?? '');
+        $data  = json_decode($request->getContent(), true) ?? [];
+        $token = (string) ($data['access_token'] ?? '');
 
-        if ($accessToken === '') {
+        if ($token === '') {
             return new JsonResponse(['error' => 'access_token is required.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         try {
-            $tokens = $this->keycloak->loginWithSocialToken($provider, $accessToken);
+            $tokens = $this->keycloak->loginWithSocialToken($provider, $token, self::TOKEN_TYPES[$provider]);
         } catch (ClientExceptionInterface $e) {
             $body = json_decode($e->getResponse()->getContent(throw: false), true) ?? [];
             $msg  = $body['error_description'] ?? $body['error'] ?? 'Social login failed.';

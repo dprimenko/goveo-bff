@@ -212,3 +212,37 @@ script lo limpia solo en el siguiente `open`.
 
 **El servidor SSH se toma de `GOVEO_SSH`**, con `root@76.13.63.176` por defecto. Si
 entras con otro usuario: `export GOVEO_SSH=usuario@76.13.63.176`.
+
+---
+
+## Ningún valor con espacios
+
+Dokploy escribe todas las variables del entorno en un `.env` **compartido**, y le
+quita las comillas al guardarlas. Ese fichero lo parsea Symfony entero al arrancar el
+BFF, así que un valor con espacios lo rompe — aunque la variable sea de otro servicio.
+
+Pasó con dos:
+
+- `EMAIL_FROM="Goveo <hola@goveo.app>"` — el nombre visible se movió al código.
+- `APPLE_PRIVATE_KEY` — el PEM contiene `BEGIN PRIVATE KEY`, con espacios. **Tumbó la
+  API entera**, y esa variable sólo la usa Keycloak.
+
+La regla, por tanto, no es «cuidado con los espacios» sino: **ningún valor de ninguna
+variable puede llevarlos**. Lo que no quepa ahí, en base64.
+
+### La clave de Apple
+
+Se configura **a mano** en la consola de Keycloak: *Identity providers → apple →
+Client Secret*, pegando el `.p8` tal cual, con sus saltos de línea.
+
+Vive en la base de datos, así que sobrevive a reinicios y despliegues. Lo que **no**
+sobrevive es recrear el entorno desde cero: al levantar demo, o al restaurar
+producción, hay que repetir este paso o Apple no autenticará.
+
+El resto sí es automático: `APPLE_CLIENT_ID`, `APPLE_TEAM_ID` y `APPLE_KEY_ID` van
+como variables y `configure-idp.sh` mantiene el proveedor activo y con permiso de
+intercambio en cada arranque.
+
+Si algún día se prefiere automatizarlo del todo, el script ya acepta
+`APPLE_PRIVATE_KEY_B64` con el `.p8` en base64 — que no tiene espacios y sí atraviesa
+el panel. Se obtiene con `base64 -i AuthKey_XXXX.p8 | tr -d '\n'`.

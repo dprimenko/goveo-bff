@@ -302,8 +302,21 @@ class KeycloakService
      * Exchange a social identity token for Goveo tokens via Keycloak.
      * Keycloak must have the corresponding Identity Provider configured.
      */
-    public function loginWithSocialToken(string $provider, string $accessToken): array
-    {
+    /**
+     * Canjea el token de un proveedor social por tokens del realm.
+     *
+     * `$tokenType` varía por proveedor y no es un detalle menor: Google entrega
+     * un token de acceso que Keycloak valida contra su endpoint de usuario,
+     * mientras que Apple **sólo** entrega un `identity token` —un JWT— y no hay
+     * token de acceso que enviar. Declarar el tipo equivocado se manifiesta como
+     * `invalid_token`, el mismo error que da un token caducado o falso, así que
+     * cuesta de diagnosticar.
+     */
+    public function loginWithSocialToken(
+        string $provider,
+        string $accessToken,
+        string $tokenType = 'urn:ietf:params:oauth:token-type:access_token',
+    ): array {
         $response = $this->httpClient->request('POST', $this->tokenUrl, [
             'headers' => ['Content-Type' => 'application/x-www-form-urlencoded'],
             'body' => [
@@ -312,7 +325,7 @@ class KeycloakService
                 'client_secret'          => $this->keycloakClientSecret,
                 'subject_token'          => $accessToken,
                 'subject_issuer'         => $provider,
-                'subject_token_type'     => 'urn:ietf:params:oauth:token-type:access_token',
+                'subject_token_type'     => $tokenType,
                 'requested_token_type'   => 'urn:ietf:params:oauth:token-type:refresh_token',
             ],
         ]);

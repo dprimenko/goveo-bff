@@ -92,6 +92,7 @@ services:
       APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
       APPLE_KEY_ID: ${APPLE_KEY_ID:-}
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+      APPLE_PRIVATE_KEY_B64: ${APPLE_PRIVATE_KEY_B64:-}
     ports:
       - "8081:8080"
     depends_on:
