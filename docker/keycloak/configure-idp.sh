@@ -268,6 +268,19 @@ if [ -n "${APPLE_CLIENT_ID}" ]; then
         # Compatibilidad: `\n` literales, si alguien la puso en crudo.
         APPLE_KEY_CLEAN=$(printf '%s' "${APPLE_PRIVATE_KEY}" | sed 's/\\n/\n/g')
     fi
+    # Sin clave en el entorno **no se toca la que ya esté guardada**. Escribirla
+    # vacía borraría la que se puso a mano en la consola, y Apple dejaría de
+    # autenticar en el siguiente reinicio sin que nada lo dijera.
+    if [ -n "$APPLE_KEY_CLEAN" ]; then
+        # Array, no cadena: el PEM lleva espacios y saltos de línea, y sin
+        # comillas el shell lo partiría en argumentos sueltos.
+        APPLE_KEY_ARGS=(-s "config.privateKey=${APPLE_KEY_CLEAN}"
+                        -s "config.clientSecret=${APPLE_KEY_CLEAN}")
+    else
+        APPLE_KEY_ARGS=()
+        echo "ℹ️  [configure-idp] Sin clave privada en el entorno: se conserva la configurada a mano"
+    fi
+
     if "$KCADM" update identity-provider/instances/apple \
         --config "$KCADM_CONFIG" \
         -r "$REALM" \
@@ -276,8 +289,7 @@ if [ -n "${APPLE_CLIENT_ID}" ]; then
         -s "config.clientId=${APPLE_CLIENT_ID}" \
         -s "config.teamId=${APPLE_TEAM_ID}" \
         -s "config.keyId=${APPLE_KEY_ID}" \
-        -s "config.privateKey=${APPLE_KEY_CLEAN}" \
-        -s "config.clientSecret=${APPLE_KEY_CLEAN}"; then
+        "${APPLE_KEY_ARGS[@]}"; then
         echo "✅ [configure-idp] Apple Identity Provider activado (client_id=${APPLE_CLIENT_ID})"
         allow_token_exchange apple
         use_auto_link apple
