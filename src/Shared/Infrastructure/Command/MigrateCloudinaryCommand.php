@@ -64,6 +64,9 @@ final class MigrateCloudinaryCommand extends Command
 
     private ?SymfonyStyle $io = null;
 
+    /** Cuántas imágenes ya no existen en origen (404). */
+    private int $missing = 0;
+
     /**
      * Deja constancia de un fallo: una línea al momento y un recuento al final.
      *
@@ -99,6 +102,11 @@ final class MigrateCloudinaryCommand extends Command
         $this->addOption('dry-run', null, InputOption::VALUE_NONE, 'Sólo cuenta e informa, no descarga ni escribe');
         $this->addOption('table', null, InputOption::VALUE_REQUIRED, 'Migra sólo esta tabla');
         $this->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Máximo de filas por tabla (para probar)');
+        $this->addOption(
+            'retire-missing', null, InputOption::VALUE_NONE,
+            'Da de baja los productos cuyas imágenes hayan desaparecido de Cloudinary (404). '
+            .'Es baja lógica: se marca deleted_at y se puede revertir.',
+        );
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -108,6 +116,7 @@ final class MigrateCloudinaryCommand extends Command
         $dryRun   = (bool) $input->getOption('dry-run');
         $only    = $input->getOption('table');
         $limit   = $input->getOption('limit') !== null ? (int) $input->getOption('limit') : null;
+        $retireMissing = (bool) $input->getOption('retire-missing');
 
         $io->title('Cloudinary → Bunny');
 
@@ -124,7 +133,7 @@ final class MigrateCloudinaryCommand extends Command
                 continue;
             }
 
-            [$rows, $files, $moved, $failed] = $this->migrateTarget($io, $target, $dryRun, $limit);
+            [$rows, $files, $moved, $failed] = $this->migrateTarget($io, $target, $dryRun, $limit, $retireMissing);
 
             $totals['filas']    += $rows;
             $totals['ficheros'] += $files;
@@ -163,8 +172,13 @@ final class MigrateCloudinaryCommand extends Command
     }
 
     /** @return array{0:int,1:int,2:int,3:int} filas, ficheros, movidos, fallidos */
-    private function migrateTarget(SymfonyStyle $io, array $target, bool $dryRun, ?int $limit): array
-    {
+    private function migrateTarget(
+        SymfonyStyle $io,
+        array $target,
+        bool $dryRun,
+        ?int $limit,
+        bool $retireMissing = false,
+    ): array {
         $table  = $target['table'];
         $column = $target['column'];
 
@@ -184,9 +198,10 @@ final class MigrateCloudinaryCommand extends Command
             return [0, 0, 0, 0];
         }
 
-        $files = 0;
-        $moved = 0;
-        $failed = 0;
+        $files   = 0;
+        $moved   = 0;
+        $failed  = 0;
+        $retired = 0;
 
         $io->section(sprintf('%s.%s — %d filas', $table, $column, count($rows)));
         // Sin barra de progreso: se solapa con las líneas de error y deja la
@@ -204,14 +219,36 @@ final class MigrateCloudinaryCommand extends Command
             }
 
             $replacements = [];
+            $gone         = 0;
             foreach ($urls as $index => $url) {
+                $before = $this->missing;
                 $newUrl = $this->move($url, $target, $row, $index);
                 if ($newUrl !== null) {
                     $replacements[$url] = $newUrl;
                     ++$moved;
                 } else {
                     ++$failed;
+                    // Se cuenta aparte lo que ya no existe en origen: es lo
+                    // único que justifica dar de baja el producto.
+                    if ($this->missing > $before) {
+                        ++$gone;
+                    }
                 }
+            }
+
+            // Sólo si han desaparecido **todas**: un producto con cuatro fotos y
+            // una muerta sigue siendo un producto bueno.
+            if ($retireMissing
+                && $table === 'products'
+                && $gone > 0
+                && $gone === count($urls)
+                && $replacements === []
+            ) {
+                $this->connection->executeStatement(
+                    'UPDATE products SET deleted_at = now() WHERE id = :id AND deleted_at IS NULL',
+                    ['id' => $row['id']],
+                );
+                ++$retired;
             }
 
             if ($replacements !== []) {
@@ -230,6 +267,13 @@ final class MigrateCloudinaryCommand extends Command
 
         if ($dryRun) {
             $io->text(sprintf('  %d ficheros', $files));
+        }
+
+        if ($retired > 0) {
+            $io->warning(sprintf(
+                '%d productos dados de baja: todas sus imágenes habían desaparecido de Cloudinary.',
+                $retired,
+            ));
         }
 
         return [count($rows), $files, $moved, $failed];
@@ -282,6 +326,9 @@ final class MigrateCloudinaryCommand extends Command
             $response = $this->httpClient->request('GET', $clean, ['timeout' => 30]);
             $status   = $response->getStatusCode();
             if ($status >= 300) {
+                if ($status === 404) {
+                    ++$this->missing;
+                }
                 $this->note(sprintf('descarga HTTP %d', $status), $clean, (string) ($row['id'] ?? ''));
 
                 return null;
@@ -297,6 +344,10 @@ final class MigrateCloudinaryCommand extends Command
             $newUrl = $this->storage->upload(
                 fn (string $ext) => $this->pathFor($target, $row, $index, $ext),
                 $contents,
+                // Sin límite de tamaño: son imágenes que ya existían, y el tope
+                // de 8 MB está pensado para subidas de usuario. El Optimizer las
+                // sirve reducidas de todas formas.
+                enforceSizeLimit: false,
             );
         } catch (\Throwable $e) {
             $this->note('subida: ' . $this->reason($e), $clean, (string) ($row['id'] ?? ''));

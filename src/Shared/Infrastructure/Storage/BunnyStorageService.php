@@ -87,8 +87,11 @@ final class BunnyStorageService
      *
      * @return string URL pública en el CDN
      */
-    public function upload(callable $pathFor, string $contents): string
-    {
+    public function upload(
+        callable $pathFor,
+        string $contents,
+        bool $enforceSizeLimit = true,
+    ): string {
         if (!$this->isConfigured()) {
             throw new StorageException('El almacenamiento de imágenes no está configurado.');
         }
@@ -97,7 +100,11 @@ final class BunnyStorageService
         if ($size === 0) {
             throw new StorageException('El fichero está vacío.');
         }
-        if ($size > self::MAX_BYTES) {
+        // El límite protege de subidas de usuario desmedidas. En una migración
+        // estorba: son imágenes que ya existían y no hay a quién pedirle que las
+        // reduzca. Además el Optimizer las sirve redimensionadas igualmente, así
+        // que guardar el original grande no penaliza a nadie.
+        if ($enforceSizeLimit && $size > self::MAX_BYTES) {
             throw new StorageException(sprintf(
                 'La imagen pesa %d MB y el máximo son %d MB.',
                 (int) ceil($size / 1024 / 1024),

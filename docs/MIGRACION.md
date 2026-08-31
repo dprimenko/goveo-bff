@@ -134,3 +134,31 @@ este proceso. Migrar demo no toca nada de producción.
 
 Los `stripe_price_id` **no** son portables: cada entorno crea los suyos al ejecutar su
 `goveo:stripe:sync` contra su propia cuenta. No se copian a mano.
+
+
+---
+
+## Imágenes que ya no existen en Cloudinary
+
+Parte de las imágenes heredadas fueron borradas de Cloudinary hace tiempo: su URL
+devuelve 404 y no hay nada que migrar. Reintentar no las recupera.
+
+```bash
+# Da de baja los productos cuyas imágenes hayan desaparecido **todas**.
+# Es baja lógica (`deleted_at`): se puede revertir con un UPDATE.
+docker compose exec php php bin/console goveo:media:migrate-cloudinary --retire-missing
+```
+
+Sólo se da de baja cuando **ninguna** de sus imágenes sobrevive: un producto con
+cuatro fotos y una muerta sigue siendo un producto bueno, y se queda con las que sí
+se pudieron mover.
+
+El resto de tablas nunca se tocan por esto: un negocio sin avatar sigue siendo un
+negocio.
+
+### Y las de más de 8 MB
+
+`BunnyStorageService` rechaza subidas por encima de ese tamaño, que es un límite
+pensado para lo que sube un usuario desde el formulario. La migración lo ignora a
+propósito: son imágenes que ya existían, no hay a quién pedirle que las reduzca, y
+el Optimizer las sirve redimensionadas igualmente.
