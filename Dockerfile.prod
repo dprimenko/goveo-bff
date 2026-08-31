@@ -19,8 +19,14 @@ COPY . .
 # requisito, pero sólo la usa su transporte gRPC y nosotros hablamos por REST
 # (ver FirestoreClientFactory). Sin esto, `composer install` falla y la imagen
 # ni se construye.
+# `--no-scripts` es deliberado: los `@auto-scripts` de Symfony ejecutan
+# `cache:clear`, que arranca la aplicación y por tanto lee el `.env`. En el build
+# no hay configuración válida —ni base, ni Keycloak, ni las variables reales—, así
+# que un valor mal escrito en el panel tumba la construcción de la imagen en vez
+# de fallar al arrancar, donde se ve mucho mejor qué ha pasado.
+# La caché se genera en el entrypoint, ya con el entorno de verdad.
 RUN composer install --no-dev --no-interaction --optimize-autoloader \
-    --classmap-authoritative --ignore-platform-req=ext-grpc
+    --classmap-authoritative --ignore-platform-req=ext-grpc --no-scripts
 
 FROM php:8.2-fpm AS runtime
 
