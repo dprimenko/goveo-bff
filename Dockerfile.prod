@@ -44,7 +44,12 @@ WORKDIR /var/www/html
 COPY --from=builder /var/www/html .
 
 COPY docker/php/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh \
+
+# `var/` está en .gitignore, así que no viene en el clon. Antes lo creaba de
+# rebote el `cache:clear` de los auto-scripts de composer; ahora que el build no
+# arranca la aplicación, hay que crearlo aquí.
+RUN mkdir -p /var/www/html/var/cache /var/www/html/var/log \
+    && chmod +x /usr/local/bin/entrypoint.sh \
     && chown -R www-data:www-data /var/www/html/var /var/www/html/vendor
 
 EXPOSE 9000
