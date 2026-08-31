@@ -121,7 +121,18 @@ final class ImportBusinessFromSupabaseCommand extends AbstractSupabaseMigrationC
                             $this->ts($row['created_at']),
                             $this->ts($row['updated_at']),
                             $this->ts($row['deleted_at'] ?? null),
-                            $this->ts($row['verified_at'] ?? null),
+                            // Lo que se importa **ya estaba publicado** en la app
+                            // anterior: darlo por validado es reconocer un hecho,
+                            // no saltarse un control. La validación manual existe
+                            // para las altas nuevas, que entran por el formulario
+                            // sin que nadie las haya visto todavía.
+                            //
+                            // Si el origen trae fecha se respeta, y si no se usa
+                            // la de creación: así la fecha de validación nunca es
+                            // posterior a la de alta, que sería incoherente.
+                            $this->ts($row['verified_at'] ?? null)
+                                ?? $this->ts($row['created_at'])
+                                ?? (new \DateTimeImmutable())->format('Y-m-d H:i:sP'),
                         ]
                     );
                 } catch (\Throwable $e) {

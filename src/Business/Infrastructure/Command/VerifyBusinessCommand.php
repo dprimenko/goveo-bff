@@ -44,6 +44,7 @@ final class VerifyBusinessCommand extends Command
         $this->addArgument('business', InputArgument::OPTIONAL, 'Slug o id. Sin él, lista los pendientes.');
         $this->addOption('revoke', null, InputOption::VALUE_NONE, 'Retira la validación en vez de darla');
         $this->addOption('all', null, InputOption::VALUE_NONE, 'Valida todos los pendientes de golpe');
+        $this->addOption('force', null, InputOption::VALUE_NONE, 'Con --all, no pide confirmación (para ejecuciones sin terminal)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -53,7 +54,7 @@ final class VerifyBusinessCommand extends Command
         $revoke  = (bool) $input->getOption('revoke');
 
         if ($input->getOption('all')) {
-            return $this->verifyAll($io);
+            return $this->verifyAll($io, (bool) $input->getOption('force'));
         }
 
         if ($ref === null) {
@@ -126,7 +127,7 @@ final class VerifyBusinessCommand extends Command
         return Command::SUCCESS;
     }
 
-    private function verifyAll(SymfonyStyle $io): int
+    private function verifyAll(SymfonyStyle $io, bool $force = false): int
     {
         $ids = $this->connection->fetchFirstColumn(
             'SELECT id FROM business WHERE deleted_at IS NULL AND verified_at IS NULL',
@@ -138,7 +139,19 @@ final class VerifyBusinessCommand extends Command
             return Command::SUCCESS;
         }
 
-        if (!$io->confirm(sprintf('¿Validar %d negocio(s) sin revisarlos uno a uno?', count($ids)), false)) {
+        // Sin terminal —`docker exec` sin `-it`, un cron— `confirm()` devuelve
+        // el valor por defecto y el comando no haría nada, aparentando haber
+        // funcionado. Mejor exigir la bandera de forma explícita.
+        if (!$force && !$io->isInteractive()) {
+            $io->error(sprintf(
+                'Hay %d negocio(s) pendientes, pero no hay terminal para confirmar. Repite con --force.',
+                count($ids),
+            ));
+
+            return Command::FAILURE;
+        }
+
+        if (!$force && !$io->confirm(sprintf('¿Validar %d negocio(s) sin revisarlos uno a uno?', count($ids)), false)) {
             return Command::SUCCESS;
         }
 

@@ -18,7 +18,12 @@ tries=0
 until php bin/console dbal:run-sql 'select 1' >/dev/null 2>&1; do
     tries=$((tries + 1))
     if [ "$tries" -ge 30 ]; then
-        echo "✗ La base no responde tras 60s. Revisa DATABASE_URL." >&2
+        # El comando arranca Symfony entero, así que puede fallar por motivos
+        # que no tienen nada que ver con la base —configuración, caché,
+        # permisos—. Sin enseñar el error real, cualquiera de ellos se disfraza
+        # de «la base no responde» y se busca en el sitio equivocado.
+        echo "✗ No se pudo conectar tras 60s. Error real:" >&2
+        php bin/console dbal:run-sql 'select 1' >&2 || true
         exit 1
     fi
     sleep 2

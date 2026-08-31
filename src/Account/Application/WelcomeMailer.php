@@ -11,6 +11,7 @@ use App\Auth\Infrastructure\Service\KeycloakService;
 use App\Business\Domain\BusinessRepository;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Address;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Uid\Uuid;
 
@@ -72,7 +73,13 @@ final class WelcomeMailer
             $link = sprintf('%s/bienvenida?token=%s', rtrim($this->webUrl, '/'), $plain);
 
             $message = (new Email())
-                ->from($this->fromAddress)
+                // El nombre visible va aquí y no en `EMAIL_FROM` a propósito:
+                // un valor con espacios obliga a entrecomillarlo en el `.env`, y
+                // hay paneles de despliegue que quitan esas comillas al
+                // guardarlo. El resultado es un fichero que Symfony no puede
+                // leer y una aplicación que no arranca. La variable se queda con
+                // la dirección a secas, que nunca lleva espacios.
+                ->from(new Address($this->fromAddress, 'Goveo'))
                 ->to($email)
                 ->subject(sprintf('%s ya está en Goveo — crea tu contraseña', $business->getName()))
                 ->text($this->text($business, $link, $ownerName))
