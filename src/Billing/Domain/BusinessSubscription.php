@@ -15,6 +15,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'business_subscriptions')]
+#[ORM\UniqueConstraint(name: 'uniq_subscriptions_payment_link', columns: ['stripe_payment_link_id'])]
 class BusinessSubscription
 {
     #[ORM\Id]

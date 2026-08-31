@@ -8,6 +8,11 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'business')]
+// El índice es GIST, no btree: lo crea la migración porque el mapeo de Doctrine
+// no sabe expresar el método de un índice. Se declara igualmente para que el
+// esquema no proponga borrarlo — perderlo dejaría el mapa y el feed haciendo
+// scan completo, lento pero sin error visible.
+#[ORM\Index(name: 'idx_business_location_gist', columns: ['location'])]
 class Business
 {
     #[ORM\Id]

@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'users')]
+#[ORM\UniqueConstraint(name: 'uniq_1483a5e9e7927c74', columns: ['email'])]
 class User
 {
     #[ORM\Id]

@@ -11,6 +11,9 @@ comandos escriben en Stripe o borran datos, y ninguno pregunta.
 
 ---
 
+> Para levantar un entorno nuevo de cero, la secuencia completa y comprobada
+> está en [MIGRACION.md](MIGRACION.md).
+
 ## Facturación y tarifas
 
 | Comando | Qué hace |
@@ -121,11 +124,14 @@ El orden **importa**: una tabla que referencia a otra falla si la otra no está.
 | `goveo:migrate:billing-plan-stripe-ids` | Recupera `stripe_price_id` desde los ids de `plans` |
 | `goveo:migrate:firebase-auth-to-keycloak` | Usuarios **con sus hashes**, así que nadie pierde la contraseña |
 
-⚠️ Existen también `goveo:migrate:supabase:billing-products`,
-`goveo:migrate:supabase:billing-plans` y `goveo:migrate:supabase:products`, pero
-**no entran en `goveo:migrate:all`**: para facturación y productos manda
-Firestore, que es donde vivía el dato bueno. Están por si algún día hace falta
-comparar las dos fuentes.
+⚠️ Existen también `goveo:migrate:supabase:billing-products` y
+`goveo:migrate:supabase:billing-plans`, pero **no entran en `goveo:migrate:all`**:
+para facturación manda Firestore, que es donde vivía el dato bueno. Están por si
+algún día hace falta comparar las dos fuentes.
+
+**Los productos sólo están en Firestore** (`goveo:migrate:products`, colección
+`geoproducts`). Hubo un `goveo:migrate:supabase:products` que consultaba una tabla
+`geoproducts` inexistente en Supabase: fallaba siempre y se ha retirado.
 
 ### Inspección
 

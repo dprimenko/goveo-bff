@@ -13,6 +13,11 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'geostories')]
+#[ORM\Index(name: 'idx_geostories_location_gist', columns: ['location'])]
+#[ORM\Index(name: 'idx_geostories_active', columns: ['published_at', 'started_at', 'created_at'], options: ['where' => '(deleted_at IS NULL) AND (published_at IS NOT NULL)'])]
+#[ORM\Index(name: 'idx_geostories_business_id', columns: ['business_id'], options: ['where' => 'deleted_at IS NULL'])]
+#[ORM\Index(name: 'idx_geostories_category_id', columns: ['category_id'], options: ['where' => 'deleted_at IS NULL'])]
+#[ORM\Index(name: 'idx_geostories_influencer_id', columns: ['influencer_id'], options: ['where' => 'deleted_at IS NULL'])]
 class GeoStory
 {
     // Transcoding lifecycle (Bunny Stream).

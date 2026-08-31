@@ -12,6 +12,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'billing_plans')]
+#[ORM\UniqueConstraint(name: 'uniq_billing_plans_code', columns: ['code'])]
 class BillingPlan
 {
     #[ORM\Id]

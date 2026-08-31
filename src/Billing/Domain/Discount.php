@@ -16,6 +16,7 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'billing_discounts')]
+#[ORM\UniqueConstraint(name: 'uniq_billing_discounts_stripe', columns: ['stripe_coupon_id'])]
 class Discount
 {
     #[ORM\Id]

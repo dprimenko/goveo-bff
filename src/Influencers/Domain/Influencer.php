@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'influencers')]
+#[ORM\UniqueConstraint(name: 'uniq_54eca2d5f85e0677', columns: ['username'])]
 class Influencer
 {
     #[ORM\Id]

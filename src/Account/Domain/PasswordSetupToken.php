@@ -17,6 +17,8 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'password_setup_tokens')]
+#[ORM\Index(name: 'idx_password_setup_user', columns: ['user_id'])]
+#[ORM\UniqueConstraint(name: 'uniq_password_setup_token', columns: ['token_hash'])]
 class PasswordSetupToken
 {
     /** Una semana: suficiente para quien no mira el correo a diario. */

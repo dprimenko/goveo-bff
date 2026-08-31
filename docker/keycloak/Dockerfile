@@ -16,7 +16,20 @@ USER keycloak
 # Se compila ya contra Postgres para poder arrancar con `--optimized`: si no,
 # Keycloak reconstruye en cada arranque y tarda casi un minuto en levantar,
 # que en un despliegue con health check es la diferencia entre verde y rojo.
-RUN /opt/keycloak/bin/kc.sh build --db=postgres --health-enabled=true
+# `token-exchange` es lo que permite canjear un token de Google o Apple por uno
+# del realm: la app obtiene el token con el SDK nativo y el BFF lo intercambia
+# aquí (ver KeycloakService::loginWithSocialToken). Sin esta bandera, Keycloak
+# responde `unsupported_grant_type` y el acceso social no funciona.
+#
+# `admin-fine-grained-authz` hace falta para conceder al cliente `goveo-bff`
+# permiso de intercambio sobre cada proveedor: sin permisos explícitos, el
+# intercambio se deniega aunque el grant esté habilitado.
+#
+# Ambas son *preview* en Keycloak 26. Se activan al construir, no al arrancar.
+RUN /opt/keycloak/bin/kc.sh build \
+        --db=postgres \
+        --health-enabled=true \
+        --features=token-exchange,admin-fine-grained-authz
 
 ENTRYPOINT ["/opt/keycloak/bin/init.sh"]
 

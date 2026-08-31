@@ -99,14 +99,22 @@ final class ImportBusinessFromSupabaseCommand extends AbstractSupabaseMigrationC
                 ));
             }
 
+            $geohash = $this->geohash($row['meta'] ?? null);
+
             if (!$dryRun) {
                 try {
                     $tgt->executeStatement(
                         'INSERT INTO business
                              (id, slug, name, description, avatar, main_image,
                               category_id, creator_id, partner_id, meta,
-                              created_at, updated_at, deleted_at, verified_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (id) DO NOTHING',
+                              created_at, updated_at, deleted_at, verified_at, location)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                 -- El cast es necesario: sin él Postgres no
+                                 -- puede inferir el tipo del parámetro y falla
+                                 -- con «could not determine data type».
+                                 CASE WHEN ?::text IS NULL THEN NULL
+                                      ELSE ST_SetSRID(ST_PointFromGeoHash(?::text), 4326) END)
+                         ON CONFLICT (id) DO NOTHING',
                         [
                             $id,
                             $row['slug'],
@@ -133,6 +141,15 @@ final class ImportBusinessFromSupabaseCommand extends AbstractSupabaseMigrationC
                             $this->ts($row['verified_at'] ?? null)
                                 ?? $this->ts($row['created_at'])
                                 ?? (new \DateTimeImmutable())->format('Y-m-d H:i:sP'),
+                            // El origen no guarda coordenadas, sólo un geohash
+                            // dentro de `meta`. Se convierte aquí y no en una
+                            // migración porque una migración se ejecuta una vez:
+                            // en un entorno nuevo corre antes de importar nada y
+                            // deja los negocios sin ubicar. Y sin ubicación un
+                            // negocio no existe de cara al público — el listado,
+                            // el mapa y la búsqueda por cercanía la exigen.
+                            $geohash,
+                            $geohash,
                         ]
                     );
                 } catch (\Throwable $e) {
@@ -153,5 +170,20 @@ final class ImportBusinessFromSupabaseCommand extends AbstractSupabaseMigrationC
         $io->success(sprintf('Imported: %d | Skipped: %d | Errors: %d', $created, $skipped, $errors));
 
         return $errors > 0 ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    /** El geohash vive dentro de `meta`, que llega como JSON o ya decodificado. */
+    private function geohash(mixed $meta): ?string
+    {
+        if (is_string($meta)) {
+            $meta = json_decode($meta, true);
+        }
+        if (!is_array($meta)) {
+            return null;
+        }
+
+        $value = $meta['geohash'] ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
     }
 }

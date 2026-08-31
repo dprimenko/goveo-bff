@@ -22,6 +22,8 @@ use Doctrine\ORM\Mapping as ORM;
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'promo_codes')]
+#[ORM\Index(name: 'idx_promo_codes_discount', columns: ['discount_id'])]
+#[ORM\Index(name: 'idx_promo_codes_partner', columns: ['partner_id'])]
 class PromoCode
 {
     #[ORM\Id]
@@ -36,7 +38,7 @@ class PromoCode
      * Stored as jsonb: ["uuid1", "uuid2", ...]
      * Empty when the code only carries a discount or an attribution.
      */
-    #[ORM\Column(name: 'plan_ids', type: 'json')]
+    #[ORM\Column(name: 'plan_ids', type: 'json', options: ['default' => '[]'])]
     private array $planIds;
 
     /** Discount applied on top of the selected plan. Null = the code does not touch the price. */

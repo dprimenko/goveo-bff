@@ -90,6 +90,10 @@ services:
     restart: unless-stopped
     environment:
       KC_DB: postgres
+      # También como variable: al construir queda persistida en la imagen, pero
+      # `start-dev` re-genera la configuración y la pierde. Declararla aquí hace
+      # que valga en los dos modos.
+      KC_FEATURES: token-exchange,admin-fine-grained-authz
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_POSTGRES_DB:-keycloak}
       KC_DB_USERNAME: ${KC_POSTGRES_USER:-keycloak}
       KC_DB_PASSWORD: ${KC_POSTGRES_PASSWORD}
