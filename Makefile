@@ -98,3 +98,25 @@ compose-diff:
 	@grep -v '^[[:space:]]*#' docker-compose.demo.yml | grep -v '^[[:space:]]*$$' > /tmp/.goveo-demo.yml
 	@diff /tmp/.goveo-prod.yml /tmp/.goveo-demo.yml && echo "Sin diferencias." || true
 	@rm -f /tmp/.goveo-prod.yml /tmp/.goveo-demo.yml
+
+## db-prod: abre Adminer de producción por túnel SSH
+db-prod:
+	@./bin/goveo-db open prod
+
+## db-demo: abre Adminer de demo por túnel SSH
+db-demo:
+	@./bin/goveo-db open demo
+
+## db-close: cierra los túneles abiertos
+db-close:
+	@./bin/goveo-db close prod || true
+	@./bin/goveo-db close demo || true
+
+## db-status: qué túneles hay abiertos
+db-status:
+	@./bin/goveo-db status
+
+## install-cli: deja goveo-db disponible en el PATH
+install-cli:
+	@ln -sf "$(CURDIR)/bin/goveo-db" /usr/local/bin/goveo-db
+	@echo "goveo-db → $(CURDIR)/bin/goveo-db"

@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Túnel SSH hasta el Adminer de un entorno.
+#
+# Adminer no está publicado en ningún dominio: su puerto está atado al loopback
+# del servidor. Este script tiende un túnel hasta él, de forma que la
+# herramienta sólo es accesible para quien ya tiene SSH.
+#
+#   goveo-db open [prod|demo]    abre el túnel y da la URL
+#   goveo-db close [prod|demo]   lo cierra
+#   goveo-db status              qué hay abierto
+#
+# Se apoya en una *control socket* de SSH en vez de buscar el proceso con
+# `pgrep`: cerrar por PID es frágil —acaba matando otra sesión SSH— y con el
+# socket es el propio ssh quien sabe cuál cerrar.
+set -euo pipefail
+
+SERVER="${GOVEO_SSH:-root@76.13.63.176}"
+SOCKET_DIR="${TMPDIR:-/tmp}/goveo-db"
+
+env_config() {
+    case "${1:-prod}" in
+        prod) REMOTE_PORT=8082; LOCAL_PORT=8090 ;;
+        demo) REMOTE_PORT=8083; LOCAL_PORT=8091 ;;
+        *) echo "Entorno desconocido: $1 (usa prod o demo)" >&2; exit 1 ;;
+    esac
+    ENV_NAME="${1:-prod}"
+    SOCKET="$SOCKET_DIR/$ENV_NAME.sock"
+}
+
+open_tunnel() {
+    env_config "$@"
+    mkdir -p "$SOCKET_DIR"
+
+    if ssh -S "$SOCKET" -O check "$SERVER" 2>/dev/null; then
+        echo "Ya estaba abierto → http://localhost:$LOCAL_PORT"
+        exit 0
+    fi
+
+    # Un socket huérfano (tras reiniciar, o si se perdió la red) impide abrir
+    # otro: se limpia antes de intentarlo.
+    rm -f "$SOCKET"
+
+    ssh -M -S "$SOCKET" -fNT \
+        -o ExitOnForwardFailure=yes \
+        -L "$LOCAL_PORT:127.0.0.1:$REMOTE_PORT" "$SERVER"
+
+    echo "Túnel abierto ($ENV_NAME) → http://localhost:$LOCAL_PORT"
+    echo "  servidor: db · usuario y base: los de POSTGRES_USER / POSTGRES_DB"
+    echo "  cerrar:   goveo-db close $ENV_NAME"
+}
+
+close_tunnel() {
+    env_config "$@"
+    if ssh -S "$SOCKET" -O exit "$SERVER" 2>/dev/null; then
+        echo "Túnel cerrado ($ENV_NAME)"
+    else
+        rm -f "$SOCKET"
+        echo "No había ningún túnel abierto ($ENV_NAME)"
+    fi
+}
+
+status() {
+    local any=0
+    for e in prod demo; do
+        env_config "$e"
+        if ssh -S "$SOCKET" -O check "$SERVER" 2>/dev/null; then
+            echo "  $e → http://localhost:$LOCAL_PORT (abierto)"
+            any=1
+        fi
+    done
+    [ "$any" -eq 0 ] && echo "  ningún túnel abierto"
+    return 0
+}
+
+case "${1:-}" in
+    open)   shift; open_tunnel "$@" ;;
+    close)  shift; close_tunnel "$@" ;;
+    status) status ;;
+    *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

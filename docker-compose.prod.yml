@@ -145,6 +145,21 @@ services:
       retries: 10
 
 
+  adminer:
+    # **Nunca se publica en un dominio.** El puerto se ata al loopback del
+    # servidor, así que desde internet no existe: sólo se llega por túnel SSH
+    # (`bin/goveo-db open prod`). Adminer es una sesión completa de base de
+    # datos detrás de un formulario sin límite de intentos ni segundo factor;
+    # expuesto sería la puerta más débil de todo el sistema.
+    image: adminer:latest
+    restart: unless-stopped
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - "127.0.0.1:8082:8080"
+    depends_on:
+      - db
+
 volumes:
   db_data:
   keycloak_db_data:

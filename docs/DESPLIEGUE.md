@@ -180,3 +180,35 @@ basta con apuntar `MAILER_DSN` de demo al SMTP real.
 6. **Google y Apple** — con Keycloak ya en su dominio, registrar los retornos
    `https://auth-{demo}.goveo.app/realms/goveo/broker/{google|apple}/endpoint`
    y rellenar las variables. `configure-idp.sh` los activa en el siguiente arranque.
+
+---
+
+## Adminer sin exponerlo
+
+Adminer está en las dos pilas, pero **sin dominio público**: su puerto se ata al
+loopback del servidor (`127.0.0.1:8082` producción, `8083` demo), así que desde internet
+no existe. Es una sesión completa de base de datos detrás de un formulario sin límite de
+intentos ni segundo factor — publicado sería la puerta más débil de todo el sistema.
+
+Se llega por túnel SSH:
+
+```bash
+goveo-db open prod     # → http://localhost:8090
+goveo-db open demo     # → http://localhost:8091
+goveo-db status
+goveo-db close prod
+```
+
+`make install-cli` lo deja en el PATH. También hay `make db-prod`, `db-demo`, `db-close`
+y `db-status`.
+
+Dentro de Adminer: servidor `db`, y usuario y base los de `POSTGRES_USER` /
+`POSTGRES_DB`.
+
+El túnel usa una *control socket* de SSH en lugar de buscar el proceso por `pgrep`:
+cerrar por PID acaba matando otra sesión SSH cualquiera, y así es el propio `ssh` quien
+sabe cuál cerrar. Si el socket queda huérfano —tras reiniciar, o al perder la red—, el
+script lo limpia solo en el siguiente `open`.
+
+**El servidor SSH se toma de `GOVEO_SSH`**, con `root@76.13.63.176` por defecto. Si
+entras con otro usuario: `export GOVEO_SSH=usuario@76.13.63.176`.
