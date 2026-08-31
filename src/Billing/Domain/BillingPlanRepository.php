@@ -10,6 +10,9 @@ interface BillingPlanRepository
 
     public function findByStripePriceId(string $stripePriceId): ?BillingPlan;
 
+    /** Por el código legible que viaja en los enlaces (`platinum-anual`). */
+    public function findByCode(string $code): ?BillingPlan;
+
     /** @return BillingPlan[] */
     public function findByProductId(string $billingProductId, bool $activeOnly = true): array;
 

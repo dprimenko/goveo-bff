@@ -43,6 +43,12 @@ final class DoctrineBusinessSubscriptionRepository implements BusinessSubscripti
             ->findOneBy(['stripeSubscriptionId' => $stripeSubscriptionId]);
     }
 
+    public function findByStripePaymentLinkId(string $stripePaymentLinkId): ?BusinessSubscription
+    {
+        return $this->em->getRepository(BusinessSubscription::class)
+            ->findOneBy(['stripePaymentLinkId' => $stripePaymentLinkId]);
+    }
+
     public function findByBusinessId(string $businessId): array
     {
         return $this->em->getRepository(BusinessSubscription::class)->findBy(

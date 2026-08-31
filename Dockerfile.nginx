@@ -1,0 +1,16 @@
+# nginx del BFF.
+#
+# `Dockerfile.prod` produce php-fpm, que habla FastCGI por el 9000 y no HTTP:
+# Dokploy no puede enrutar a eso. Este contenedor pone el HTTP delante.
+#
+# Copia `public/` en lugar de compartir volumen con php porque nginx necesita
+# resolver los ficheros él mismo (`try_files`), y un volumen compartido entre
+# dos servicios que se despliegan a la vez es una carrera esperando a pasar.
+FROM composer:2 AS assets
+WORKDIR /app
+COPY public/ ./public/
+
+FROM nginx:1.25-alpine
+COPY docker/nginx/prod.conf /etc/nginx/conf.d/default.conf
+COPY --from=assets /app/public /var/www/html/public
+EXPOSE 80

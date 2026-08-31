@@ -20,6 +20,14 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         return $this->em->find(GeoStory::class, $id);
     }
 
+    public function findByProviderVideoId(string $providerVideoId): ?GeoStory
+    {
+        return $this->em->getRepository(GeoStory::class)->findOneBy([
+            'providerVideoId' => $providerVideoId,
+            'deletedAt'       => null,
+        ]);
+    }
+
     public function findByInfluencerId(string $influencerId): array
     {
         return $this->em->getRepository(GeoStory::class)->findBy(
@@ -96,9 +104,12 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             SELECT
                 geo.id,
                 geo.title,
+                geo.description,
+                geo.thumbnail,
                 geo.url,
+                geo.status,
                 geo.meta,
-                geo.likes,
+                (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
                 geo.created_at,
                 geo.deleted_at,
@@ -119,6 +130,10 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business     buss ON geo.business_id   = buss.id
             LEFT JOIN categories   cat  ON geo.category_id   = cat.id
+            -- likes = base heredada del import + likes nuevos con usuario
+            LEFT JOIN (
+                SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id
+            ) gl ON gl.geostory_id = geo.id
             WHERE geo.deleted_at IS NULL
               AND (:ignore_id::uuid IS NULL OR geo.id <> :ignore_id::uuid)
               AND (:max_dist IS NULL OR
@@ -145,9 +160,12 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             SELECT
                 geo.id,
                 geo.title,
+                geo.description,
+                geo.thumbnail,
                 geo.url,
+                geo.status,
                 geo.meta,
-                geo.likes,
+                (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
                 geo.created_at,
                 geo.deleted_at,
@@ -168,6 +186,10 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business     buss ON geo.business_id   = buss.id
             LEFT JOIN categories   cat  ON geo.category_id   = cat.id
+            -- likes = base heredada del import + likes nuevos con usuario
+            LEFT JOIN (
+                SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id
+            ) gl ON gl.geostory_id = geo.id
             WHERE geo.id = :id
         SQL;
 
@@ -225,6 +247,14 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             $params['influencer_id'] = $influencerId;
         }
 
+        // Discovery feeds only show fully transcoded videos; an owner-scoped
+        // query (a store/influencer profile) also surfaces its own in-progress
+        // uploads so they appear immediately in "processing" state.
+        $isOwnerScoped = $businessId !== null || $influencerId !== null;
+        if (!$isOwnerScoped) {
+            $conditions[] = "geo.status = 'ready'";
+        }
+
         // Feed-type category filters use cat.slug via the categories JOIN.
         // category_id in geostories is a UUID — never compare it against slug strings directly.
         $orderBy = 'geo.location <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography';
@@ -258,9 +288,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             SELECT
                 geo.id,
                 geo.title,
+                geo.description,
+                geo.thumbnail,
                 geo.url,
+                geo.status,
+                geo.provider_video_id,
                 geo.meta,
-                geo.likes,
+                (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
                 geo.created_at,
                 geo.deleted_at,
@@ -282,6 +316,10 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business    buss  ON geo.business_id   = buss.id
             LEFT JOIN categories  cat   ON geo.category_id   = cat.id
+            -- likes = base heredada del import + likes nuevos con usuario
+            LEFT JOIN (
+                SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id
+            ) gl ON gl.geostory_id = geo.id
             WHERE $where
             ORDER BY $orderBy
             LIMIT :limit OFFSET :offset

@@ -12,6 +12,9 @@ interface BusinessSubscriptionRepository
 
     public function findByStripeSubscriptionId(string $stripeSubscriptionId): ?BusinessSubscription;
 
+    /** La suscripción que se cobra por este enlace: lo usa el webhook. */
+    public function findByStripePaymentLinkId(string $stripePaymentLinkId): ?BusinessSubscription;
+
     /** @return BusinessSubscription[] */
     public function findByBusinessId(string $businessId): array;
 

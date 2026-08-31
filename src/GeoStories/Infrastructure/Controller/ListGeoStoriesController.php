@@ -6,6 +6,7 @@ namespace App\GeoStories\Infrastructure\Controller;
 
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
+use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,8 +18,13 @@ class ListGeoStoriesController
     private const DEFAULT_LAT  = 41.3873974;
     private const DEFAULT_LONG = 2.168568;
 
+    // Bunny numeric statuses: 0-3 in-flight, 4 finished, 5 failed.
+    private const BUNNY_FINISHED = 4;
+    private const BUNNY_FAILED   = 5;
+
     public function __construct(
         private readonly GeoStoryRepository $repository,
+        private readonly BunnyVideoService $bunny,
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -36,7 +42,7 @@ class ListGeoStoriesController
         $businessId  = $request->query->get('businessId');
         $influencerId = $request->query->get('influencerId');
 
-        $result = $this->repository->findFeed(
+        $findFeed = fn () => $this->repository->findFeed(
             latitude:      $lat,
             longitude:     $lng,
             page:          $page,
@@ -50,10 +56,57 @@ class ListGeoStoriesController
             influencerId:  $influencerId,
         );
 
+        $result = $findFeed();
+
+        // Self-heal: on an owner-scoped view (a store/influencer profile) any
+        // still-`processing` upload is reconciled against Bunny, so a missed
+        // webhook (e.g. a dead dev tunnel) doesn't leave it stuck. The webhook
+        // remains the primary, immediate path; this is the fallback on read.
+        $ownerScoped = $businessId !== null || $influencerId !== null;
+        if ($ownerScoped && $this->reconcileProcessing($result['items'])) {
+            $result = $findFeed();
+        }
+
         return new JsonResponse([
             'items' => array_map(fn (GeoStoryWithDistance $s) => $this->serialize($s), $result['items']),
             'total' => $result['total'],
         ]);
+    }
+
+    /**
+     * Checks each still-`processing` item against Bunny and flips the DB row to
+     * ready/failed when transcoding is done. Returns true if anything changed
+     * (so the caller can re-query for fresh URLs/status).
+     *
+     * @param GeoStoryWithDistance[] $items
+     */
+    private function reconcileProcessing(array $items): bool
+    {
+        $changed = false;
+        foreach ($items as $s) {
+            if ($s->status !== 'processing' || $s->providerVideoId === null) {
+                continue;
+            }
+            $bunnyStatus = $this->bunny->getVideoStatus($s->providerVideoId);
+            if ($bunnyStatus === null) {
+                continue;
+            }
+            $entity = $this->repository->findByProviderVideoId($s->providerVideoId);
+            if ($entity === null) {
+                continue;
+            }
+            if ($bunnyStatus === self::BUNNY_FINISHED) {
+                $entity->markReady();
+                $this->repository->save($entity);
+                $changed = true;
+            } elseif ($bunnyStatus === self::BUNNY_FAILED) {
+                $entity->markFailed();
+                $this->repository->save($entity);
+                $changed = true;
+            }
+        }
+
+        return $changed;
     }
 
     private function serialize(GeoStoryWithDistance $s): array
@@ -61,7 +114,10 @@ class ListGeoStoriesController
         return [
             'id'               => $s->id,
             'title'            => $s->title,
+            'description'      => $s->description,
+            'thumbnail'        => $s->thumbnail,
             'url'              => $s->url,
+            'status'           => $s->status,
             'meta'             => $s->meta,
             'likes'            => $s->likes,
             'lat'              => $s->lat,

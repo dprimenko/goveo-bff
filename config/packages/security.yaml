@@ -22,6 +22,8 @@ security:
         - { path: ^/api/v1/webhooks, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
         - { path: ^/health, roles: PUBLIC_ACCESS }
+        # Panel comercial interno: no basta con estar autenticado
+        - { path: ^/api/admin, roles: ROLE_ADMIN }
         # Everything else requires auth
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 

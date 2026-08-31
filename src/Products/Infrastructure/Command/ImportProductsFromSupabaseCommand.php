@@ -171,6 +171,8 @@ final class ImportProductsFromSupabaseCommand extends Command
             ));
 
             if (!$dryRun) {
+                // Imported catalogue items are live in the source app → publish.
+                $product->publish();
                 $this->repository->save($product);
             }
 

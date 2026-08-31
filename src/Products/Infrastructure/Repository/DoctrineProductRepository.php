@@ -45,6 +45,48 @@ final class DoctrineProductRepository implements ProductRepository
         return $qb->getQuery()->getResult();
     }
 
+    public function findByBusinessPaginated(
+        string $businessId,
+        ?string $subcategoryId,
+        int $page,
+        int $size,
+        bool $publishedOnly = true,
+    ): array {
+        $base = function () use ($businessId, $subcategoryId, $publishedOnly) {
+            $qb = $this->em->createQueryBuilder()
+                ->from(Product::class, 'p')
+                ->where('p.businessId = :businessId')
+                ->andWhere('p.deletedAt IS NULL')
+                ->setParameter('businessId', $businessId);
+
+            if ($subcategoryId !== null) {
+                $qb->andWhere('p.subcategoryId = :subcategoryId')
+                    ->setParameter('subcategoryId', $subcategoryId);
+            }
+
+            if ($publishedOnly) {
+                $qb->andWhere('p.publishedAt IS NOT NULL');
+            }
+
+            return $qb;
+        };
+
+        $total = (int) $base()
+            ->select('COUNT(p.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        $items = $base()
+            ->select('p')
+            ->orderBy('p.createdAt', 'DESC')
+            ->setFirstResult(max(0, $page) * $size)
+            ->setMaxResults($size)
+            ->getQuery()
+            ->getResult();
+
+        return ['items' => $items, 'total' => $total];
+    }
+
     public function findByCategoryId(string $categoryId, bool $publishedOnly = true): array
     {
         $qb = $this->em->createQueryBuilder()

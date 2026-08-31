@@ -26,6 +26,15 @@ services:
             $keycloakRealm: '%env(KEYCLOAK_REALM)%'
             $keycloakClientId: '%env(KEYCLOAK_CLIENT_ID)%'
 
+    App\Auth\Infrastructure\Service\KeycloakService:
+        arguments:
+            $keycloakUrl: '%env(KEYCLOAK_URL)%'
+            $keycloakRealm: '%env(KEYCLOAK_REALM)%'
+            $keycloakClientId: '%env(KEYCLOAK_CLIENT_ID)%'
+            $keycloakClientSecret: '%env(KEYCLOAK_CLIENT_SECRET)%'
+            $keycloakAdminUser: '%env(KEYCLOAK_ADMIN_USER)%'
+            $keycloakAdminPassword: '%env(KEYCLOAK_ADMIN_PASSWORD)%'
+
     # Firebase / Firestore — data migration commands
     App\Shared\Infrastructure\Firebase\FirestoreClientFactory:
         arguments:
@@ -36,3 +45,44 @@ services:
     App\Shared\Infrastructure\Migration\SupabaseConnectionFactory:
         arguments:
             $databaseUrl: '%env(SUPABASE_DATABASE_URL)%'
+
+    # Bunny Stream — video upload/transcoding
+    App\GeoStories\Infrastructure\Service\BunnyVideoService:
+        arguments:
+            $bunnyApiKey: '%env(BUNNY_API_KEY)%'
+            $bunnyLibraryId: '%env(BUNNY_LIBRARY_ID)%'
+            $bunnyCdnHostname: '%env(BUNNY_CDN_HOSTNAME_VIDEOS)%'
+
+    App\GeoStories\Infrastructure\Controller\BunnyWebhookController:
+        arguments:
+            $webhookSecret: '%env(BUNNY_WEBHOOK_SECRET)%'
+        tags: ['controller.service_arguments']
+
+    # Billing — VAT applied to subscriptions (was hardcoded as 21.0 in the legacy backend)
+    App\Billing\Application\PriceCalculator:
+        arguments:
+            $taxPercent: '%env(int:BILLING_TAX_PERCENT)%'
+
+    # Stripe — suscripciones de negocio
+    App\Billing\Infrastructure\Stripe\StripeClientFactory:
+        arguments:
+            $secretKey: '%env(STRIPE_SECRET_KEY)%'
+
+    App\Billing\Infrastructure\Controller\StripeWebhookController:
+        arguments:
+            $webhookSecret: '%env(STRIPE_WEBHOOK_SECRET)%'
+        tags: ['controller.service_arguments']
+
+    # Correo de bienvenida del alta de negocio
+    App\Account\Application\WelcomeMailer:
+        arguments:
+            $fromAddress: '%env(EMAIL_FROM)%'
+            $webUrl: '%env(WEB_URL)%'
+
+    # Bunny Storage — imágenes de la ficha de negocio (distinto del Stream de vídeo)
+    App\Shared\Infrastructure\Storage\BunnyStorageService:
+        arguments:
+            $zone: '%env(BUNNY_STORAGE_ZONE)%'
+            $password: '%env(BUNNY_STORAGE_PASSWORD)%'
+            $host: '%env(BUNNY_STORAGE_HOST)%'
+            $cdnHostname: '%env(BUNNY_STORAGE_CDN_HOSTNAME)%'

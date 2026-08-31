@@ -1,3 +1,9 @@
+auth_controllers:
+    resource:
+        path: ../src/Auth/Infrastructure/Controller/
+        namespace: App\Auth\Infrastructure\Controller
+    type: attribute
+
 categories_controllers:
     resource:
         path: ../src/Categories/Infrastructure/Controller/
@@ -32,4 +38,16 @@ billing_controllers:
     resource:
         path: ../src/Billing/Infrastructure/Controller/
         namespace: App\Billing\Infrastructure\Controller
+    type: attribute
+
+follows_controllers:
+    resource:
+        path: ../src/Follows/Infrastructure/Controller/
+        namespace: App\Follows\Infrastructure\Controller
+    type: attribute
+
+account_controllers:
+    resource:
+        path: ../src/Account/Infrastructure/Controller/
+        namespace: App\Account\Infrastructure\Controller
     type: attribute

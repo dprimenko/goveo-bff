@@ -1,0 +1,150 @@
+# Pila del BFF + Keycloak — PRODUCCIÓN.
+#
+# Va como *Compose* y no como cuatro aplicaciones sueltas porque php-fpm, nginx y
+# las dos bases sólo tienen sentido juntos: nginx sin php devuelve 502, y php sin
+# su base arranca y falla en la primera petición.
+#
+# Sólo `nginx` y `keycloak` se publican. Los demás hablan por la red interna.
+#
+# ⚠️ Este fichero y `docker-compose.demo.yml` son casi idénticos a propósito: demo
+# existe para ensayar lo que va a pasar aquí. Todo cambio estructural —un servicio,
+# una variable, una dependencia— se hace en los dos. Si sólo se toca uno, demo deja
+# de predecir producción y el fallo aparece justo donde no se puede probar.
+#
+# Lo único que produccion NO tiene es el buzón de correo de pruebas: aquí el correo
+# sale de verdad, por `MAILER_DSN`.
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    environment:
+      APP_ENV: prod
+      APP_SECRET: ${APP_SECRET}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}?serverVersion=16&charset=utf8
+      DEFAULT_URI: ${DEFAULT_URI}
+      CORS_ALLOW_ORIGIN: ${CORS_ALLOW_ORIGIN}
+      WEB_URL: ${WEB_URL}
+
+      # Interno para hablar con Keycloak; público para lo que ve el navegador.
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM:-goveo}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID:-goveo-bff}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_ADMIN_USER: ${KEYCLOAK_ADMIN_USER}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+
+      BUNNY_STORAGE_ZONE: ${BUNNY_STORAGE_ZONE}
+      BUNNY_STORAGE_PASSWORD: ${BUNNY_STORAGE_PASSWORD}
+      BUNNY_STORAGE_HOST: ${BUNNY_STORAGE_HOST:-storage.bunnycdn.com}
+      BUNNY_STORAGE_CDN_HOSTNAME: ${BUNNY_STORAGE_CDN_HOSTNAME}
+      BUNNY_API_KEY: ${BUNNY_API_KEY}
+      BUNNY_LIBRARY_ID: ${BUNNY_LIBRARY_ID}
+      BUNNY_CDN_HOSTNAME_VIDEOS: ${BUNNY_CDN_HOSTNAME_VIDEOS}
+      BUNNY_WEBHOOK_SECRET: ${BUNNY_WEBHOOK_SECRET}
+
+      MAILER_DSN: ${MAILER_DSN}
+      EMAIL_FROM: ${EMAIL_FROM}
+      BILLING_TAX_PERCENT: ${BILLING_TAX_PERCENT:-21}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    restart: unless-stopped
+    depends_on:
+      - php
+    # Dokploy enruta el dominio de la API aquí.
+    expose:
+      - "80"
+
+  db:
+    # PostGIS, no `postgres` a secas: las consultas de cercanía del feed y del
+    # mapa son geográficas y sin la extensión ni arrancan las migraciones.
+    image: postgis/postgis:16-3.4-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    build:
+      context: ./docker/keycloak
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/${KC_POSTGRES_DB:-keycloak}
+      KC_DB_USERNAME: ${KC_POSTGRES_USER:-keycloak}
+      KC_DB_PASSWORD: ${KC_POSTGRES_PASSWORD}
+
+      # Sólo se usan en el primer arranque, para crear el admin del master.
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
+      KC_HTTP_ENABLED: "true"
+      # El TLS lo termina el proxy de Dokploy. Sin esta línea Keycloak genera
+      # los enlaces del login en http:// y el retorno del alta se rompe.
+      KC_PROXY_HEADERS: xforwarded
+
+      KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+
+      KC_SMTP_HOST: ${KC_SMTP_HOST:-}
+      KC_SMTP_PORT: ${KC_SMTP_PORT:-587}
+      KC_SMTP_STARTTLS: ${KC_SMTP_STARTTLS:-true}
+      KC_SMTP_USER: ${KC_SMTP_USER:-}
+      KC_SMTP_PASSWORD: ${KC_SMTP_PASSWORD:-}
+      KC_SMTP_FROM: ${EMAIL_FROM:-noreply@goveo.app}
+
+      GOOGLE_SOCIAL_CLIENT_ID: ${GOOGLE_SOCIAL_CLIENT_ID:-}
+      GOOGLE_SOCIAL_CLIENT_SECRET: ${GOOGLE_SOCIAL_CLIENT_SECRET:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      APPLE_TEAM_ID: ${APPLE_TEAM_ID:-}
+      APPLE_KEY_ID: ${APPLE_KEY_ID:-}
+      APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
+    volumes:
+      - ./docker/keycloak:/opt/keycloak/data/import:ro
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    expose:
+      - "8080"
+
+  keycloak-db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${KC_POSTGRES_USER:-keycloak}
+      POSTGRES_PASSWORD: ${KC_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${KC_POSTGRES_DB:-keycloak}
+    volumes:
+      - keycloak_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${KC_POSTGRES_USER:-keycloak}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+
+volumes:
+  db_data:
+  keycloak_db_data:

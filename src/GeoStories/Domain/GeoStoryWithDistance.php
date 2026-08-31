@@ -13,7 +13,11 @@ final class GeoStoryWithDistance
     public function __construct(
         public readonly string $id,
         public readonly ?string $title,
+        public readonly ?string $description,
+        public readonly ?string $thumbnail,
         public readonly ?string $url,
+        public readonly string $status,
+        public readonly ?string $providerVideoId,
         public readonly mixed $meta,
         public readonly int $likes,
         public readonly float $lat,
@@ -39,7 +43,11 @@ final class GeoStoryWithDistance
         return new self(
             id: $row['id'],
             title: $row['title'] ?? null,
+            description: $row['description'] ?? null,
+            thumbnail: $row['thumbnail'] ?? null,
             url: $row['url'] ?? null,
+            status: $row['status'] ?? 'ready',
+            providerVideoId: $row['provider_video_id'] ?? null,
             meta: isset($row['meta']) ? json_decode($row['meta'], true) : null,
             likes: (int) ($row['likes'] ?? 0),
             lat: (float) $row['lat'],

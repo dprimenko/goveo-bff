@@ -87,12 +87,15 @@ final class ImportCategoriesFromSupabaseCommand extends AbstractSupabaseMigratio
             $action = $exists ? 'UPDATE' : 'INSERT';
             $io->writeln(sprintf('  <info>%s</info> %s → %s  [%s]', $action, $slug, $id, $row['name'] ?? ''));
 
+            // influencer | business | both — who can post video under this category.
+            $mode = \App\Categories\Domain\Category::modeForSlug($slug);
+
             if (!$dryRun) {
                 try {
                     $tgt->executeStatement(
-                        'INSERT INTO categories (id, slug, name, image, "order", partner, created_at, updated_at, deleted_at)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                         ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug',
+                        'INSERT INTO categories (id, slug, name, image, "order", partner, mode, created_at, updated_at, deleted_at)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         ON CONFLICT (id) DO UPDATE SET slug = EXCLUDED.slug, mode = EXCLUDED.mode',
                         [
                             $id,
                             $slug,
@@ -100,6 +103,7 @@ final class ImportCategoriesFromSupabaseCommand extends AbstractSupabaseMigratio
                             $row['image'],
                             $row['order'] !== null ? (int) $row['order'] : null,
                             $row['partner'],
+                            $mode,
                             $this->ts($row['created_at']),
                             $this->ts($row['updated_at']),
                             $this->ts($row['deleted_at'] ?? null),

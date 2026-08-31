@@ -34,6 +34,13 @@ class BillingPlan
     #[ORM\Column(name: 'stripe_payment_link', type: 'text', nullable: true)]
     private ?string $stripePaymentLink;
 
+    /**
+     * Identificador legible para los enlaces de la landing
+     * (`?plan=platinum-anual`). Null en las tarifas heredadas, que no se ofrecen.
+     */
+    #[ORM\Column(type: 'string', length: 60, unique: true, nullable: true)]
+    private ?string $code = null;
+
     #[ORM\Column(type: 'string', length: 255)]
     private string $name;
 
@@ -56,6 +63,21 @@ class BillingPlan
      */
     #[ORM\Column(name: 'interval_count', type: 'integer', options: ['default' => 1])]
     private int $intervalCount;
+
+    /**
+     * How this plan is charged: never, always, or after a free period.
+     * Replaces the legacy `noCheckout` / `external` coupon flags — whether money
+     * changes hands belongs to the plan, not to the code that unlocks it.
+     */
+    #[ORM\Column(type: 'string', length: 20, enumType: BillingMode::class, options: ['default' => 'paid'])]
+    private BillingMode $mode;
+
+    /**
+     * Days free before the first charge. Only meaningful for `trial_then_paid`.
+     * Maps straight to Stripe's `trial_period_days`.
+     */
+    #[ORM\Column(name: 'trial_days', type: 'integer', nullable: true)]
+    private ?int $trialDays;
 
     /**
      * Goveo commission percentage on this plan (e.g. 6 = 6%).
@@ -87,6 +109,9 @@ class BillingPlan
         string $currency,
         BillingInterval $interval,
         int $intervalCount = 1,
+        ?string $code = null,
+        BillingMode $mode = BillingMode::Paid,
+        ?int $trialDays = null,
         int $commissionPercent = 0,
         bool $isVisible = true,
         bool $isActive = true,
@@ -101,6 +126,16 @@ class BillingPlan
         $this->currency          = strtolower($currency);
         $this->interval          = $interval;
         $this->intervalCount     = $intervalCount;
+        $this->code              = $code;
+        $this->mode              = $mode;
+        $this->trialDays         = $mode === BillingMode::TrialThenPaid ? $trialDays : null;
+
+        if ($mode === BillingMode::TrialThenPaid && ($trialDays === null || $trialDays < 1)) {
+            throw new \InvalidArgumentException('A trial_then_paid plan needs trialDays >= 1.');
+        }
+        if ($mode === BillingMode::Free && $amountCents !== 0) {
+            throw new \InvalidArgumentException('A free plan must cost 0.');
+        }
         $this->commissionPercent = $commissionPercent;
         $this->isVisible         = $isVisible;
         $this->isActive          = $isActive;
@@ -114,11 +149,14 @@ class BillingPlan
     public function getBillingProductId(): string      { return $this->billingProductId; }
     public function getStripePriceId(): ?string        { return $this->stripePriceId; }
     public function getStripePaymentLink(): ?string    { return $this->stripePaymentLink; }
+    public function getCode(): ?string                 { return $this->code; }
     public function getName(): string                  { return $this->name; }
     public function getAmountCents(): int              { return $this->amountCents; }
     public function getCurrency(): string              { return $this->currency; }
     public function getInterval(): BillingInterval     { return $this->interval; }
     public function getIntervalCount(): int            { return $this->intervalCount; }
+    public function getMode(): BillingMode            { return $this->mode; }
+    public function getTrialDays(): ?int              { return $this->trialDays; }
     public function getCommissionPercent(): int        { return $this->commissionPercent; }
     public function isVisible(): bool                  { return $this->isVisible; }
     public function isActive(): bool                   { return $this->isActive; }

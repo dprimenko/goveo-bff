@@ -69,7 +69,14 @@
     }
   },
   "roles": {
-    "realm": []
+    "realm": [
+      {
+        "name": "admin",
+        "description": "Acceso al panel comercial interno (/api/admin)",
+        "composite": false,
+        "clientRole": false
+      }
+    ]
   },
   "components": {
     "org.keycloak.userprofile.UserProfileProvider": [
@@ -79,7 +86,7 @@
         "subComponents": {},
         "config": {
           "kc.user.profile.config": [
-            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"userRole\",\"displayName\":\"${profile.attributes.userRole}\",\"validations\":{\"options\":{\"options\":[\"student\",\"teacher\",\"admin\"]}},\"annotations\":{\"inputType\":\"multiselect\",\"inputOptionLabelsI18nPrefix\":\"profile.attributes.userRole\"},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":true},{\"name\":\"workspace_email\",\"displayName\":\"workspace_email\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"personal_email\",\"displayName\":\"personal_email\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"selectedRoleForSession\",\"displayName\":\"selectedRoleForSession\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false},{\"name\":\"referralCode\",\"displayName\":\"referralCode\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
+            "{\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{},\"up-username-not-idn-homograph\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"required\":{\"roles\":[\"user\"]},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"userRole\",\"displayName\":\"${profile.attributes.userRole}\",\"validations\":{\"options\":{\"options\":[\"student\",\"teacher\",\"admin\"]}},\"annotations\":{\"inputType\":\"multiselect\",\"inputOptionLabelsI18nPrefix\":\"profile.attributes.userRole\"},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":true},{\"name\":\"referralCode\",\"displayName\":\"referralCode\",\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]},\"multivalued\":false}],\"groups\":[{\"name\":\"user-metadata\",\"displayHeader\":\"User metadata\",\"displayDescription\":\"Attributes, which refer to user metadata\"}]}"
           ]
         }
       }
@@ -106,14 +113,18 @@
         "https://goveo.app/*",
         "https://www.goveo.app/*",
         "exp://localhost:8081/*",
-        "goveo://*"
+        "goveo://*",
+        "https://demo.goveo.app/*",
+        "https://app-demo.goveo.app/*"
       ],
       "webOrigins": [
         "http://localhost:4321",
         "http://127.0.0.1:4321",
         "https://app.goveo.app",
         "https://goveo.app",
-        "https://www.goveo.app"
+        "https://www.goveo.app",
+        "https://demo.goveo.app",
+        "https://app-demo.goveo.app"
       ],
       "protocol": "openid-connect",
       "notBefore": 0,
@@ -185,33 +196,10 @@
           }
         },
         {
-          "name": "selected-role-session-mapper",
-          "protocol": "openid-connect",
-          "protocolMapper": "selected-role-session-note-mapper",
-          "consentRequired": false,
-          "config": {
-            "access.token.claim": "true",
-            "id.token.claim": "true",
-            "userinfo.token.claim": "true"
-          }
-        },
-        {
           "name": "audience-resolve",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-audience-resolve-mapper",
           "consentRequired": false
-        },
-        {
-          "id": "0f09463d-5d99-46bb-8cf1-55f5f355b575",
-          "name": "referral-code-mapper",
-          "protocol": "openid-connect",
-          "protocolMapper": "referral-code-token-mapper",
-          "consentRequired": false,
-          "config": {
-            "access.token.claim": "true",
-            "id.token.claim": "true",
-            "userinfo.token.claim": "true"
-          }
         }
       ],
       "defaultClientScopes": [
@@ -236,13 +224,16 @@
       "redirectUris": [
         "http://localhost:8080/*",
         "http://127.0.0.1:8080/*",
-        "https://api.goveo.app/*"
+        "https://api.goveo.app/*",
+        "https://api-demo.goveo.app/*"
       ],
       "webOrigins": [
         "http://localhost:8080",
         "http://127.0.0.1:8080",
         "https://api.goveo.app",
-        "https://app.goveo.app"
+        "https://app.goveo.app",
+        "https://api-demo.goveo.app",
+        "https://demo.goveo.app"
       ],
       "notBefore": 0,
       "bearerOnly": false,
@@ -693,13 +684,6 @@
           "autheticatorFlow": false
         },
         {
-          "authenticator": "selected-role-authenticator",
-          "requirement": "REQUIRED",
-          "priority": 20,
-          "userSetupAllowed": false,
-          "autheticatorFlow": false
-        },
-        {
           "flowAlias": "Browser - Conditional OTP",
           "requirement": "CONDITIONAL",
           "priority": 30,
@@ -759,13 +743,6 @@
           "authenticator": "registration-user-creation",
           "requirement": "REQUIRED",
           "priority": 20,
-          "userSetupAllowed": false,
-          "autheticatorFlow": false
-        },
-        {
-          "authenticator": "selected-role-form-action",
-          "requirement": "REQUIRED",
-          "priority": 30,
           "userSetupAllowed": false,
           "autheticatorFlow": false
         },

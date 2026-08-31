@@ -9,6 +9,12 @@ services:
       - mailpit
     env_file:
       - .env
+      # `.env` entra como variables de entorno REALES del contenedor, y Symfony
+      # no las sobrescribe con `.env.local`. Sin esta línea, cualquier clave
+      # declarada vacía en `.env` (las de Stripe) tapa la de `.env.local` y el
+      # servicio arranca sin credenciales.
+      - path: .env.local
+        required: false
     environment:
       - KEYCLOAK_URL=http://keycloak:8080
 
@@ -61,6 +67,9 @@ services:
       context: ./docker/keycloak
       dockerfile: Dockerfile
     container_name: goveo-keycloak
+    # La imagen arranca en modo producción por defecto; en local queremos el
+    # modo dev, que no exige hostname ni TLS.
+    command: ["start-dev", "--import-realm"]
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak

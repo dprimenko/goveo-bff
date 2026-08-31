@@ -68,12 +68,24 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Products/Domain'
                 prefix: 'App\Products\Domain'
                 alias: Products
+            Account:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Account/Domain'
+                prefix: 'App\Account\Domain'
+                alias: Account
             Billing:
                 type: attribute
                 is_bundle: false
                 dir: '%kernel.project_dir%/src/Billing/Domain'
                 prefix: 'App\Billing\Domain'
                 alias: Billing
+            Follows:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Follows/Domain'
+                prefix: 'App\Follows\Domain'
+                alias: Follows
         controller_resolver:
             auto_mapping: false
 

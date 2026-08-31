@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Business\Infrastructure\Controller;
 
 use App\Business\Domain\BusinessRepository;
+use App\Follows\Domain\FollowTarget;
+use App\Follows\Infrastructure\Service\FollowerCounter;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -14,6 +16,7 @@ class GetBusinessController
 {
     public function __construct(
         private readonly BusinessRepository $repository,
+        private readonly FollowerCounter $followers,
     ) {}
 
     #[Route('/{id}', name: 'get', methods: ['GET'])]
@@ -33,6 +36,12 @@ class GetBusinessController
             'avatar'      => $business->getAvatar(),
             'main_image'  => $business->getMainImage(),
             'meta'        => $business->getMeta(),
+            // Recuento real de user_follows, salvo que meta.followers lo sobrescriba.
+            'followers'   => $this->followers->resolve(
+                FollowTarget::Business,
+                $business->getId(),
+                $business->getMeta(),
+            ),
         ]);
     }
 }

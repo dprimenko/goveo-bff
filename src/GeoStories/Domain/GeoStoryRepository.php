@@ -8,6 +8,9 @@ interface GeoStoryRepository
 {
     public function findById(string $id): ?GeoStory;
 
+    /** Find by the Bunny Stream video GUID (for the transcoding webhook). */
+    public function findByProviderVideoId(string $providerVideoId): ?GeoStory;
+
     /** @return GeoStory[] */
     public function findByInfluencerId(string $influencerId): array;
 

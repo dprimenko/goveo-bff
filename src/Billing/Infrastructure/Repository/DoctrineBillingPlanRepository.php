@@ -25,6 +25,12 @@ final class DoctrineBillingPlanRepository implements BillingPlanRepository
             ->findOneBy(['stripePriceId' => $stripePriceId]);
     }
 
+    public function findByCode(string $code): ?BillingPlan
+    {
+        return $this->em->getRepository(BillingPlan::class)
+            ->findOneBy(['code' => strtolower(trim($code))]);
+    }
+
     public function findByProductId(string $billingProductId, bool $activeOnly = true): array
     {
         $criteria = ['billingProductId' => $billingProductId];

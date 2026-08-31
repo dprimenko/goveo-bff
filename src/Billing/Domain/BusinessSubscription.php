@@ -43,11 +43,36 @@ class BusinessSubscription
     #[ORM\Column(type: 'string', length: 20, enumType: SubscriptionStatus::class)]
     private SubscriptionStatus $status;
 
-    #[ORM\Column(name: 'current_period_start', type: 'datetimetz_immutable')]
-    private \DateTimeImmutable $currentPeriodStart;
+    /**
+     * Enlace de pago de Stripe generado para este negocio. Lleva el id del
+     * negocio en `metadata`, que es como el webhook sabe a quién atribuir el
+     * cobro. Se conserva para poder reenviárselo a quien no lo haya usado.
+     */
+    #[ORM\Column(name: 'stripe_payment_link_id', type: 'string', length: 255, nullable: true)]
+    private ?string $stripePaymentLinkId = null;
 
-    #[ORM\Column(name: 'current_period_end', type: 'datetimetz_immutable')]
-    private \DateTimeImmutable $currentPeriodEnd;
+    #[ORM\Column(name: 'payment_url', type: 'text', nullable: true)]
+    private ?string $paymentUrl = null;
+
+    /** Cliente de Stripe, que aparece al pagar y no antes. */
+    #[ORM\Column(name: 'stripe_customer_id', type: 'string', length: 255, nullable: true)]
+    private ?string $stripeCustomerId = null;
+
+    /**
+     * Price realmente cobrado. Puede no ser el del plan: desde el formulario se
+     * puede pactar otro importe y entonces se crea un Price a medida.
+     */
+    #[ORM\Column(name: 'stripe_price_id', type: 'string', length: 255, nullable: true)]
+    private ?string $stripePriceId = null;
+
+    #[ORM\Column(name: 'amount_cents', type: 'integer', nullable: true)]
+    private ?int $amountCents = null;
+
+    #[ORM\Column(name: 'current_period_start', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $currentPeriodStart;
+
+    #[ORM\Column(name: 'current_period_end', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $currentPeriodEnd;
 
     #[ORM\Column(name: 'cancelled_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $cancelledAt;
@@ -63,8 +88,10 @@ class BusinessSubscription
         string $businessId,
         string $billingPlanId,
         SubscriptionStatus $status,
-        \DateTimeImmutable $currentPeriodStart,
-        \DateTimeImmutable $currentPeriodEnd,
+        // Nulos mientras no hay cobro: una suscripción pendiente de pago
+        // todavía no tiene periodo, y poner «ahora» sería inventárselo.
+        ?\DateTimeImmutable $currentPeriodStart = null,
+        ?\DateTimeImmutable $currentPeriodEnd = null,
         ?string $stripeSubscriptionId = null,
         ?string $promoCodeId = null,
         ?\DateTimeImmutable $createdAt = null,
@@ -82,14 +109,63 @@ class BusinessSubscription
         $this->updatedAt            = new \DateTimeImmutable();
     }
 
+    /**
+     * Suscripción contratada desde el formulario web y aún sin pagar. Guarda el
+     * enlace y el importe pactado; el resto lo rellena el webhook al cobrar.
+     */
+    public static function pendingPayment(
+        string $id,
+        string $businessId,
+        string $billingPlanId,
+        int $amountCents,
+        ?string $stripePriceId,
+        ?string $stripePaymentLinkId,
+        ?string $paymentUrl,
+    ): self {
+        $subscription = new self($id, $businessId, $billingPlanId, SubscriptionStatus::PendingPayment);
+        $subscription->amountCents          = $amountCents;
+        $subscription->stripePriceId        = $stripePriceId;
+        $subscription->stripePaymentLinkId  = $stripePaymentLinkId;
+        $subscription->paymentUrl           = $paymentUrl;
+
+        return $subscription;
+    }
+
+    public function getStripePaymentLinkId(): ?string        { return $this->stripePaymentLinkId; }
+    public function getPaymentUrl(): ?string                 { return $this->paymentUrl; }
+    public function getStripeCustomerId(): ?string           { return $this->stripeCustomerId; }
+    public function getStripePriceId(): ?string              { return $this->stripePriceId; }
+    public function getAmountCents(): ?int                   { return $this->amountCents; }
+
+    /** El pago se ha completado: llega de Stripe lo que antes no existía. */
+    public function confirmPayment(
+        string $stripeSubscriptionId,
+        ?string $stripeCustomerId,
+        SubscriptionStatus $status,
+        ?\DateTimeImmutable $periodStart,
+        ?\DateTimeImmutable $periodEnd,
+    ): void {
+        $this->stripeSubscriptionId = $stripeSubscriptionId;
+        $this->stripeCustomerId     = $stripeCustomerId ?? $this->stripeCustomerId;
+        $this->status               = $status;
+        $this->currentPeriodStart   = $periodStart ?? $this->currentPeriodStart;
+        $this->currentPeriodEnd     = $periodEnd ?? $this->currentPeriodEnd;
+        $this->updatedAt            = new \DateTimeImmutable();
+    }
+
+    public function isPendingPayment(): bool
+    {
+        return $this->status === SubscriptionStatus::PendingPayment;
+    }
+
     public function getId(): string                          { return $this->id; }
     public function getBusinessId(): string                  { return $this->businessId; }
     public function getBillingPlanId(): string               { return $this->billingPlanId; }
     public function getStripeSubscriptionId(): ?string       { return $this->stripeSubscriptionId; }
     public function getPromoCodeId(): ?string                { return $this->promoCodeId; }
     public function getStatus(): SubscriptionStatus          { return $this->status; }
-    public function getCurrentPeriodStart(): \DateTimeImmutable { return $this->currentPeriodStart; }
-    public function getCurrentPeriodEnd(): \DateTimeImmutable   { return $this->currentPeriodEnd; }
+    public function getCurrentPeriodStart(): ?\DateTimeImmutable { return $this->currentPeriodStart; }
+    public function getCurrentPeriodEnd(): ?\DateTimeImmutable   { return $this->currentPeriodEnd; }
     public function getCancelledAt(): ?\DateTimeImmutable    { return $this->cancelledAt; }
     public function getCreatedAt(): \DateTimeImmutable       { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable       { return $this->updatedAt; }

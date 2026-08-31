@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Influencers\Infrastructure\Controller;
 
+use App\Follows\Domain\FollowTarget;
+use App\Follows\Infrastructure\Service\FollowerCounter;
 use App\Influencers\Domain\InfluencerRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,6 +16,7 @@ class GetInfluencerController
 {
     public function __construct(
         private readonly InfluencerRepository $repository,
+        private readonly FollowerCounter $followers,
     ) {}
 
     #[Route('/{id}', name: 'get', methods: ['GET'])]
@@ -26,14 +29,17 @@ class GetInfluencerController
             return new JsonResponse(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
         }
 
-        $meta = $influencer->getMeta() ?? [];
-
         return new JsonResponse([
             'id'        => $influencer->getId(),
             'name'      => $influencer->getName(),
             'avatar'    => $influencer->getAvatar(),
             'bio'       => $influencer->getBio(),
-            'followers' => $meta['followers'] ?? null,
+            // Recuento real de user_follows, salvo que meta.followers lo sobrescriba.
+            'followers' => $this->followers->resolve(
+                FollowTarget::Influencer,
+                $influencer->getId(),
+                $influencer->getMeta(),
+            ),
         ]);
     }
 }

@@ -15,6 +15,11 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Table(name: 'geostories')]
 class GeoStory
 {
+    // Transcoding lifecycle (Bunny Stream).
+    public const STATUS_PROCESSING = 'processing';
+    public const STATUS_READY       = 'ready';
+    public const STATUS_FAILED      = 'failed';
+
     #[ORM\Id]
     #[ORM\Column(type: 'guid')]
     private string $id;
@@ -60,6 +65,14 @@ class GeoStory
     #[ORM\Column(name: 'is_main', type: 'boolean', options: ['default' => false])]
     private bool $isMain;
 
+    /** Transcoding status: processing | ready | failed. */
+    #[ORM\Column(type: 'string', length: 20, options: ['default' => self::STATUS_READY])]
+    private string $status;
+
+    /** Bunny Stream video GUID (provider-neutral name). */
+    #[ORM\Column(name: 'provider_video_id', type: 'string', length: 255, nullable: true)]
+    private ?string $providerVideoId;
+
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $meta;
 
@@ -96,6 +109,8 @@ class GeoStory
         mixed $location = null,
         bool $isMain = false,
         ?array $meta = null,
+        string $status = self::STATUS_READY,
+        ?string $providerVideoId = null,
         ?\DateTimeImmutable $createdAt = null,
         ?\DateTimeImmutable $updatedAt = null,
     ) {
@@ -110,6 +125,8 @@ class GeoStory
         $this->location = $location;
         $this->isMain = $isMain;
         $this->meta = $meta;
+        $this->status = $status;
+        $this->providerVideoId = $providerVideoId;
         $this->likes = 0;
         $this->views = 0;
         $this->createdAt = $createdAt ?? new \DateTimeImmutable();
@@ -133,6 +150,8 @@ class GeoStory
     public function getInfluencerId(): ?string { return $this->influencerId; }
     public function getBusinessId(): ?string { return $this->businessId; }
     public function isMain(): bool { return $this->isMain; }
+    public function getStatus(): string { return $this->status; }
+    public function getProviderVideoId(): ?string { return $this->providerVideoId; }
     public function getMeta(): ?array { return $this->meta; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
@@ -143,12 +162,13 @@ class GeoStory
     public function getEndedAt(): ?\DateTimeImmutable { return $this->endedAt; }
 
     /**
-     * Set location from latitude/longitude.
-     * Internally stored as GeoJSON-compatible structure by jsor/doctrine-postgis.
+     * Set location from latitude/longitude. Stored as an EWKT string — the
+     * PostGIS geometry type binds via ST_GeomFromEWKT(?), so a GeoJSON array
+     * would fail on flush with "Array to string conversion".
      */
     public function setLocation(float $latitude, float $longitude): self
     {
-        $this->location = ['type' => 'Point', 'coordinates' => [$longitude, $latitude]];
+        $this->location = sprintf('SRID=4326;POINT(%.7f %.7f)', $longitude, $latitude);
         $this->updatedAt = new \DateTimeImmutable();
         return $this;
     }
@@ -174,6 +194,13 @@ class GeoStory
         return $this;
     }
 
+    public function setCategoryId(?string $categoryId): self
+    {
+        $this->categoryId = $categoryId;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
     public function incrementViews(): self
     {
         ++$this->views;
@@ -187,6 +214,50 @@ class GeoStory
         $this->updatedAt = new \DateTimeImmutable();
         return $this;
     }
+
+    public function setUrl(string $url): self
+    {
+        $this->url = $url;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function setThumbnail(string $thumbnail): self
+    {
+        $this->thumbnail = $thumbnail;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function setProviderVideoId(?string $providerVideoId): self
+    {
+        $this->providerVideoId = $providerVideoId;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function markProcessing(): self
+    {
+        $this->status = self::STATUS_PROCESSING;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function markReady(): self
+    {
+        $this->status = self::STATUS_READY;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function markFailed(): self
+    {
+        $this->status = self::STATUS_FAILED;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function isReady(): bool { return $this->status === self::STATUS_READY; }
 
     public function publish(): self
     {

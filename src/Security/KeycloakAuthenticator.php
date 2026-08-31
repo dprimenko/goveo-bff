@@ -40,9 +40,15 @@ class KeycloakAuthenticator extends AbstractAuthenticator
         $userId = $payload['sub'];
         $email = $payload['email'] ?? null;
         $roles = $this->resolveRoles($payload);
+        $firstName = $payload['given_name'] ?? null;
+        $lastName = $payload['family_name'] ?? null;
+        $name = $payload['name'] ?? null;
 
         return new SelfValidatingPassport(
-            new UserBadge($userId, fn () => new GoveoUser($userId, $email, $roles)),
+            new UserBadge(
+                $userId,
+                fn () => new GoveoUser($userId, $email, $roles, $firstName, $lastName, $name),
+            ),
         );
     }
 

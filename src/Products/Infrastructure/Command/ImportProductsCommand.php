@@ -189,6 +189,8 @@ final class ImportProductsCommand extends Command
             ));
 
             if (!$dryRun) {
+                // Imported catalogue items are live in the source app → publish.
+                $product->publish();
                 $this->repository->save($product);
 
                 // Clear Doctrine Unit of Work every 200 products to prevent memory growth

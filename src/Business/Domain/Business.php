@@ -38,6 +38,17 @@ class Business
     #[ORM\Column(name: 'partner_id', type: 'guid', nullable: true)]
     private ?string $partnerId;
 
+    /**
+     * PostGIS GEOMETRY(Point,4326) column.
+     * Value format: EWKT string, 'SRID=4326;POINT(lng lat)'.
+     */
+    #[ORM\Column(
+        type: 'geometry',
+        nullable: true,
+        options: ['geometry_type' => 'POINT', 'srid' => 4326],
+    )]
+    private mixed $location = null;
+
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $meta;
 
@@ -52,6 +63,10 @@ class Business
 
     #[ORM\Column(name: 'verified_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $verifiedAt;
+
+    /** Cuándo salió la bienvenida. Nulo = no le ha llegado a su dueño. */
+    #[ORM\Column(name: 'welcome_email_sent_at', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $welcomeEmailSentAt = null;
 
     public function __construct(
         string $id,
@@ -93,6 +108,7 @@ class Business
     public function getCreatorId(): string { return $this->creatorId; }
     public function getPartnerId(): ?string { return $this->partnerId; }
     public function getMeta(): ?array { return $this->meta; }
+    public function getLocation(): mixed { return $this->location; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
     public function getDeletedAt(): ?\DateTimeImmutable { return $this->deletedAt; }
@@ -119,6 +135,81 @@ class Business
         return $this;
     }
 
+    /**
+     * Set location from latitude/longitude. Stored as an EWKT string — the
+     * PostGIS geometry type binds via ST_GeomFromEWKT(?), so a GeoJSON array
+     * would fail on flush with "Array to string conversion". Mismo criterio que
+     * `GeoStory::setLocation`.
+     */
+    /**
+     * Coordenadas a partir del EWKT guardado (`SRID=4326;POINT(lng lat)`).
+     * Se leen del texto porque es como PostGIS devuelve la columna por el ORM;
+     * las consultas geográficas usan `ST_X`/`ST_Y` directamente en SQL.
+     */
+    public function getLongitude(): ?float
+    {
+        return $this->coordinate(0);
+    }
+
+    public function getLatitude(): ?float
+    {
+        return $this->coordinate(1);
+    }
+
+    private function coordinate(int $index): ?float
+    {
+        if (!is_string($this->location)) {
+            return null;
+        }
+        if (preg_match('/POINT\s*\(([-\d.]+)\s+([-\d.]+)\)/i', $this->location, $m) !== 1) {
+            return null;
+        }
+
+        return (float) $m[$index + 1];
+    }
+
+    public function setMainImage(?string $mainImage): self
+    {
+        $this->mainImage = $mainImage;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    /**
+     * Cambiar de categoría mueve el negocio de sitio en el mapa y en las
+     * búsquedas, así que **retira la validación**: vuelve a la cola para que
+     * alguien confirme que encaja donde dice. Devuelve si eso ha ocurrido, para
+     * poder avisar a quien edita.
+     */
+    public function changeCategory(string $categoryId): bool
+    {
+        if ($categoryId === $this->categoryId) {
+            return false;
+        }
+
+        $this->categoryId = $categoryId;
+        $this->updatedAt  = new \DateTimeImmutable();
+
+        $wasVerified = $this->verifiedAt !== null;
+        $this->verifiedAt = null;
+
+        return $wasVerified;
+    }
+
+    public function setLocation(float $latitude, float $longitude): self
+    {
+        $this->location = sprintf('SRID=4326;POINT(%.7f %.7f)', $longitude, $latitude);
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function clearLocation(): self
+    {
+        $this->location = null;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
     public function setMeta(?array $meta): self
     {
         $this->meta = $meta;
@@ -126,9 +217,25 @@ class Business
         return $this;
     }
 
+    public function getWelcomeEmailSentAt(): ?\DateTimeImmutable { return $this->welcomeEmailSentAt; }
+
+    public function markWelcomeEmailSent(): self
+    {
+        $this->welcomeEmailSentAt = new \DateTimeImmutable();
+        return $this;
+    }
+
     public function verify(): self
     {
         $this->verifiedAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    /** Retira la validación: el negocio deja de salir en feed, mapa y búsqueda. */
+    public function unverify(): self
+    {
+        $this->verifiedAt = null;
         $this->updatedAt = new \DateTimeImmutable();
         return $this;
     }

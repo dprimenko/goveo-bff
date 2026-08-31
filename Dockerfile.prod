@@ -15,12 +15,20 @@ RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local
 WORKDIR /var/www/html
 COPY . .
 
-RUN composer install --no-dev --no-interaction --optimize-autoloader --classmap-authoritative
+# `--ignore-platform-req=ext-grpc`: google/cloud-firestore la declara como
+# requisito, pero sólo la usa su transporte gRPC y nosotros hablamos por REST
+# (ver FirestoreClientFactory). Sin esto, `composer install` falla y la imagen
+# ni se construye.
+RUN composer install --no-dev --no-interaction --optimize-autoloader \
+    --classmap-authoritative --ignore-platform-req=ext-grpc
 
 FROM php:8.2-fpm AS runtime
 
-RUN apt-get update && apt-get install -y libpq-dev \
-    && docker-php-ext-install pdo pdo_pgsql opcache \
+# `mbstring` la usa el recorte de textos del mailer; `bcmath` viene de la imagen
+# de desarrollo y alguna dependencia la espera. Sin ellas el contenedor arranca y
+# falla en caliente, que es peor que fallar al construir.
+RUN apt-get update && apt-get install -y libpq-dev libonig-dev \
+    && docker-php-ext-install pdo pdo_pgsql opcache mbstring bcmath \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini
@@ -29,7 +37,10 @@ COPY docker/php/zz-docker.conf /usr/local/etc/php-fpm.d/zz-docker.conf
 WORKDIR /var/www/html
 COPY --from=builder /var/www/html .
 
-RUN chown -R www-data:www-data /var/www/html/var /var/www/html/vendor
+COPY docker/php/entrypoint.prod.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && chown -R www-data:www-data /var/www/html/var /var/www/html/vendor
 
 EXPOSE 9000
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm"]
