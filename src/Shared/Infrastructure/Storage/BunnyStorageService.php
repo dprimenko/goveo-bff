@@ -32,10 +32,24 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
 final class BunnyStorageService
 {
     /** Lo que aceptamos subir, por lo que dice el contenido y no la extensión. */
+    /** Lo que se admite en una subida de usuario. */
     private const ALLOWED = [
         'image/jpeg' => 'jpg',
         'image/png'  => 'png',
         'image/webp' => 'webp',
+    ];
+
+    /**
+     * Formatos que además se aceptan al migrar contenido heredado.
+     *
+     * No se ofrecen en el formulario —no queremos GIF nuevos— pero en el
+     * histórico existen, se sirven perfectamente y el Optimizer los procesa.
+     * Rechazarlos obligaría a dar de baja productos que están bien.
+     */
+    private const ALLOWED_LEGACY = self::ALLOWED + [
+        'image/gif'  => 'gif',
+        'image/avif' => 'avif',
+        'image/heic' => 'heic',
     ];
 
     /** 8 MB: una foto de móvil ya recortada cabe de sobra. */
@@ -91,6 +105,7 @@ final class BunnyStorageService
         callable $pathFor,
         string $contents,
         bool $enforceSizeLimit = true,
+        bool $allowLegacyFormats = false,
     ): string {
         if (!$this->isConfigured()) {
             throw new StorageException('El almacenamiento de imágenes no está configurado.');
@@ -114,14 +129,15 @@ final class BunnyStorageService
 
         // Se mira el contenido, no la extensión ni lo que diga el cliente: un
         // `.jpg` puede ser cualquier cosa.
-        $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($contents) ?: '';
-        if (!isset(self::ALLOWED[$mime])) {
+        $mime    = (new \finfo(FILEINFO_MIME_TYPE))->buffer($contents) ?: '';
+        $allowed = $allowLegacyFormats ? self::ALLOWED_LEGACY : self::ALLOWED;
+        if (!isset($allowed[$mime])) {
             throw new StorageException(sprintf('Formato no admitido (%s). Usa JPG, PNG o WebP.', $mime));
         }
 
         // El nombre lleva marca de tiempo para saltarse la caché del CDN: sin
         // ella, cambiar la foto dejaría la vieja a la vista durante horas.
-        $path = $pathFor(self::ALLOWED[$mime]);
+        $path = $pathFor($allowed[$mime]);
 
         $response = $this->httpClient->request(
             'PUT',

@@ -348,6 +348,9 @@ final class MigrateCloudinaryCommand extends Command
                 // de 8 MB está pensado para subidas de usuario. El Optimizer las
                 // sirve reducidas de todas formas.
                 enforceSizeLimit: false,
+                // GIF y demás formatos que el formulario no ofrece pero que
+                // existen en el histórico y se sirven sin problema.
+                allowLegacyFormats: true,
             );
         } catch (\Throwable $e) {
             $this->note('subida: ' . $this->reason($e), $clean, (string) ($row['id'] ?? ''));
