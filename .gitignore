@@ -38,3 +38,6 @@ Thumbs.db
 /vendor/
 ###< symfony/framework-bundle ###
 config/firebase-credentials.json
+
+# Export de usuarios de Firebase: contiene hashes de contraseña
+users.json

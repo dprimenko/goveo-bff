@@ -144,6 +144,73 @@ class Product
         return sprintf('%.2f %s', $this->priceAmount / 100, $this->priceCurrency);
     }
 
+    /** Máximo de imágenes por producto: es lo que muestra la ficha. */
+    public const MAX_IMAGES = 4;
+
+    public function rename(string $title, string $slug): void
+    {
+        $this->title     = $title;
+        $this->slug      = $slug;
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    public function describe(?string $description, ContentFormat $format): void
+    {
+        $this->description       = $description;
+        $this->descriptionFormat = $format;
+        $this->updatedAt         = new \DateTimeImmutable();
+    }
+
+    /**
+     * Añade una imagen al final.
+     *
+     * El orden vive en el propio dato (`order`) y no en la posición del array
+     * porque la ficha lo usa para decidir cuál es la principal, y un borrado
+     * intermedio no debe reordenar el resto.
+     *
+     * @throws \DomainException si ya se alcanzó el máximo
+     */
+    public function addImage(string $url): void
+    {
+        $images = $this->images ?? [];
+
+        if (count($images) >= self::MAX_IMAGES) {
+            throw new \DomainException(sprintf(
+                'Un producto admite %d imágenes como máximo.',
+                self::MAX_IMAGES,
+            ));
+        }
+
+        $images[]        = ['url' => $url, 'order' => count($images) + 1];
+        $this->images    = $images;
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    /** Quita una imagen por su URL y renumera el resto. */
+    public function removeImage(string $url): bool
+    {
+        $images = $this->images ?? [];
+        $kept   = array_values(array_filter(
+            $images,
+            static fn (array $i) => ($i['url'] ?? null) !== $url,
+        ));
+
+        if (count($kept) === count($images)) {
+            return false;
+        }
+
+        // Se renumera para que el orden siga siendo 1..n sin huecos: la ficha
+        // asume que el primero es la portada.
+        foreach ($kept as $i => $image) {
+            $kept[$i]['order'] = $i + 1;
+        }
+
+        $this->images    = $kept ?: null;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return true;
+    }
+
     public function publish(): void
     {
         $this->publishedAt = new \DateTimeImmutable();

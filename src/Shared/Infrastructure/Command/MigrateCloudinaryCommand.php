@@ -59,6 +59,41 @@ final class MigrateCloudinaryCommand extends Command
         parent::__construct();
     }
 
+    /** @var array<string,array{count:int,sample:string}> motivo => veces y ejemplo */
+    private array $failures = [];
+
+    private ?SymfonyStyle $io = null;
+
+    /**
+     * Deja constancia de un fallo: una línea al momento y un recuento al final.
+     *
+     * La línea sirve para verlo mientras corre —con miles de ficheros no vas a
+     * esperar al resumen para saber si algo va mal—, y el recuento para no tener
+     * que leerlas todas cuando el mismo motivo se repite mil veces.
+     */
+    private function note(string $reason, string $url, string $rowId = ''): void
+    {
+        if (!isset($this->failures[$reason])) {
+            $this->failures[$reason] = ['count' => 0, 'sample' => $url];
+        }
+        ++$this->failures[$reason]['count'];
+
+        // El id de la fila va delante porque es por donde se busca en la base
+        // si hay que revisar ese registro a mano.
+        $this->io?->writeln(sprintf(
+            '  <fg=red>✗</> %s%s — %s',
+            $rowId !== '' ? "[$rowId] " : '',
+            $reason,
+            $url,
+        ));
+    }
+
+    /** Primera línea del mensaje: las trazas completas aquí sólo estorban. */
+    private function reason(\Throwable $e): string
+    {
+        return substr(strtok($e->getMessage(), "\n") ?: get_class($e), 0, 120);
+    }
+
     protected function configure(): void
     {
         $this->addOption('dry-run', null, InputOption::VALUE_NONE, 'Sólo cuenta e informa, no descarga ni escribe');
@@ -68,8 +103,9 @@ final class MigrateCloudinaryCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io      = new SymfonyStyle($input, $output);
-        $dryRun  = (bool) $input->getOption('dry-run');
+        $io       = new SymfonyStyle($input, $output);
+        $this->io = $io;
+        $dryRun   = (bool) $input->getOption('dry-run');
         $only    = $input->getOption('table');
         $limit   = $input->getOption('limit') !== null ? (int) $input->getOption('limit') : null;
 
@@ -104,6 +140,16 @@ final class MigrateCloudinaryCommand extends Command
                 ? 'en seco: no se ha movido nada'
                 : sprintf('movidos: %d · fallidos: %d', $totals['movidos'], $totals['fallidos']),
         ]);
+
+        if ($this->failures !== []) {
+            $io->section('Por qué fallaron');
+            $rows = [];
+            foreach ($this->failures as $reason => $data) {
+                $rows[] = [$data['count'], $reason, substr($data['sample'], 0, 60) . '…'];
+            }
+            usort($rows, static fn ($a, $b) => $b[0] <=> $a[0]);
+            $io->table(['veces', 'motivo', 'ejemplo'], $rows);
+        }
 
         if (!$dryRun && $totals['fallidos'] > 0) {
             $io->warning(sprintf(
@@ -143,7 +189,11 @@ final class MigrateCloudinaryCommand extends Command
         $failed = 0;
 
         $io->section(sprintf('%s.%s — %d filas', $table, $column, count($rows)));
-        $progress = $dryRun ? null : $io->createProgressBar(count($rows));
+        // Sin barra de progreso: se solapa con las líneas de error y deja la
+        // salida ilegible justo cuando hay algo que leer.
+        if (!$dryRun) {
+            $io->text(sprintf('  procesando %d filas…', count($rows)));
+        }
 
         foreach ($rows as $row) {
             $urls = $this->extractUrls($row['value'], $target['kind']);
@@ -174,10 +224,8 @@ final class MigrateCloudinaryCommand extends Command
                 );
             }
 
-            $progress?->advance();
         }
 
-        $progress?->finish();
         $io->newLine(2);
 
         if ($dryRun) {
@@ -218,18 +266,30 @@ final class MigrateCloudinaryCommand extends Command
         );
     }
 
-    /** @return string|null la URL nueva, o null si no se pudo mover */
+    /**
+     * @return string|null la URL nueva, o null si no se pudo mover
+     *
+     * Los motivos se acumulan en `$this->failures` en vez de descartarse: saber
+     * que fallaron mil ficheros sin saber por qué no sirve de nada, y la causa
+     * suele ser una sola —una imagen borrada en origen, un límite de peticiones,
+     * una credencial caducada— repetida mil veces.
+     */
     private function move(string $url, array $target, array $row, int $index): ?string
     {
         $clean = str_replace('\\/', '/', $url);
 
         try {
             $response = $this->httpClient->request('GET', $clean, ['timeout' => 30]);
-            if ($response->getStatusCode() >= 300) {
+            $status   = $response->getStatusCode();
+            if ($status >= 300) {
+                $this->note(sprintf('descarga HTTP %d', $status), $clean, (string) ($row['id'] ?? ''));
+
                 return null;
             }
             $contents = $response->getContent();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            $this->note('descarga: ' . $this->reason($e), $clean, (string) ($row['id'] ?? ''));
+
             return null;
         }
 
@@ -238,7 +298,9 @@ final class MigrateCloudinaryCommand extends Command
                 fn (string $ext) => $this->pathFor($target, $row, $index, $ext),
                 $contents,
             );
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            $this->note('subida: ' . $this->reason($e), $clean, (string) ($row['id'] ?? ''));
+
             return null;
         }
 
