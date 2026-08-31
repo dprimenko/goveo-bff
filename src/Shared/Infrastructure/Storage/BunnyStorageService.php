@@ -13,7 +13,19 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * Distinto de Bunny **Stream**, que es donde van los vídeos: otra API, otras
  * credenciales y otro CDN. Aquí se guardan las imágenes de la ficha del negocio.
  *
- * Estructura: `business/{businessId}/{avatar|main_image}.{ext}`. Una carpeta por
+ * Estructura: una carpeta por entidad y, dentro, una por id:
+ *
+ *   resources/…                                   estáticos de la app
+ *   business/{id}/{avatar|main_image}-{ts}.{ext}
+ *   business/{id}/products/{productId}/{n}-{ts}.{ext}
+ *   influencers/{id}/avatar-{ts}.{ext}
+ *   categories/{id}/image-{ts}.{ext}
+ *   geostories/{id}/thumbnail-{ts}.{ext}
+ *
+ * Los productos cuelgan de su negocio porque siempre pertenecen a uno: así
+ * borrar un negocio se lleva todo lo suyo y se ve de un vistazo lo que ocupa.
+ *
+ * Antes: `business/{businessId}/{avatar|main_image}.{ext}`. Una carpeta por
  * negocio hace que borrar su rastro sea borrar una carpeta, y que dos negocios
  * no puedan pisarse los ficheros.
  */
@@ -51,7 +63,31 @@ final class BunnyStorageService
      * @throws StorageException si el contenido no es una imagen admitida,
      *                          pesa de más, o Bunny rechaza la subida
      */
+    /** Ruta canónica de una imagen de negocio. */
+    public function businessPath(string $businessId, string $slot, string $ext): string
+    {
+        return sprintf('business/%s/%s-%d.%s', $businessId, $slot, time(), $ext);
+    }
+
     public function uploadBusinessImage(string $businessId, string $slot, string $contents): string
+    {
+        return $this->upload(
+            fn (string $ext) => $this->businessPath($businessId, $slot, $ext),
+            $contents,
+        );
+    }
+
+    /**
+     * Sube a una ruta arbitraria dentro de la zona.
+     *
+     * @param callable(string):string $pathFor recibe la extensión deducida del
+     *        contenido y devuelve la ruta destino. Es un callback y no una
+     *        cadena porque la extensión sólo se sabe tras inspeccionar los
+     *        bytes, y la ruta la necesita.
+     *
+     * @return string URL pública en el CDN
+     */
+    public function upload(callable $pathFor, string $contents): string
     {
         if (!$this->isConfigured()) {
             throw new StorageException('El almacenamiento de imágenes no está configurado.');
@@ -78,13 +114,7 @@ final class BunnyStorageService
 
         // El nombre lleva marca de tiempo para saltarse la caché del CDN: sin
         // ella, cambiar la foto dejaría la vieja a la vista durante horas.
-        $path = sprintf(
-            'business/%s/%s-%d.%s',
-            $businessId,
-            $slot,
-            time(),
-            self::ALLOWED[$mime],
-        );
+        $path = $pathFor(self::ALLOWED[$mime]);
 
         $response = $this->httpClient->request(
             'PUT',
