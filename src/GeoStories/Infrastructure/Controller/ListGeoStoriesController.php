@@ -7,6 +7,7 @@ namespace App\GeoStories\Infrastructure\Controller;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
+use App\Shared\Application\ProfileOwnership;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +26,7 @@ class ListGeoStoriesController
     public function __construct(
         private readonly GeoStoryRepository $repository,
         private readonly BunnyVideoService $bunny,
+        private readonly ProfileOwnership $ownership,
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -42,6 +44,13 @@ class ListGeoStoriesController
         $businessId  = $request->query->get('businessId');
         $influencerId = $request->query->get('influencerId');
 
+        // Los vídeos pendientes de validar sólo los ve su dueño, y para eso hay
+        // que identificarse: la ruta es pública, pero si llega un token se lee.
+        // Fiarse de un parámetro de la petición dejaría los vídeos sin revisar
+        // de cualquiera a un `?mine=1` de distancia.
+        $includeUnverified = $this->ownership->ownsInfluencer($influencerId)
+            || $this->ownership->ownsBusiness($businessId);
+
         $findFeed = fn () => $this->repository->findFeed(
             latitude:      $lat,
             longitude:     $lng,
@@ -54,6 +63,7 @@ class ListGeoStoriesController
             notCategoryId: $notCategory,
             businessId:    $businessId,
             influencerId:  $influencerId,
+            includeUnverified: $includeUnverified,
         );
 
         $result = $findFeed();
@@ -125,6 +135,7 @@ class ListGeoStoriesController
             'dist_meters'      => $s->distMeters,
             'started_at'       => $s->startedAt?->format(\DateTimeInterface::ATOM),
             'created_at'       => $s->createdAt?->format(\DateTimeInterface::ATOM),
+            'verified_at'      => $s->verifiedAt?->format(\DateTimeInterface::ATOM),
             'published_at'     => $s->publishedAt?->format(\DateTimeInterface::ATOM),
             'influencer_id'    => $s->influencerId,
             'influencer_name'  => $s->influencerName,

@@ -112,6 +112,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
                 geo.created_at,
+                geo.verified_at,
                 geo.deleted_at,
                 geo.published_at,
                 ST_Y(geo.location::geometry)                                            AS lat,
@@ -168,6 +169,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
                 geo.created_at,
+                geo.verified_at,
                 geo.deleted_at,
                 geo.published_at,
                 ST_Y(geo.location::geometry)                                            AS lat,
@@ -215,6 +217,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?string $notCategoryId = null,
         ?string $businessId = null,
         ?string $influencerId = null,
+        bool $includeUnverified = false,
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
@@ -255,9 +258,21 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             $conditions[] = "geo.status = 'ready'";
         }
 
+        // Un vídeo sin revisar no es público: no sale en los feeds ni en el
+        // perfil que visita otro. Sólo su dueño lo ve, y para eso el que
+        // pregunta tiene que haberse identificado como tal.
+        if (!$includeUnverified) {
+            $conditions[] = 'geo.verified_at IS NOT NULL';
+        }
+
         // Feed-type category filters use cat.slug via the categories JOIN.
         // category_id in geostories is a UUID — never compare it against slug strings directly.
-        $orderBy = 'geo.location <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography';
+        // Los feeds de descubrimiento ordenan por cercanía; el perfil de un
+        // negocio o un influencer, por fecha —lo último que ha subido primero—,
+        // que es como lo lee quien entra a ver a alguien.
+        $orderBy = $isOwnerScoped
+            ? 'geo.created_at DESC'
+            : 'geo.location <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography';
 
         if ($feedType === 'events' && $categoryId === null) {
             $conditions[] = "cat.slug = 'events'";
@@ -297,6 +312,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
                 geo.created_at,
+                geo.verified_at,
                 geo.deleted_at,
                 geo.published_at,
                 ST_Y(geo.location::geometry)                                                        AS lat,

@@ -67,6 +67,7 @@ interface GeoStoryRepository
         ?string $notCategoryId = null,
         ?string $businessId = null,
         ?string $influencerId = null,
+        bool $includeUnverified = false,
     ): array;
 
     public function save(GeoStory $geoStory): void;
