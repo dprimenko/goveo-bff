@@ -110,6 +110,38 @@ El `icon` de las sugerencias **no se sirve**: los cuatro apuntan todavía a Clou
 apaga al publicar la app. Los chips no llevan icono, pero si algún día se quieren hay que
 moverlos a Bunny como el resto.
 
+### Quién gestiona qué negocio
+
+`business_managers` es lo único que mira el BFF: de ahí salen los `business_ids` de
+`/api/auth/me`, y con ellos la app enseña «Gestión de negocios» en vez de «¿Tienes un
+negocio?» y deja editar ficha y catálogo.
+
+⚠️ **La importación desde Supabase no lo trajo todo.** En la app de Flutter la gestión no
+salía de esa tabla sino de un array `managerOf` en el documento del usuario en Firestore,
+y lo que no estaba además en Supabase se quedó fuera: **1.548 vínculos**, entre ellos los
+de las cuentas de gestión (`goveoapp@gmail.com`, 424 tiendas). El síntoma es una cuenta
+que lleva su negocio desde siempre y en la app ve «¿Tienes un negocio?».
+
+```bash
+php bin/console goveo:migrate:firestore:business-managers --dry-run
+php bin/console goveo:migrate:firestore:business-managers
+php bin/console goveo:migrate:firestore:business-managers --email=alguien@ejemplo.com
+```
+
+El usuario se busca **por correo** —el documento de Firestore lleva el UID de Firebase, que
+no es el `users.id` de aquí— y el negocio por id, con el mismo UUID v5 de siempre. Sólo
+inserta, así que los vínculos creados desde el alta web sobreviven, y descarta las tiendas
+dadas de baja para no llenar la lista de fichas que no se pueden abrir.
+
+Para tocarlo a mano: [`docs/sql/gestores-de-negocio.sql`](docs/sql/gestores-de-negocio.sql).
+Después hay que **cerrar sesión y volver a entrar**: `business_ids` viaja en
+`/api/auth/me`, que sólo se pide al arrancar.
+
+`GET /api/account/businesses` está **paginado** (`page`, `size`, `q`) por lo mismo: con
+cuatrocientas tiendas, devolverlas todas era una consulta por negocio y una lista que nadie
+recorre. La búsqueda va con `unaccent`, como la pública, y los pendientes de validar salen
+primero — son los únicos que piden que su dueño haga algo.
+
 ## Follows y likes
 
 Dos tablas con la misma forma (id, user_id, destino, created_at) y endpoints idempotentes.
