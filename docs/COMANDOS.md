@@ -160,3 +160,37 @@ variables reales con `.env.local`. Una clave declarada vacía en `.env` tapa la 
 Está resuelto añadiendo `.env.local` al `env_file` con `required: false`, pero al
 añadir una variable nueva: **o va en `.env` con su valor, o va sólo en
 `.env.local`**. Declararla vacía en `.env` la rompe.
+
+## Copia de seguridad de la base
+
+```bash
+make backup            # producción → ./backups/goveo-prod-<fecha>.dump
+make backup ENV=demo   # demo
+```
+
+Antes de una migración, siempre. El volcado **viaja por la tubería** desde el
+servidor hasta aquí: no se escribe nada en producción, así que no hay que
+acordarse de borrarlo después ni depende de que le quede sitio en disco.
+
+Va en formato `custom` (`pg_dump -Fc`): ocupa bastante menos que SQL plano y al
+restaurar deja elegir tablas sueltas en vez de tragarse el fichero entero.
+
+**Se verifica antes de darlo por bueno.** Primero la cabecera —un volcado
+empieza por `PGDMP`, y así se descarta que lo que ha llegado sea un mensaje de
+error de `ssh` o de `docker`— y luego se cuentan las tablas con datos. Si algo
+no cuadra, el fichero se borra: un volcado a medias con buen aspecto es peor que
+ninguno, porque el fallo se descubre el día que hace falta restaurarlo.
+
+El nombre del contenedor lo pone Dokploy y cambia en cada redespliegue, así que
+se busca por imagen. Si hubiera varios candidatos el script para y los enseña,
+en vez de volcar la base equivocada:
+
+```bash
+GOVEO_DB_CONTAINER=<nombre> ./bin/goveo-backup prod
+```
+
+Restaurar en local, encima de lo que haya:
+
+```bash
+docker compose exec -T db pg_restore -U goveo -d goveo --clean --if-exists < backups/goveo-prod-<fecha>.dump
+```

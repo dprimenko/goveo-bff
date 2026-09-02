@@ -41,3 +41,4 @@ config/firebase-credentials.json
 
 # Export de usuarios de Firebase: contiene hashes de contraseña
 users.json
+backups/

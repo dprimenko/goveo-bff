@@ -107,6 +107,10 @@ db-prod:
 db-demo:
 	@./bin/goveo-db open demo
 
+## backup: copia de seguridad de producción, traída aquí. Uso: make backup [ENV=demo]
+backup:
+	@./bin/goveo-backup $(or $(ENV),prod)
+
 ## db-close: cierra los túneles abiertos
 db-close:
 	@./bin/goveo-db close prod || true

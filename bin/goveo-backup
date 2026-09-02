@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# Copia de seguridad de la base de datos de un entorno, traída aquí.
+#
+#   goveo-backup prod          vuelca producción a ./backups/
+#   goveo-backup demo          lo mismo con demo
+#   goveo-backup prod ~/copias vuelca a otra carpeta
+#
+# El volcado **viaja por la tubería** y no se escribe en el servidor: así no hay
+# que acordarse de borrarlo después, ni hace falta que le quede sitio en disco.
+#
+# Formato `custom` (-Fc) y no SQL plano: ocupa bastante menos, y al restaurar
+# permite elegir tablas sueltas en vez de tragarse el fichero entero.
+#
+# Al terminar se **comprueba** que el fichero es un volcado legible. Sin eso, un
+# corte a mitad deja un fichero de buen tamaño que no sirve, y eso se descubre
+# el día que hace falta restaurarlo, que es el peor día posible.
+set -euo pipefail
+# Sin esto, si `pg_dump` falla dentro de la tubería el `cat` de este lado
+# termina bien y el fichero truncado pasaría por válido.
+set -o pipefail
+
+SERVER="${GOVEO_SSH:-root@76.13.63.176}"
+ENV_NAME="${1:-prod}"
+DEST_DIR="${2:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/backups}"
+
+case "$ENV_NAME" in
+    prod|demo) ;;
+    *) echo "Entorno desconocido: $ENV_NAME (usa prod o demo)" >&2; exit 1 ;;
+esac
+
+# ── Qué contenedor ──────────────────────────────────────────────────────────
+#
+# Los nombres los pone Dokploy y llevan un sufijo que cambia en cada
+# redespliegue, así que no se pueden fijar aquí. Se busca por imagen y se filtra
+# por entorno; si sale más de uno se paran y se enseñan, porque volcar la base
+# equivocada sin enterarse es peor que no volcar nada.
+echo "Buscando la base de $ENV_NAME en $SERVER…"
+CONTAINER="${GOVEO_DB_CONTAINER:-}"
+
+if [ -z "$CONTAINER" ]; then
+    MATCHES=$(ssh "$SERVER" \
+        "docker ps --filter 'ancestor=postgis/postgis:16-3.4-alpine' --format '{{.Names}}' | grep -i '$ENV_NAME' || true")
+
+    COUNT=$(printf '%s\n' "$MATCHES" | grep -c . || true)
+    if [ "$COUNT" -eq 0 ]; then
+        echo "No se encontró ningún contenedor de base para «$ENV_NAME»." >&2
+        echo "Míralos con:  ssh $SERVER docker ps --format '{{.Names}}\t{{.Image}}'" >&2
+        echo "y fíjalo con: GOVEO_DB_CONTAINER=<nombre> $0 $ENV_NAME" >&2
+        exit 1
+    fi
+    if [ "$COUNT" -gt 1 ]; then
+        echo "Hay más de un candidato; elige uno con GOVEO_DB_CONTAINER=<nombre>:" >&2
+        printf '  %s\n' $MATCHES >&2
+        exit 1
+    fi
+    CONTAINER="$MATCHES"
+fi
+
+echo "Contenedor: $CONTAINER"
+
+mkdir -p "$DEST_DIR"
+STAMP=$(date +%Y%m%d-%H%M%S)
+DEST="$DEST_DIR/goveo-$ENV_NAME-$STAMP.dump"
+
+# ── El volcado ──────────────────────────────────────────────────────────────
+#
+# Usuario y base se leen del propio contenedor: son las mismas variables con las
+# que arrancó, así que no hay que mantener aquí una copia que se quede vieja.
+echo "Volcando… (tarda según el tamaño; no cierres la terminal)"
+ssh "$SERVER" "docker exec '$CONTAINER' sh -c 'pg_dump -Fc -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'" > "$DEST"
+
+# ── Comprobación ────────────────────────────────────────────────────────────
+#
+# Con `pg_restore` instalado se usa ése; si no, el del contenedor de desarrollo,
+# que está a mano y trae la misma versión que produccón. Sólo se renuncia a
+# comprobar si no hay ninguno de los dos, y entonces se dice.
+listar_dump() {
+    if command -v pg_restore >/dev/null 2>&1; then
+        pg_restore -l "$DEST" 2>/dev/null
+        return
+    fi
+
+    # Dentro del contenedor hay que dejarlo en un fichero antes de listarlo: el
+    # formato `custom` necesita recorrer el volcado hacia atrás y lo que llega
+    # por `docker exec` no se puede rebobinar. Pasarlo por `/dev/stdin` compila
+    # y no da error — simplemente devuelve cero tablas, que es peor.
+    docker compose exec -T db sh -c \
+        'cat > /tmp/verificar.dump && pg_restore -l /tmp/verificar.dump; rm -f /tmp/verificar.dump' \
+        < "$DEST" 2>/dev/null
+}
+
+if ! command -v pg_restore >/dev/null 2>&1 && \
+   ! docker compose ps db --status running >/dev/null 2>&1; then
+    echo "⚠️  Sin pg_restore ni contenedor de base: el volcado no se ha verificado."
+    echo "    $DEST ($(du -h "$DEST" | cut -f1))"
+    exit 0
+fi
+
+# Un volcado `custom` empieza siempre por «PGDMP». Es lo primero que se mira
+# porque no necesita herramientas y descarta el caso más común: que en vez del
+# volcado haya llegado un mensaje de error de ssh o de docker.
+if [ "$(head -c 5 "$DEST")" != "PGDMP" ]; then
+    echo "Lo que ha llegado no es un volcado de Postgres:" >&2
+    head -c 200 "$DEST" >&2; echo >&2
+    rm -f "$DEST"
+    exit 1
+fi
+
+TABLAS=$(listar_dump | grep -c "TABLE DATA" || true)
+if [ "${TABLAS:-0}" -eq 0 ]; then
+    echo "El volcado no es legible o no trae datos. Se borra para no confundirlo" >&2
+    echo "con uno bueno." >&2
+    rm -f "$DEST"
+    exit 1
+fi
+
+echo
+echo "✔ $DEST"
+echo "  $(du -h "$DEST" | cut -f1) · $TABLAS tablas con datos"
+echo
+echo "Restaurar en local (borra lo que haya):"
+echo "  docker compose exec -T db pg_restore -U goveo -d goveo --clean --if-exists < \"$DEST\""
