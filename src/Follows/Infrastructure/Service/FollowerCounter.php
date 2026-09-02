@@ -8,12 +8,21 @@ use App\Follows\Domain\FollowRepository;
 use App\Follows\Domain\FollowTarget;
 
 /**
- * Nº de seguidores que se publica en la API.
+ * Nº de seguidores que se publica en la API: `meta.followers` **más** los
+ * seguidores reales de `user_follows`.
  *
- * Por defecto es el recuento real de `user_follows`, pero si el negocio o el
- * influencer trae `meta.followers` ese valor **manda**. Sirve para arrastrar la
- * cifra heredada de Firestore y para poder inflar/fijar el número a mano en
- * casos puntuales, sin tocar los follows reales.
+ * `meta.followers` no son seguidores: es un número de relleno que se pone a
+ * mano para que las fichas no salgan vacías mientras la app arranca. El día que
+ * se quite del `meta`, esto devuelve sólo el recuento real sin tocar nada.
+ *
+ * Antes ese número **mandaba** sobre el recuento, y eso congelaba el contador:
+ * casi todas las fichas lo traen, así que seguir a una guardaba el follow pero
+ * no movía la cifra. En la app se veía aún peor —sumaba uno al pulsar y el
+ * servidor lo devolvía al valor anterior—, el clásico «sube y baja».
+ *
+ * Se suma en vez de usar `max()` porque con el máximo el relleno seguiría
+ * tapando a los seguidores de verdad: una ficha con 94 de relleno no movería el
+ * número hasta tener 95 reales.
  */
 final class FollowerCounter
 {
@@ -23,12 +32,15 @@ final class FollowerCounter
 
     public function resolve(FollowTarget $type, string $targetId, ?array $meta): int
     {
-        $override = $meta['followers'] ?? null;
+        $inherited = $meta['followers'] ?? null;
+        $real      = $this->follows->countFollowers($type, $targetId);
 
-        if (is_numeric($override)) {
-            return (int) $override;
+        if (!is_numeric($inherited)) {
+            return $real;
         }
 
-        return $this->follows->countFollowers($type, $targetId);
+        // Nunca por debajo de lo heredado: un valor negativo en `meta` no puede
+        // restar seguidores de verdad.
+        return max(0, (int) $inherited) + $real;
     }
 }
