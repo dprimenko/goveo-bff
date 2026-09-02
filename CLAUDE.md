@@ -139,8 +139,11 @@ Después hay que **cerrar sesión y volver a entrar**: `business_ids` viaja en
 
 `GET /api/account/businesses` está **paginado** (`page`, `size`, `q`) por lo mismo: con
 cuatrocientas tiendas, devolverlas todas era una consulta por negocio y una lista que nadie
-recorre. La búsqueda va con `unaccent`, como la pública, y los pendientes de validar salen
-primero — son los únicos que piden que su dueño haga algo.
+recorre. La búsqueda va con `unaccent`, como la pública. Ordena por **pendientes de validar y luego
+por fecha de alta descendente**: las listas largas son las de las cuentas comerciales, que
+dan de alta una tienda y luego se la traspasan al dueño, así que lo que acaban de crear es
+justo a lo que vuelven. Por `business.created_at` y no por cuándo se vinculó — los vínculos
+importados de Firestore comparten la fecha de la importación y ahí no ordenarían nada.
 
 ## Follows y likes
 

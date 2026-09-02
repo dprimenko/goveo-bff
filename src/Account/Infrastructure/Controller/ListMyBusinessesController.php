@@ -69,9 +69,18 @@ class ListMyBusinessesController
                FROM business_managers bm
                JOIN business b ON b.id = bm.business_id
               WHERE {$where}
-              -- Los pendientes de validar primero: son los que necesitan que su
-              -- dueño haga algo, y en una lista larga nunca los encontraría.
-              ORDER BY (b.verified_at IS NULL) DESC, b.name ASC
+              -- Pendientes de validar primero: son los únicos que piden que
+              -- alguien haga algo, y en una lista larga no se verían.
+              --
+              -- Después, lo más reciente. La lista larga es la de las cuentas
+              -- comerciales, que dan de alta un negocio y se lo traspasan luego
+              -- al dueño: lo que acaban de crear es justo a lo que vuelven, y
+              -- alfabético les obligaba a buscarlo por el nombre.
+              --
+              -- Por `business.created_at` y no por cuándo se vinculó: los
+              -- vínculos que llegaron de Firestore comparten la fecha de la
+              -- importación, así que ahí no ordenarían nada.
+              ORDER BY (b.verified_at IS NULL) DESC, b.created_at DESC, b.name ASC
               LIMIT ? OFFSET ?",
             [...$params, $size, ($page - 1) * $size]
         );
