@@ -111,6 +111,10 @@ db-demo:
 backup:
 	@./bin/goveo-backup $(or $(ENV),prod)
 
+## firestore: importación desde Firestore en producción. Uso: make firestore CMD="business-managers --dry-run"
+firestore:
+	@./bin/goveo-firestore $(CMD)
+
 ## db-close: cierra los túneles abiertos
 db-close:
 	@./bin/goveo-db close prod || true

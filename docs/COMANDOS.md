@@ -9,34 +9,28 @@ docker exec goveo-bff-php-1 sh -lc 'php bin/console <comando>'
 Casi todos aceptan `--dry-run`. **Úsalo siempre la primera vez**: varios de estos
 comandos escriben en Stripe o borran datos, y ninguno pregunta.
 
-## Credenciales de Firebase en producción
-
-Los comandos `goveo:migrate:firestore:*` leen Firestore, y esa credencial **no vive en
-el servidor**: el despliegue no monta nada de `config/` y es una clave con acceso a todo
-el proyecto. Se sube justo antes de importar y se borra después.
+## Importar desde Firestore en producción
 
 ```bash
-# 1 · qué contenedor es (Dokploy le cambia el sufijo en cada redespliegue)
-ssh root@76.13.63.176 'docker ps --format "{{.Names}}\t{{.Image}}" | grep -i php'
-
-# 2 · subir al servidor y meterla en el contenedor, en /tmp
-scp config/firebase-credentials.json root@76.13.63.176:/tmp/fb.json
-ssh root@76.13.63.176 'docker cp /tmp/fb.json <contenedor-php>:/tmp/fb.json'
-
-# 3 · importar, apuntando FIREBASE_CREDENTIALS a esa ruta
-ssh root@76.13.63.176 "docker exec -e FIREBASE_CREDENTIALS=/tmp/fb.json <contenedor-php> \
-    sh -lc 'php bin/console goveo:migrate:firestore:business-managers --dry-run'"
-
-# 4 · BORRARLA de los dos sitios. No es opcional.
-ssh root@76.13.63.176 'docker exec <contenedor-php> rm -f /tmp/fb.json; rm -f /tmp/fb.json'
-ssh root@76.13.63.176 'docker exec <contenedor-php> ls /tmp/fb.json; ls /tmp/fb.json'   # ambos: No such file
+make firestore CMD="business-managers --dry-run"
+make firestore CMD="business-managers"
+make firestore CMD="business-managers --email=alguien@ejemplo.com"
 ```
 
-`/tmp` dentro del contenedor y no `config/`: lo que hay en `/tmp` desaparece al
-redesplegar aunque alguien olvide el paso 4, y no acaba en ninguna copia de la imagen.
+La credencial de Firebase **no vive en el servidor**: es una clave con acceso a todo el
+proyecto y el despliegue no monta nada de `config/`. El script la sube a `/tmp` del
+contenedor, ejecuta y **la borra** — el borrado va en un `trap`, así que ocurre también si
+la importación falla o si se corta a media ejecución, que es justo cuando se olvidaba
+haciéndolo a mano. Y se comprueba que ha desaparecido de los dos sitios: dar por buena una
+limpieza sin mirarla no vale para algo que, si falla, deja la clave suelta.
 
-⚠️ **El paso 4 se hace aunque la importación falle.** Es cuando más fácil es olvidarlo, y
-la clave se queda en un servidor al que entra más gente.
+El nombre del contenedor lo pone Dokploy y cambia en cada redespliegue, así que se busca.
+Si hay varios candidatos para y los enseña, en vez de importar contra el entorno
+equivocado.
+
+Se puede fijar lo que haga falta: `GOVEO_SSH`, `GOVEO_PHP_CONTAINER`,
+`GOVEO_FIREBASE_CREDENTIALS`.
+
 
 ---
 

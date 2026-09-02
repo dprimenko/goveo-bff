@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Ejecuta un comando de importación desde Firestore en un entorno remoto.
+#
+#   goveo-firestore business-managers --dry-run
+#   goveo-firestore business-managers
+#   goveo-firestore business-managers --email=alguien@ejemplo.com
+#
+# La credencial de Firebase **no vive en el servidor**: es una clave con acceso
+# a todo el proyecto y el despliegue no monta nada de `config/`. Este script la
+# sube, ejecuta y la borra.
+#
+# El borrado va en un `trap`, así que ocurre también si la importación falla o
+# si se corta con Ctrl-C. A mano ese paso es justo el que se olvida, y entonces
+# la clave se queda en una máquina a la que entra más gente.
+set -euo pipefail
+
+SERVER="${GOVEO_SSH:-root@76.13.63.176}"
+AQUI="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CRED="${GOVEO_FIREBASE_CREDENTIALS:-$AQUI/config/firebase-credentials.json}"
+
+if [ $# -eq 0 ]; then
+    echo "Uso: $(basename "$0") <comando> [opciones]" >&2
+    echo "  p. ej. $(basename "$0") business-managers --dry-run" >&2
+    exit 1
+fi
+
+COMANDO="goveo:migrate:firestore:$1"; shift
+
+if [ ! -f "$CRED" ]; then
+    echo "No encuentro la credencial en $CRED" >&2
+    echo "Apunta a otra con: GOVEO_FIREBASE_CREDENTIALS=/ruta/al.json $0 …" >&2
+    exit 1
+fi
+
+# ── Qué contenedor ──────────────────────────────────────────────────────────
+#
+# Dokploy le cambia el sufijo en cada redespliegue, así que se busca. Con más de
+# uno se para: ejecutar la importación contra el entorno equivocado no se
+# deshace solo.
+CONTENEDOR="${GOVEO_PHP_CONTAINER:-}"
+
+if [ -z "$CONTENEDOR" ]; then
+    echo "Buscando el contenedor de PHP en ${SERVER}…"
+    if ! CANDIDATOS=$(ssh "$SERVER" "docker ps --format '{{.Names}}' | grep -i php || true"); then
+        echo "No se ha podido conectar a ${SERVER}." >&2
+        echo "Si entras con otro usuario:  GOVEO_SSH=usuario@servidor $0 …" >&2
+        exit 1
+    fi
+
+    N=$(printf '%s\n' "$CANDIDATOS" | grep -c . || true)
+    if [ "$N" -eq 0 ]; then
+        echo "Ningún contenedor de PHP en marcha. Míralos con:" >&2
+        echo "  ssh $SERVER docker ps --format '{{.Names}}'" >&2
+        exit 1
+    fi
+    if [ "$N" -gt 1 ]; then
+        echo "Hay varios; elige con GOVEO_PHP_CONTAINER=<nombre>:" >&2
+        printf '  %s\n' $CANDIDATOS >&2
+        exit 1
+    fi
+    CONTENEDOR="$CANDIDATOS"
+fi
+
+echo "Contenedor: $CONTENEDOR"
+
+# ── Subir, ejecutar y borrar ────────────────────────────────────────────────
+REMOTA="/tmp/goveo-fb-$$.json"
+
+limpiar() {
+    echo
+    echo "Borrando la credencial del servidor…"
+    ssh "$SERVER" "docker exec '$CONTENEDOR' rm -f '$REMOTA' 2>/dev/null; rm -f '$REMOTA'" || true
+
+    # Se comprueba: decir que se ha borrado sin mirarlo no vale para algo que,
+    # si falla, deja una clave suelta en el servidor.
+    RESTOS=$(ssh "$SERVER" \
+        "docker exec '$CONTENEDOR' sh -c 'ls $REMOTA 2>/dev/null'; ls $REMOTA 2>/dev/null" || true)
+    if [ -n "$RESTOS" ]; then
+        echo "⚠️  NO se ha podido borrar. Bórrala a mano:" >&2
+        echo "  ssh $SERVER \"docker exec $CONTENEDOR rm -f $REMOTA; rm -f $REMOTA\"" >&2
+        exit 1
+    fi
+    echo "✔ credencial borrada del contenedor y del servidor"
+}
+trap limpiar EXIT
+
+echo "Subiendo la credencial…"
+scp -q "$CRED" "$SERVER:$REMOTA"
+ssh "$SERVER" "docker cp '$REMOTA' '$CONTENEDOR:$REMOTA'"
+
+echo "Ejecutando $COMANDO $*"
+echo
+ssh -t "$SERVER" "docker exec -e FIREBASE_CREDENTIALS='$REMOTA' '$CONTENEDOR' \
+    sh -lc 'php bin/console $COMANDO $*'"
