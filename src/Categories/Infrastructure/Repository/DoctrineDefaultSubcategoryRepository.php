@@ -21,7 +21,13 @@ class DoctrineDefaultSubcategoryRepository implements DefaultSubcategoryReposito
 
     public function findByCategoryId(string $categoryId): array
     {
-        return $this->em->getRepository(DefaultSubcategory::class)->findBy(['categoryId' => $categoryId]);
+        // Sin las dadas de baja y en el orden en que se quieren enseñar: son un
+        // menú para elegir, y «Entrantes, Platos, Bebidas, Postres» sólo se lee
+        // bien en ese orden.
+        return $this->em->getRepository(DefaultSubcategory::class)->findBy(
+            ['categoryId' => $categoryId, 'deletedAt' => null],
+            ['order' => 'ASC', 'name' => 'ASC'],
+        );
     }
 
     public function save(DefaultSubcategory $subcategory): void

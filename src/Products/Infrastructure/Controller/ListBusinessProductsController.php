@@ -52,7 +52,12 @@ class ListBusinessProductsController
                     'id'              => $p->getId(),
                     'title'           => $p->getTitle(),
                     'description'     => $p->getDescription(),
-                    'image'           => $this->primaryImage($p),
+                    // `image` se conserva porque lo consume la app de Flutter
+                    // que sigue publicada; `images` es la lista completa, que es
+                    // lo que necesita la ficha para el carrusel.
+                    'image'              => $this->primaryImage($p),
+                    'images'             => $p->imageUrls(),
+                    'description_format' => $p->getDescriptionFormat()->value,
                     'subcategory_id'  => $p->getSubcategoryId(),
                     'category_id'     => $p->getCategoryId(),
                     'price_amount'    => $p->getPriceAmount(),

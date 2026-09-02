@@ -44,6 +44,72 @@ Autowiring interface→impl (una sola impl por repo). Rutas registradas vía `pr
 - Repos con las queries: `ProductRepository::findByBusinessPaginated(businessId, subcategoryId?, page, size, publishedOnly)`,
   `ProductSubcategoryRepository::findByBusinessId(businessId)`.
 
+### Gestión del catálogo (`/api/businesses/{id}/…`)
+
+Lo que usa la app para que una tienda mantenga su catálogo. Todo bajo `^/api`, así que
+exige sesión, y **404 —nunca 403— para el negocio ajeno**: un 403 confirmaría que ese id
+existe. La comprobación está en `App\Business\Application\ManagedBusinessFinder`, que
+acepta id o slug y devuelve `null` tanto si no existe como si es de otro; lo usan también
+`MyBusinessController` y `UploadBusinessImageController`.
+
+| Método | Ruta | |
+|---|---|---|
+| `POST` | `/products` | Alta. Sólo `title` es obligatorio |
+| `PATCH` | `/products/{id}` | **Sólo lo que venga en el cuerpo** |
+| `DELETE` | `/products/{id}` | Baja lógica |
+| `POST` | `/products/{id}/images` | Una imagen (`multipart`, campo `file`) |
+| `DELETE` | `/products/{id}/images` | Quita una por su `url` |
+| `GET` | `/subcategories` | Las suyas + las sugerencias de su categoría |
+| `POST` | `/subcategories` | Crear (o adoptar una sugerencia: se manda su `name`) |
+| `PATCH` | `/subcategories/{id}` | `name` y/o `sort_order` |
+| `DELETE` | `/subcategories/{id}` | Borra y saca de ella a sus productos |
+
+- **Categoría y localización se heredan del negocio.** El producto no tiene columnas para
+  eso y no debe tenerlas: un producto suelto de su tienda no significa nada, y duplicarlas
+  sólo abriría la puerta a que se contradigan. `category_id` sigue en la tabla —permite que
+  una tienda salga en varias categorías de descubrimiento— pero no se toca desde aquí.
+- **La descripción se guarda en HTML** (`description_format`, por defecto `html` en el alta
+  desde la app): lo importado ya viene así, la app lo pinta con `HtmlText` y un editor de
+  texto enriquecido escupe HTML. El enum admite markdown, pero elegirlo obligaría a
+  convertir dos veces.
+- **El slug no cambia al renombrar** (es ruta pública) y se numera al chocar
+  (`vino-tinto-2`): la tabla exige `uq(business_id, slug)` y dos productos con el mismo
+  nombre en una tienda es normal.
+- **Las imágenes van de una en una** (máx. 4, `Product::MAX_IMAGES` → 409 `too_many_images`):
+  así una foto que falle no tumba las otras y la app puede enseñar progreso. Al dar de baja
+  un producto **los ficheros se quedan en el CDN** a propósito — la baja es lógica y se
+  deshace desde la base; perder los binarios lo haría irreversible.
+- ⚠️ **`ProductRepository::findById` no filtra las bajas lógicas.** Los controladores
+  descartan a mano lo borrado; sin eso se podía editar un producto dado de baja y volver a
+  borrarlo respondía 204 como si existiera.
+- **La subcategoría se comprueba contra el negocio** (422 `unknown_subcategory`). Sin eso se
+  podía colocar un producto en la subcategoría de otra tienda: no se filtraría mal en la
+  ficha ajena —el listado público cruza negocio y subcategoría— pero dejaría el catálogo
+  apuntando a algo que su dueño puede borrar cuando quiera.
+- **Borrar una subcategoría no borra sus productos**: se les pone `subcategory_id = NULL`
+  primero (`ProductRepository::clearSubcategory`, devuelto como `moved_products`) y luego se
+  borra la fila. No hay clave ajena, así que al revés se quedarían apuntando a algo
+  inexistente y desaparecerían de los filtros sin estar borrados.
+
+### Sugerencias de subcategoría (`default_subcategories`)
+
+Existen para que cada restaurante no tenga que teclear otra vez «Entrantes, Platos, Bebidas,
+Postres» — es lo que hacía el alta de `../store-register`: chips de las de por defecto para
+marcar, y un campo libre para las propias. Hoy sólo hay cuatro, todas de `category.hostelry`.
+
+Adoptar una **copia el nombre** a una fila nueva de `product_subcategories`: la del negocio
+es suya y la sugerencia no guarda de dónde salió. Por eso el listado las cruza **por nombre**
+para no ofrecer las que ya tiene, y renombrar una adoptada vuelve a liberar la sugerencia.
+
+⚠️ **`name` es una clave de i18n** (`subcategory.hostelry.starters`), igual que en las
+categorías, y se guarda tal cual: así se lee en el idioma de quien mira y no en el de quien
+la creó. Una escrita a mano se guarda literal; en la app las dos pasan por el mismo
+`subcategoryLabel`, que traduce si hay clave y devuelve el texto si no.
+
+El `icon` de las sugerencias **no se sirve**: los cuatro apuntan todavía a Cloudinary, que se
+apaga al publicar la app. Los chips no llevan icono, pero si algún día se quieren hay que
+moverlos a Bunny como el resto.
+
 ## Follows y likes
 
 Dos tablas con la misma forma (id, user_id, destino, created_at) y endpoints idempotentes.

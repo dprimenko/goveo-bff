@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Business\Infrastructure\Controller;
 
+use App\Business\Application\ManagedBusinessFinder;
 use App\Business\Domain\Business;
-use App\Business\Domain\BusinessManagerRepository;
 use App\Business\Domain\BusinessRepository;
-use App\Users\Infrastructure\Service\LocalUserResolver;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,8 +31,7 @@ class MyBusinessController
 {
     public function __construct(
         private readonly BusinessRepository $businesses,
-        private readonly BusinessManagerRepository $managers,
-        private readonly LocalUserResolver $currentUser,
+        private readonly ManagedBusinessFinder $managed,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -117,25 +115,16 @@ class MyBusinessController
     /** @return Business|Response el negocio, o la respuesta de error */
     private function authorize(string $id): Business|Response
     {
-        $userId = $this->currentUser->currentId();
-        if ($userId === null) {
+        if (!$this->managed->hasSession()) {
             return new JsonResponse(['error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $business = $this->businesses->findById($id) ?? $this->businesses->findBySlug($id);
-        if ($business === null) {
-            return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
-        }
-
         // Gestor, no creador: un negocio puede tener varios, y el creador podría
-        // haber dejado de gestionarlo.
-        if ($this->managers->findByUserAndBusiness($userId, $business->getId()) === null) {
-            // 404 y no 403: responder «existe pero no es tuyo» permitiría
-            // averiguar qué negocios hay probando ids.
-            return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
-        }
-
-        return $business;
+        // haber dejado de gestionarlo. `null` es tanto «no existe» como «es de
+        // otro», y se responde 404 en ambos: decir «existe pero no es tuyo»
+        // permitiría averiguar qué negocios hay probando ids.
+        return $this->managed->find($id)
+            ?? new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
     }
 
     private function serialize(Business $business): array

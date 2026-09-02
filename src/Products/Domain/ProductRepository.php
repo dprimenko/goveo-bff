@@ -32,6 +32,17 @@ interface ProductRepository
     /** @return Product[] */
     public function findBySubcategoryId(string $subcategoryId, bool $publishedOnly = true): array;
 
+    /**
+     * Saca de una subcategoría a todos los productos que estén en ella.
+     *
+     * Hace falta al borrarla: `products.subcategory_id` no tiene clave ajena, así
+     * que sin esto los productos se quedarían apuntando a una fila que ya no
+     * existe y desaparecerían de todos los filtros sin estar borrados.
+     *
+     * @return int cuántos productos se han movido
+     */
+    public function clearSubcategory(string $subcategoryId): int;
+
     public function save(Product $product): void;
 
     public function delete(Product $product): void;

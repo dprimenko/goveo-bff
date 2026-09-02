@@ -55,4 +55,22 @@ class ProductSubcategory
     public function getDescription(): ?string          { return $this->description; }
     public function getSortOrder(): int                { return $this->sortOrder; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
+
+    /**
+     * Cambia el nombre visible.
+     *
+     * Renombrar una adoptada de las por defecto la convierte en propia: deja de
+     * ser una clave de traducción y pasa a ser texto literal. Es lo que quiere
+     * quien la renombra —«Entrantes» → «Para picar»— y el nombre por defecto
+     * sigue disponible para el resto de negocios.
+     */
+    public function rename(string $name): void
+    {
+        $this->name = $name;
+    }
+
+    public function reorder(int $sortOrder): void
+    {
+        $this->sortOrder = $sortOrder;
+    }
 }

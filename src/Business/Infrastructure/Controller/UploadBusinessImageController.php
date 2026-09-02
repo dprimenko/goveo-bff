@@ -4,11 +4,9 @@ declare(strict_types=1);
 
 namespace App\Business\Infrastructure\Controller;
 
-use App\Business\Domain\BusinessManagerRepository;
-use App\Business\Domain\BusinessRepository;
+use App\Business\Application\ManagedBusinessFinder;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use App\Shared\Infrastructure\Storage\StorageException;
-use App\Users\Infrastructure\Service\LocalUserResolver;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,10 +30,8 @@ class UploadBusinessImageController
     private const SLOTS = ['avatar', 'main_image'];
 
     public function __construct(
-        private readonly BusinessRepository $businesses,
-        private readonly BusinessManagerRepository $managers,
+        private readonly ManagedBusinessFinder $managed,
         private readonly BunnyStorageService $storage,
-        private readonly LocalUserResolver $currentUser,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -45,17 +41,14 @@ class UploadBusinessImageController
             return new JsonResponse(['error' => 'unknown_slot'], Response::HTTP_NOT_FOUND);
         }
 
-        $userId = $this->currentUser->currentId();
-        if ($userId === null) {
+        if (!$this->managed->hasSession()) {
             return new JsonResponse(['error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $business = $this->businesses->findById($id) ?? $this->businesses->findBySlug($id);
-        if (
-            $business === null
-            || $this->managers->findByUserAndBusiness($userId, $business->getId()) === null
-        ) {
-            // 404 también para el ajeno: un 403 confirmaría que ese id existe.
+        // `null` es tanto «no existe» como «es de otro»: un 403 confirmaría que
+        // ese id está dado de alta.
+        $business = $this->managed->find($id);
+        if ($business === null) {
             return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
         }
 

@@ -162,6 +162,33 @@ class Product
     }
 
     /**
+     * Las URLs de las imágenes, en su orden.
+     *
+     * El array guardado lleva `{url, order}` porque el orden vive en el dato y
+     * no en la posición —así un borrado intermedio no reordena el resto—, pero
+     * fuera sólo interesa la lista ya ordenada. La primera es la portada.
+     *
+     * @return string[]
+     */
+    public function imageUrls(): array
+    {
+        $images = $this->images ?? [];
+        usort($images, static fn ($a, $b) => ($a['order'] ?? 0) <=> ($b['order'] ?? 0));
+
+        return array_values(array_filter(array_map(
+            static fn ($i) => $i['url'] ?? null,
+            $images,
+        )));
+    }
+
+    /** Mueve el producto a otra subcategoría del negocio, o lo saca de todas. */
+    public function moveToSubcategory(?string $subcategoryId): void
+    {
+        $this->subcategoryId = $subcategoryId;
+        $this->updatedAt     = new \DateTimeImmutable();
+    }
+
+    /**
      * Añade una imagen al final.
      *
      * El orden vive en el propio dato (`order`) y no en la posición del array

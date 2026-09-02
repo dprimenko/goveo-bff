@@ -121,6 +121,15 @@ final class DoctrineProductRepository implements ProductRepository
         return $qb->getQuery()->getResult();
     }
 
+    public function clearSubcategory(string $subcategoryId): int
+    {
+        return (int) $this->em->createQuery(
+            'UPDATE ' . Product::class . ' p
+                SET p.subcategoryId = NULL
+              WHERE p.subcategoryId = :subcategory'
+        )->setParameter('subcategory', $subcategoryId)->execute();
+    }
+
     public function save(Product $product): void
     {
         $this->em->persist($product);
