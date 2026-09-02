@@ -34,16 +34,25 @@ esac
 # redespliegue, así que no se pueden fijar aquí. Se busca por imagen y se filtra
 # por entorno; si sale más de uno se paran y se enseñan, porque volcar la base
 # equivocada sin enterarse es peor que no volcar nada.
-echo "Buscando la base de $ENV_NAME en $SERVER…"
+# Las llaves no son adorno: el bash 3.2 de macOS no separa bien una
+# variable de un carácter multibyte pegado detrás y se lo come como parte
+# del nombre («SERVER…: unbound variable»).
+echo "Buscando la base de ${ENV_NAME} en ${SERVER}…"
 CONTAINER="${GOVEO_DB_CONTAINER:-}"
 
 if [ -z "$CONTAINER" ]; then
-    MATCHES=$(ssh "$SERVER" \
-        "docker ps --filter 'ancestor=postgis/postgis:16-3.4-alpine' --format '{{.Names}}' | grep -i '$ENV_NAME' || true")
+    # Sin el `if`, `set -e` cortaría aquí dejando sólo el error de ssh en
+    # pantalla, sin decir qué se estaba intentando.
+    if ! MATCHES=$(ssh "$SERVER" \
+        "docker ps --filter 'ancestor=postgis/postgis:16-3.4-alpine' --format '{{.Names}}' | grep -i '${ENV_NAME}' || true"); then
+        echo "No se ha podido conectar a ${SERVER}." >&2
+        echo "Si entras con otra clave o usuario:  GOVEO_SSH=usuario@servidor make backup" >&2
+        exit 1
+    fi
 
     COUNT=$(printf '%s\n' "$MATCHES" | grep -c . || true)
     if [ "$COUNT" -eq 0 ]; then
-        echo "No se encontró ningún contenedor de base para «$ENV_NAME»." >&2
+        echo "No se encontró ningún contenedor de base para «${ENV_NAME}»." >&2
         echo "Míralos con:  ssh $SERVER docker ps --format '{{.Names}}\t{{.Image}}'" >&2
         echo "y fíjalo con: GOVEO_DB_CONTAINER=<nombre> $0 $ENV_NAME" >&2
         exit 1
