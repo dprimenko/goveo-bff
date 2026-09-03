@@ -584,9 +584,18 @@ el GUID → se fijan al crear; el estado lo lleva `geostories.status` (`processi
   con filtro de owner (perfil); los feeds de descubrimiento exigen `status='ready'`.
 - **`BunnyVideoService`** (`src/GeoStories/Infrastructure/Service/`): `uploadVideo(file,title)` →
   `POST /library/{id}/videos` (crea GUID) + `PUT` binario, header `AccessKey`.
-- **`POST /api/geostories`** (auth JWT, multipart: `video,title,description,categoryId,businessId?,lat?,lng?`):
+- **`POST /api/geostories`** (auth JWT, multipart: `video,title,description,categoryId,businessId?,lat?,lng?,started_at?,ended_at?`):
   resuelve influencer (`InfluencerRepository::findByUserId`) o negocio (`BusinessManagerRepository::findByUserId`);
   negocio → localización de la propia tienda; influencer → lat/lng del request. Crea en `processing` + `publish()`.
+- **Vigencia** (`StorySchedule`, `src/GeoStories/Infrastructure/Service/`): dos categorías caducan.
+  **Eventos** piden `started_at` (422 `event_start_required`) y aceptan `ended_at` opcional; sin él,
+  tres horas desde el inicio (`GeoStory::EVENT_DEFAULT_DURATION`). **Noticias** (`news`) empiezan al
+  publicarse y caducan a la semana (`NEWS_LIFESPAN`), sin preguntar nada — y reeditarlas **no** las
+  renueva, que sería la forma de que no caducaran nunca. El resto se queda sin fechas. El fin por
+  defecto **se escribe al guardar**, no se deriva al leer: así la fecha que decide si algo sigue vivo
+  se puede mirar en la base en vez de repetir la cuenta en el feed, el detalle y la app. Las fechas
+  se validan **antes** de subir a Bunny: al revés, una fecha mal dejaría el vídeo colgado allí sin
+  fila que lo apunte.
 - **`POST /api/v1/webhooks/bunny/video-status`** (público, `?secret=BUNNY_WEBHOOK_SECRET`): payload
   `{VideoGuid,Status,EventType}` → busca por `provider_video_id`, mapea (`Status 4`/`video.encoded`→ready,
   `5`/`video.failed`→failed) y persiste. **Configurar esta URL en el panel de Bunny.**

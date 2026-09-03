@@ -111,6 +111,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 geo.meta,
                 (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
+                geo.ended_at,
                 geo.created_at,
                 geo.verified_at,
                 geo.deleted_at,
@@ -126,7 +127,8 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 buss.avatar AS business_avatar,
                 buss.meta  AS business_meta,
                 cat.id     AS category_id,
-                cat.name   AS category_name
+                cat.name   AS category_name,
+                cat.slug   AS category_slug
             FROM geostories geo
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business     buss ON geo.business_id   = buss.id
@@ -168,6 +170,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 geo.meta,
                 (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
+                geo.ended_at,
                 geo.created_at,
                 geo.verified_at,
                 geo.deleted_at,
@@ -183,7 +186,8 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 buss.avatar AS business_avatar,
                 buss.meta  AS business_meta,
                 cat.id     AS category_id,
-                cat.name   AS category_name
+                cat.name   AS category_name,
+                cat.slug   AS category_slug
             FROM geostories geo
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business     buss ON geo.business_id   = buss.id
@@ -311,6 +315,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 geo.meta,
                 (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
                 geo.started_at,
+                geo.ended_at,
                 geo.created_at,
                 geo.verified_at,
                 geo.deleted_at,
@@ -327,6 +332,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 buss.meta    AS business_meta,
                 cat.id       AS category_id,
                 cat.name     AS category_name,
+                cat.slug     AS category_slug,
                 COUNT(*) OVER() AS total_count
             FROM geostories geo
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id

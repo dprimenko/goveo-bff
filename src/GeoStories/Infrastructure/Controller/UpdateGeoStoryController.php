@@ -6,6 +6,7 @@ namespace App\GeoStories\Infrastructure\Controller;
 
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
+use App\GeoStories\Infrastructure\Service\StorySchedule;
 use App\GeoStories\Infrastructure\Service\GeoStoryOwnership;
 use App\Security\GoveoUser;
 use Symfony\Bundle\SecurityBundle\Security;
@@ -34,6 +35,7 @@ class UpdateGeoStoryController
         private readonly GeoStoryRepository $geoStories,
         private readonly BunnyVideoService $bunny,
         private readonly GeoStoryOwnership $ownership,
+        private readonly StorySchedule $schedule,
     ) {}
 
     public function __invoke(string $id, Request $request): Response
@@ -73,6 +75,25 @@ class UpdateGeoStoryController
             }
         }
 
+        // ── Vigencia (eventos y noticias) ───────────────────────────────────
+        //
+        // Se recalcula aunque no lleguen fechas: la categoría puede haber
+        // cambiado, y pasar un vídeo cualquiera a Eventos sin darle fecha —o al
+        // revés, sacarlo de Eventos y dejarle la caducidad puesta— es la forma
+        // de que acabe con una vigencia que no le corresponde.
+        //
+        // Antes de la subida por lo mismo que en el alta: un vídeo nuevo en
+        // Bunny y un guardado que falla dejan el fichero colgado allí.
+        $scheduleError = $this->schedule->apply(
+            $story,
+            $story->getCategoryId(),
+            $request->request->has('started_at') ? (string) $request->request->get('started_at') : null,
+            $request->request->has('ended_at')   ? (string) $request->request->get('ended_at')   : null,
+        );
+        if ($scheduleError !== null) {
+            return new JsonResponse(['error' => $scheduleError], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         // ── Optional video overwrite ────────────────────────────────────────
         /** @var UploadedFile|null $video */
         $video = $request->files->get('video');
@@ -108,6 +129,8 @@ class UpdateGeoStoryController
             'influencer_id' => $story->getInfluencerId(),
             'business_id'   => $story->getBusinessId(),
             'category_id'   => $story->getCategoryId(),
+            'started_at'    => $story->getStartedAt()?->format(\DateTimeInterface::ATOM),
+            'ended_at'      => $story->getEndedAt()?->format(\DateTimeInterface::ATOM),
         ]);
     }
 }

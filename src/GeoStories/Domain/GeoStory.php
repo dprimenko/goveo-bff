@@ -264,6 +264,61 @@ class GeoStory
 
     public function isReady(): bool { return $this->status === self::STATUS_READY; }
 
+    /**
+     * Cuánto dura un evento al que no se le pone hora de fin.
+     *
+     * Se pide la de inicio y se deja opcional la de fin porque quien publica
+     * sabe cuándo empieza su concierto y muchas veces no cuándo acaba. Pero el
+     * feed necesita las dos —un evento tiene que desaparecer cuando termina— y
+     * sin un fin se quedaría a la vista para siempre.
+     */
+    public const EVENT_DEFAULT_DURATION = 'PT3H';
+
+    /** Lo que vive una noticia antes de caer del feed por su propia edad. */
+    public const NEWS_LIFESPAN = 'P7D';
+
+    /**
+     * Un evento: cuándo empieza y hasta cuándo se enseña.
+     *
+     * Sin fin, tres horas desde el inicio (`EVENT_DEFAULT_DURATION`). Se calcula
+     * al guardar y no al leer para que la fecha que decide si el evento sigue
+     * vivo esté escrita y se pueda mirar en la base — derivarla en cada consulta
+     * obligaría a repetir la misma cuenta en el feed, el detalle y la app.
+     */
+    public function scheduleEvent(\DateTimeImmutable $start, ?\DateTimeImmutable $end = null): self
+    {
+        $this->startedAt = $start;
+        $this->endedAt   = $end ?? $start->add(new \DateInterval(self::EVENT_DEFAULT_DURATION));
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    /**
+     * Una noticia: vale desde ahora y caduca en una semana.
+     *
+     * No se pregunta nada porque no hay nada que preguntar: una noticia es de
+     * hoy por definición. Y caduca sola para que el feed no se llene de cosas
+     * de hace meses, que es lo que pasaba cuando la vigencia se sacaba de
+     * `created_at` a ojo en la consulta.
+     */
+    public function scheduleNews(?\DateTimeImmutable $now = null): self
+    {
+        $start           = $now ?? new \DateTimeImmutable();
+        $this->startedAt = $start;
+        $this->endedAt   = $start->add(new \DateInterval(self::NEWS_LIFESPAN));
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    /** Quita las fechas: lo que no es evento ni noticia no tiene vigencia. */
+    public function clearSchedule(): self
+    {
+        $this->startedAt = null;
+        $this->endedAt   = null;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
     public function publish(): self
     {
         $this->publishedAt = new \DateTimeImmutable();

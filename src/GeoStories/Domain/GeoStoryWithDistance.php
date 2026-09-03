@@ -24,6 +24,7 @@ final class GeoStoryWithDistance
         public readonly float $long,
         public readonly float $distMeters,
         public readonly ?\DateTimeImmutable $startedAt,
+        public readonly ?\DateTimeImmutable $endedAt,
         public readonly ?\DateTimeImmutable $createdAt,
         public readonly ?\DateTimeImmutable $verifiedAt,
         public readonly ?\DateTimeImmutable $deletedAt,
@@ -37,6 +38,8 @@ final class GeoStoryWithDistance
         public readonly mixed $businessMeta,
         public readonly ?string $categoryId,
         public readonly ?string $categoryName,
+        /** El slug decide quién caduca y quién pide fechas: ver StorySchedule. */
+        public readonly ?string $categorySlug = null,
     ) {}
 
     public static function fromRow(array $row): self
@@ -55,6 +58,7 @@ final class GeoStoryWithDistance
             long: (float) $row['long'],
             distMeters: (float) $row['dist_meters'],
             startedAt: isset($row['started_at']) ? new \DateTimeImmutable($row['started_at']) : null,
+            endedAt: isset($row['ended_at']) ? new \DateTimeImmutable($row['ended_at']) : null,
             createdAt: isset($row['created_at']) ? new \DateTimeImmutable($row['created_at']) : null,
             verifiedAt: isset($row['verified_at']) ? new \DateTimeImmutable($row['verified_at']) : null,
             deletedAt: isset($row['deleted_at']) ? new \DateTimeImmutable($row['deleted_at']) : null,
@@ -68,6 +72,7 @@ final class GeoStoryWithDistance
             businessMeta: isset($row['business_meta']) ? json_decode($row['business_meta'], true) : null,
             categoryId: $row['category_id'] ?? null,
             categoryName: $row['category_name'] ?? null,
+            categorySlug: $row['category_slug'] ?? null,
         );
     }
 }

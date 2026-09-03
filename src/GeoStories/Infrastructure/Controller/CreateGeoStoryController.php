@@ -9,6 +9,7 @@ use App\Business\Domain\BusinessRepository;
 use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
+use App\GeoStories\Infrastructure\Service\StorySchedule;
 use App\Influencers\Domain\InfluencerRepository;
 use App\Security\GoveoUser;
 use App\Users\Domain\UserRepository;
@@ -40,6 +41,7 @@ class CreateGeoStoryController
         private readonly BusinessManagerRepository $businessManagers,
         private readonly BusinessRepository $businesses,
         private readonly UserRepository $users,
+        private readonly StorySchedule $schedule,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -109,6 +111,18 @@ class CreateGeoStoryController
             }
         }
 
+        // ── Vigencia (eventos y noticias) ───────────────────────────────────
+        //
+        // Se valida **antes** de subir a Bunny: con la fecha mal, subir primero
+        // sería dejar el vídeo colgado allí sin fila que lo apunte, y nadie lo
+        // borraría después.
+        $rawStart = $request->request->get('started_at') ?: null;
+        $rawEnd   = $request->request->get('ended_at') ?: null;
+        $scheduleError = $this->schedule->validateNew($categoryId, $rawStart, $rawEnd);
+        if ($scheduleError !== null) {
+            return new JsonResponse(['error' => $scheduleError], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         // ── Upload to Bunny + persist ───────────────────────────────────────
         try {
             $uploaded = $this->bunny->uploadVideo($video, $title ?? 'GeoStory');
@@ -131,6 +145,8 @@ class CreateGeoStoryController
             status: GeoStory::STATUS_PROCESSING,
             providerVideoId: $uploaded['videoId'],
         );
+        $this->schedule->apply($geoStory, $categoryId, $rawStart, $rawEnd);
+
         // Published so it shows in the owner's profile immediately (as processing);
         // discovery feeds still hide it until status = ready (see findFeed).
         $geoStory->publish();
@@ -146,6 +162,8 @@ class CreateGeoStoryController
             'influencer_id' => $geoStory->getInfluencerId(),
             'business_id'   => $geoStory->getBusinessId(),
             'category_id'   => $geoStory->getCategoryId(),
+            'started_at'    => $geoStory->getStartedAt()?->format(\DateTimeInterface::ATOM),
+            'ended_at'      => $geoStory->getEndedAt()?->format(\DateTimeInterface::ATOM),
         ], Response::HTTP_CREATED);
     }
 }

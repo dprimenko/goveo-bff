@@ -48,6 +48,7 @@ class GetGeoStoryController
             'long'              => $s->long,
             'dist_meters'       => $s->distMeters,
             'started_at'        => $s->startedAt?->format(\DateTimeInterface::ATOM),
+            'ended_at'          => $s->endedAt?->format(\DateTimeInterface::ATOM),
             'created_at'        => $s->createdAt?->format(\DateTimeInterface::ATOM),
             'published_at'      => $s->publishedAt?->format(\DateTimeInterface::ATOM),
             'influencer_id'     => $s->influencerId,
@@ -59,6 +60,7 @@ class GetGeoStoryController
             'business_meta'     => $s->businessMeta,
             'category_id'       => $s->categoryId,
             'category_name'     => $s->categoryName,
+            'category_slug'     => $s->categorySlug,
         ];
     }
 }
