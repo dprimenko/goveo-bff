@@ -1,3 +1,14 @@
+parameters:
+    # Valor por defecto de las variables de entorno **opcionales**. Sin esto,
+    # un entorno que no las declare no arranca: `%env(...)%` sin valor revienta
+    # al construir el servicio que lo pide, y la API responde 500 en todo lo que
+    # dependa de él — pasó al desplegar la caducidad de geostories, que dejó los
+    # feeds de vídeo caídos hasta que se añadió la variable.
+    #
+    # Apagada por defecto: encenderla es una decisión, y un despliegue nuevo no
+    # debería empezar a esconder contenido por su cuenta.
+    env(GEOSTORY_EXPIRY_ENABLED): '0'
+
 services:
     _defaults:
         autowire: true
