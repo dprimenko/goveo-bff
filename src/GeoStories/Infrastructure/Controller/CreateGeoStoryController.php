@@ -63,6 +63,13 @@ class CreateGeoStoryController
         if (!in_array($video->getMimeType(), self::VIDEO_MIME, true)) {
             return new JsonResponse(['error' => 'Unsupported video type'], Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
         }
+        // Un fichero vacío llegaba hasta Bunny: se creaba el objeto, se subían
+        // cero bytes y el vídeo se quedaba «procesando» para siempre, con una
+        // fila en la base apuntando a algo que no existe y basura en la
+        // librería que nadie limpia. Aquí se corta antes de tocar nada.
+        if ($video->getSize() === 0) {
+            return new JsonResponse(['error' => 'empty_video'], Response::HTTP_BAD_REQUEST);
+        }
 
         $title       = trim((string) $request->request->get('title', '')) ?: null;
         $description  = trim((string) $request->request->get('description', '')) ?: null;

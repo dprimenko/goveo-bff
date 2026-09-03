@@ -56,6 +56,8 @@ final class BunnyVideoService
             throw new \RuntimeException('Bunny: could not open uploaded file for reading.');
         }
 
+        $size = $file->getSize();
+
         try {
             $put = $this->http->request('PUT', sprintf('%s/library/%s/videos/%s', self::API_URL, $this->bunnyLibraryId, $videoId), [
                 'headers' => [
@@ -69,13 +71,20 @@ final class BunnyVideoService
             if ($status < 200 || $status >= 300) {
                 throw new \RuntimeException(sprintf('Bunny: binary upload failed (%d).', $status));
             }
+        } catch (\Throwable $e) {
+            // Sin binario, el objeto creado no sirve para nada: se queda en la
+            // librería en «procesando» y no hay quien lo distinga de una subida
+            // en curso. Se borra aquí y el error sube tal cual.
+            $this->deleteVideo($videoId);
+
+            throw $e;
         } finally {
             if (is_resource($stream)) {
                 fclose($stream);
             }
         }
 
-        $this->logger->info('Bunny video uploaded', ['videoId' => $videoId]);
+        $this->logger->info('Bunny video uploaded', ['videoId' => $videoId, 'bytes' => $size]);
 
         return [
             'videoId'   => $videoId,
