@@ -13,6 +13,16 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
 {
     public function __construct(
         private readonly EntityManagerInterface $em,
+        /**
+         * Si los eventos y las noticias caducan de verdad.
+         *
+         * Es un interruptor y no una constante para poder apagarlo **sin
+         * publicar una versión de la app**: la regla vive aquí, así que se
+         * cambia en el entorno y se reinicia. Apagado, todo se ve pase el
+         * tiempo que pase; las fechas se siguen guardando igual, así que
+         * volver a encenderlo no pierde nada.
+         */
+        private readonly bool $expiryEnabled = true,
     ) {}
 
     public function findById(string $id): ?GeoStory
@@ -302,15 +312,17 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             ? 'TRUE'
             : "NOW() >= geo.started_at - INTERVAL '1 month'";
 
-        $conditions[] = "(CASE cat.slug
-            WHEN 'events' THEN {$eventLeadIn} AND NOW() <= geo.ended_at
-            WHEN 'news' THEN NOW() BETWEEN COALESCE(geo.started_at, geo.created_at)
-                AND COALESCE(
-                    geo.ended_at,
-                    COALESCE(geo.started_at, geo.created_at) + INTERVAL '7 days'
-                )
-            ELSE TRUE
-        END)";
+        if ($this->expiryEnabled) {
+            $conditions[] = "(CASE cat.slug
+                WHEN 'events' THEN {$eventLeadIn} AND NOW() <= geo.ended_at
+                WHEN 'news' THEN NOW() BETWEEN COALESCE(geo.started_at, geo.created_at)
+                    AND COALESCE(
+                        geo.ended_at,
+                        COALESCE(geo.started_at, geo.created_at) + INTERVAL '7 days'
+                    )
+                ELSE TRUE
+            END)";
+        }
 
         if ($feedType === 'events' && $categoryId === null) {
             $conditions[] = "cat.slug = 'events'";

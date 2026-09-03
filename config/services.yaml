@@ -46,6 +46,12 @@ services:
         arguments:
             $databaseUrl: '%env(SUPABASE_DATABASE_URL)%'
 
+    # Caducidad de eventos y noticias. Interruptor de entorno para poder
+    # apagarla sin publicar app: la regla vive en el BFF (ver findFeed).
+    App\GeoStories\Infrastructure\Repository\DoctrineGeoStoryRepository:
+        arguments:
+            $expiryEnabled: '%env(bool:GEOSTORY_EXPIRY_ENABLED)%'
+
     # Bunny Stream — video upload/transcoding
     App\GeoStories\Infrastructure\Service\BunnyVideoService:
         arguments:

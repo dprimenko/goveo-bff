@@ -596,6 +596,11 @@ el GUID → se fijan al crear; el estado lo lleva `geostories.status` (`processi
   se puede mirar en la base en vez de repetir la cuenta en el feed, el detalle y la app. Las fechas
   se validan **antes** de subir a Bunny: al revés, una fecha mal dejaría el vídeo colgado allí sin
   fila que lo apunte.
+- ⚠️ **La caducidad está apagada** (`GEOSTORY_EXPIRY_ENABLED=0`): hoy no desaparece nada por
+  fecha. Es un interruptor de entorno y no una constante para poder encenderla y apagarla **sin
+  publicar app** — la regla vive aquí. Las fechas se guardan igual esté como esté. No afecta a lo
+  borrado, lo no publicado ni lo pendiente de validar, que siguen fuera pase lo que pase. Lo de
+  abajo es lo que rige **con el interruptor encendido**.
 - **Quién sigue vivo** (`findFeed`): se aplica **siempre**, no sólo en su feed — un evento terminado
   tampoco sigue en el perfil de quien lo subió. Lo único que cambia entre sitios es la antelación:
 
