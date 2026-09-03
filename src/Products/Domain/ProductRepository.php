@@ -18,12 +18,20 @@ interface ProductRepository
      *
      * @return array{items: Product[], total: int}
      */
+    /**
+     * @param bool $withImageOnly deja fuera los productos sin foto. La ficha
+     *                            pública es un escaparate y una tarjeta con el
+     *                            hueco gris se lee como algo roto; a quien
+     *                            gestiona la tienda sí se le enseñan, que para
+     *                            eso tiene que poder ponerles la foto.
+     */
     public function findByBusinessPaginated(
         string $businessId,
         ?string $subcategoryId,
         int $page,
         int $size,
         bool $publishedOnly = true,
+        bool $withImageOnly = false,
     ): array;
 
     /** @return Product[] */

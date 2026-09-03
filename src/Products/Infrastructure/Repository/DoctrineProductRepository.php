@@ -51,8 +51,9 @@ final class DoctrineProductRepository implements ProductRepository
         int $page,
         int $size,
         bool $publishedOnly = true,
+        bool $withImageOnly = false,
     ): array {
-        $base = function () use ($businessId, $subcategoryId, $publishedOnly) {
+        $base = function () use ($businessId, $subcategoryId, $publishedOnly, $withImageOnly) {
             $qb = $this->em->createQueryBuilder()
                 ->from(Product::class, 'p')
                 ->where('p.businessId = :businessId')
@@ -68,6 +69,14 @@ final class DoctrineProductRepository implements ProductRepository
                 $qb->andWhere('p.publishedAt IS NOT NULL');
             }
 
+            // `IS NOT NULL` basta: al quitar la última foto, el producto vuelve
+            // a `null` en vez de quedarse con un array vacío (ver
+            // `Product::removeImage`), así que no hay dos formas de estar sin
+            // imagen.
+            if ($withImageOnly) {
+                $qb->andWhere('p.images IS NOT NULL');
+            }
+
             return $qb;
         };
 
@@ -79,6 +88,11 @@ final class DoctrineProductRepository implements ProductRepository
         $items = $base()
             ->select('p')
             ->orderBy('p.createdAt', 'DESC')
+            // Desempate por id: los importados comparten `created_at` al
+            // segundo, y sin un segundo criterio Postgres puede devolverlos en
+            // otro orden en cada consulta. Paginando, eso significa que un
+            // producto salga en dos páginas y otro en ninguna.
+            ->addOrderBy('p.id', 'DESC')
             ->setFirstResult(max(0, $page) * $size)
             ->setMaxResults($size)
             ->getQuery()

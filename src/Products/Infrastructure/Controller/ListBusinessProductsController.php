@@ -7,6 +7,7 @@ namespace App\Products\Infrastructure\Controller;
 use App\Business\Domain\BusinessRepository;
 use App\Products\Domain\Product;
 use App\Products\Domain\ProductRepository;
+use App\Shared\Application\ProfileOwnership;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,6 +19,7 @@ class ListBusinessProductsController
     public function __construct(
         private readonly BusinessRepository $businesses,
         private readonly ProductRepository $products,
+        private readonly ProfileOwnership $ownership,
     ) {}
 
     #[Route('/{id}/products', name: 'list', methods: ['GET'])]
@@ -39,11 +41,19 @@ class ListBusinessProductsController
         $page = max(0, $request->query->getInt('page', 0));
         $size = min(50, max(1, $request->query->getInt('size', 20)));
 
+        // Un producto sin foto no sale en la ficha pública: es un escaparate, y
+        // una tarjeta con el hueco gris se lee como que algo va mal. A quien
+        // gestiona la tienda sí se le enseña —tiene que poder encontrarlo para
+        // ponerle la foto—, y para eso hay que identificarse: la ruta es
+        // pública, pero si llega un token se lee.
+        $manages = $this->ownership->ownsBusiness($business->getId());
+
         $result = $this->products->findByBusinessPaginated(
             $business->getId(),
             $subcategory,
             $page,
             $size,
+            withImageOnly: !$manages,
         );
 
         return new JsonResponse([
