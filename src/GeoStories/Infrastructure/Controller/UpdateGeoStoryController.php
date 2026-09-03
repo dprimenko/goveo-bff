@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\GeoStories\Infrastructure\Controller;
 
+use App\Business\Domain\BusinessRepository;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use App\GeoStories\Infrastructure\Service\StorySchedule;
@@ -36,6 +37,7 @@ class UpdateGeoStoryController
         private readonly BunnyVideoService $bunny,
         private readonly GeoStoryOwnership $ownership,
         private readonly StorySchedule $schedule,
+        private readonly BusinessRepository $businesses,
     ) {}
 
     public function __invoke(string $id, Request $request): Response
@@ -62,12 +64,26 @@ class UpdateGeoStoryController
         if ($request->request->has('description')) {
             $story->setDescription(trim((string) $request->request->get('description')) ?: null);
         }
-        // Category + location are the store's for a business post — not editable.
-        if (!$isBusiness) {
-            $categoryId = $request->request->get('categoryId') ?: null;
-            if ($categoryId !== null) {
+        // La localización de un vídeo de tienda es la de la tienda y no se
+        // toca. La categoría sí: es lo que distingue lo que se queda fijo en su
+        // perfil de un evento o una noticia, que caducan.
+        if ($request->request->has('categoryId')) {
+            $categoryId = trim((string) $request->request->get('categoryId'));
+
+            if ($categoryId !== '') {
                 $story->setCategoryId($categoryId);
+            } elseif ($isBusiness) {
+                // Vacío en una tienda es «lo mío de siempre»: vuelve a la
+                // categoría del negocio. En un influencer no significa nada,
+                // así que se ignora en vez de dejarlo sin categoría.
+                $business = $this->businesses->findById((string) $story->getBusinessId());
+                if ($business !== null) {
+                    $story->setCategoryId($business->getCategoryId());
+                }
             }
+        }
+
+        if (!$isBusiness) {
             $lat = $request->request->get('lat');
             $lng = $request->request->get('lng');
             if ($lat !== null && $lng !== null && $lat !== '' && $lng !== '') {
@@ -84,6 +100,8 @@ class UpdateGeoStoryController
         //
         // Antes de la subida por lo mismo que en el alta: un vídeo nuevo en
         // Bunny y un guardado que falla dejan el fichero colgado allí.
+        // Después de resolver la categoría: es ella la que decide si este vídeo
+        // caduca y con qué regla.
         $scheduleError = $this->schedule->apply(
             $story,
             $story->getCategoryId(),
