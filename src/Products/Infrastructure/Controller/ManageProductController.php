@@ -33,6 +33,9 @@ class ManageProductController
 {
     private const MAX_TITLE = 255;
 
+    /** Lo que aguanta un navegador de sobra; el resto es un pegado por error. */
+    private const MAX_LINK = 2048;
+
     public function __construct(
         private readonly ProductRepository $products,
         private readonly ProductSubcategoryRepository $subcategories,
@@ -77,6 +80,12 @@ class ManageProductController
         if ($price !== null) {
             $product->updatePrice($price['amount'], $price['currency']);
         }
+
+        $link = $this->readLink($data);
+        if ($link instanceof Response) {
+            return $link;
+        }
+        $product->linkTo($link['url'], $link['action']);
 
         // Publicado al crearlo: no hay concepto de borrador en la app, y un
         // producto invisible tras darlo de alta se lee como que no se guardó.
@@ -134,6 +143,16 @@ class ManageProductController
             if ($price !== null) {
                 $product->updatePrice($price['amount'], $price['currency']);
             }
+        }
+
+        // `link_action` sin `link_url` no se toca solo: la acción vive colgada
+        // de la URL y cambiarla sin ella dejaría un botón sin destino.
+        if (array_key_exists('link_url', $data)) {
+            $link = $this->readLink($data);
+            if ($link instanceof Response) {
+                return $link;
+            }
+            $product->linkTo($link['url'], $link['action']);
         }
 
         $this->products->save($product);
@@ -246,6 +265,38 @@ class ManageProductController
     }
 
     /**
+     * El enlace directo de la ficha: a dónde lleva y qué se hace allí.
+     *
+     * Sólo `http`/`https`: es lo que abre el navegador del móvil. Sin filtro,
+     * un `javascript:` o un `intent://` guardado aquí acabaría en el botón que
+     * la app abre a ciegas.
+     *
+     * @return array{url: ?string, action: ?string}|Response `url` a `null`
+     *         quita el enlace, que es la forma de dar marcha atrás.
+     */
+    private function readLink(array $data): array|Response
+    {
+        $url = trim((string) ($data['link_url'] ?? ''));
+        if ($url === '') {
+            return ['url' => null, 'action' => null];
+        }
+
+        if (mb_strlen($url) > self::MAX_LINK
+            || !filter_var($url, FILTER_VALIDATE_URL)
+            || !in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)
+        ) {
+            return $this->invalid('invalid_link');
+        }
+
+        $action = (string) ($data['link_action'] ?? '');
+
+        return [
+            'url'    => $url,
+            'action' => in_array($action, Product::LINK_ACTIONS, true) ? $action : 'buy',
+        ];
+    }
+
+    /**
      * @return array{amount: int, currency: string}|Response|null `null` = sin
      *         precio (consultar), que es un caso válido.
      */
@@ -302,6 +353,8 @@ class ManageProductController
             'price_amount'       => $product->getPriceAmount(),
             'price_currency'     => $product->getPriceCurrency(),
             'formatted_price'    => $product->getFormattedPrice(),
+            'link_url'           => $product->getLinkUrl(),
+            'link_action'        => $product->getLinkAction(),
         ];
     }
 }

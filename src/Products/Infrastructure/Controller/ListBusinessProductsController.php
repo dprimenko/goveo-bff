@@ -63,6 +63,11 @@ class ListBusinessProductsController
                     'price_amount'    => $p->getPriceAmount(),
                     'price_currency'  => $p->getPriceCurrency(),
                     'formatted_price' => $p->getFormattedPrice(),
+                    // Enlace directo a comprar/reservar fuera: vive en `meta`
+                    // porque no es de nuestro dominio, pero sale plano como el
+                    // resto para que el cliente no tenga que bucear.
+                    'link_url'        => $p->getLinkUrl(),
+                    'link_action'     => $p->getLinkAction(),
                 ],
                 $result['items'],
             ),

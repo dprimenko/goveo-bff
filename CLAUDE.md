@@ -38,6 +38,13 @@ Autowiring interface→impl (una sola impl por repo). Rutas registradas vía `pr
 - `products` (`App\Products\Domain\Product`): `business_id`, `category_id?`, `subcategory_id?`,
   `title`, `slug`, `description`, `images` (JSON `[{url,order}]`), `price_amount` (**céntimos**),
   `price_currency` (ISO-4217), soft-delete (`deleted_at`), `published_at`. `uq(business_id, slug)`.
+  `meta` (JSON) guarda lo que acompaña al producto sin ser del dominio; hoy, el **enlace
+  directo**: `link_url` (http/https) + `link_action` (`buy|book|info`). Sale plano en la API
+  (`link_url`, `link_action`) tanto en el listado público como en la gestión. No tiene
+  columnas propias porque no es nuestro —no cobramos ni reservamos— y lo de esa clase llega
+  de uno en uno: con columnas, cada añadido sería otra migración. Se guarda la **intención**,
+  no el texto del botón: el rótulo lo pone la app en el idioma de quien mira. Quitar
+  `link_url` (mandarlo vacío) borra también la acción.
 - `product_subcategories` (`App\Products\Domain\ProductSubcategory`): subcategorías que **crea cada
   tienda** (`business_id`, `name`, `sort_order`). Distintas de `default_subcategories` (plantillas
   del sistema por categoría). `product.subcategory_id` → `product_subcategories.id`.

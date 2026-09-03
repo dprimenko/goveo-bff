@@ -64,6 +64,17 @@ class Product
     #[ORM\Column(name: 'price_currency', type: 'string', length: 3, nullable: true)]
     private ?string $priceCurrency;
 
+    /**
+     * Lo que acompaña al producto sin ser del dominio: hoy, el enlace directo
+     * (`link_url` + `link_action`) a comprar o reservar en la web del negocio.
+     *
+     * Va aquí y no en columnas propias porque no es nuestro —no cobramos, no
+     * reservamos y no sabemos qué hay al otro lado—, y porque lo de esta clase
+     * llega de uno en uno: con columnas, cada añadido sería una migración.
+     */
+    #[ORM\Column(type: 'json', nullable: true)]
+    private ?array $meta;
+
     #[ORM\Column(name: 'created_at', type: 'datetimetz_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private \DateTimeImmutable $createdAt;
 
@@ -88,6 +99,7 @@ class Product
         ?array $images = null,
         ?int $priceAmount = null,
         ?string $priceCurrency = null,
+        ?array $meta = null,
         ?\DateTimeImmutable $createdAt = null,
         ?\DateTimeImmutable $updatedAt = null,
     ) {
@@ -102,6 +114,7 @@ class Product
         $this->images            = $images;
         $this->priceAmount       = $priceAmount;
         $this->priceCurrency     = $priceCurrency;
+        $this->meta              = $meta;
         $this->createdAt         = $createdAt ?? new \DateTimeImmutable();
         $this->updatedAt         = $updatedAt ?? new \DateTimeImmutable();
         $this->deletedAt         = null;
@@ -119,6 +132,7 @@ class Product
     public function getImages(): ?array                   { return $this->images; }
     public function getPriceAmount(): ?int                { return $this->priceAmount; }
     public function getPriceCurrency(): ?string           { return $this->priceCurrency; }
+    public function getMeta(): ?array                     { return $this->meta; }
     public function getCreatedAt(): \DateTimeImmutable    { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable    { return $this->updatedAt; }
     public function getDeletedAt(): ?\DateTimeImmutable   { return $this->deletedAt; }
@@ -247,6 +261,59 @@ class Product
     public function softDelete(): void
     {
         $this->deletedAt = new \DateTimeImmutable();
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    /**
+     * Acciones que puede ofrecer el enlace directo.
+     *
+     * Una lista cerrada y no el texto libre del botón: lo que se guarda es la
+     * intención, y el texto lo pone la app en el idioma de quien mira. Con texto
+     * libre, un botón escrito en español se le quedaría así a un inglés.
+     */
+    public const LINK_ACTIONS = ['buy', 'book', 'info'];
+
+    /** URL externa a la que lleva el botón de la ficha, si la hay. */
+    public function getLinkUrl(): ?string
+    {
+        $url = $this->meta['link_url'] ?? null;
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    /** Qué se va a hacer allí: comprar, reservar o mirar. */
+    public function getLinkAction(): ?string
+    {
+        if ($this->getLinkUrl() === null) {
+            return null;
+        }
+
+        $action = $this->meta['link_action'] ?? null;
+
+        // Sin acción guardada el botón sigue teniendo que decir algo, y
+        // «comprar» es lo que se pidió el 99 % de las veces.
+        return in_array($action, self::LINK_ACTIONS, true) ? $action : 'buy';
+    }
+
+    /**
+     * Pone o quita el enlace directo.
+     *
+     * Quitar la URL se lleva por delante la acción: una acción sin destino no
+     * pinta nada y quedaría ahí esperando a confundir al siguiente que mire.
+     */
+    public function linkTo(?string $url, ?string $action): void
+    {
+        $meta = $this->meta ?? [];
+        unset($meta['link_url'], $meta['link_action']);
+
+        if ($url !== null && $url !== '') {
+            $meta['link_url']    = $url;
+            $meta['link_action'] = in_array($action, self::LINK_ACTIONS, true) ? $action : 'buy';
+        }
+
+        // `null` y no `[]`: la columna es nullable y un objeto vacío guardado
+        // obliga a distinguir dos formas de decir «no hay nada».
+        $this->meta      = $meta ?: null;
         $this->updatedAt = new \DateTimeImmutable();
     }
 
