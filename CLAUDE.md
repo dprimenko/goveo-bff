@@ -596,6 +596,18 @@ el GUID → se fijan al crear; el estado lo lleva `geostories.status` (`processi
   se puede mirar en la base en vez de repetir la cuenta en el feed, el detalle y la app. Las fechas
   se validan **antes** de subir a Bunny: al revés, una fecha mal dejaría el vídeo colgado allí sin
   fila que lo apunte.
+- **Quién sigue vivo** (`findFeed`): se aplica **siempre**, no sólo en su feed — un evento terminado
+  tampoco sigue en el perfil de quien lo subió. Lo único que cambia entre sitios es la antelación:
+
+  | | Feed | Perfil del dueño |
+  |---|---|---|
+  | Eventos | `started_at - 1 mes` → `ended_at` | hasta `ended_at` (sin antelación: su catálogo, no un descubrimiento) |
+  | Noticias | `started_at` → `ended_at` | igual |
+
+  Los eventos comparan contra columnas: los importados ya llevan sus dos fechas escritas
+  (`Version20260903170000`). Las noticias conservan el respaldo a `created_at` porque quedan 71
+  importadas sin fechas. **El detalle por id no caduca**: un enlace compartido de un evento pasado
+  sigue abriendo el vídeo.
 - **`POST /api/v1/webhooks/bunny/video-status`** (público, `?secret=BUNNY_WEBHOOK_SECRET`): payload
   `{VideoGuid,Status,EventType}` → busca por `provider_video_id`, mapea (`Status 4`/`video.encoded`→ready,
   `5`/`video.failed`→failed) y persiste. **Configurar esta URL en el panel de Bunny.**

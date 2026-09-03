@@ -278,13 +278,47 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             ? 'geo.created_at DESC'
             : 'geo.location <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography';
 
+        // ── Vigencia: quién sigue vivo ──────────────────────────────────────
+        //
+        // Eventos y noticias caducan (ver `StorySchedule`); el resto, no. Se
+        // aplica **siempre** y no sólo en su feed: un evento que ya ha
+        // terminado tampoco tiene que seguir en el perfil de quien lo subió.
+        //
+        // Lo único que cambia entre sitios es la antelación. En el feed un
+        // evento asoma un mes antes de empezar —antes sería anunciar algo que
+        // no le sirve todavía a nadie—, pero en el perfil de su dueño se ve
+        // desde que lo sube, aunque sea para dentro de medio año: ahí es su
+        // catálogo, no un descubrimiento.
+        //
+        // Los eventos comparan contra columnas y no contra cuentas al vuelo:
+        // los importados ya llevan sus dos fechas escritas (ver la migración
+        // Version20260903170000). Un evento sin fin no se ve, y es correcto —
+        // sin él no hay forma de saber cuándo deja de valer.
+        //
+        // Las noticias sí conservan el respaldo: quedan 71 importadas sin
+        // fechas, y ahí `created_at` es la única referencia de cuándo fueron
+        // noticia.
+        $eventLeadIn = $isOwnerScoped
+            ? 'TRUE'
+            : "NOW() >= geo.started_at - INTERVAL '1 month'";
+
+        $conditions[] = "(CASE cat.slug
+            WHEN 'events' THEN {$eventLeadIn} AND NOW() <= geo.ended_at
+            WHEN 'news' THEN NOW() BETWEEN COALESCE(geo.started_at, geo.created_at)
+                AND COALESCE(
+                    geo.ended_at,
+                    COALESCE(geo.started_at, geo.created_at) + INTERVAL '7 days'
+                )
+            ELSE TRUE
+        END)";
+
         if ($feedType === 'events' && $categoryId === null) {
             $conditions[] = "cat.slug = 'events'";
-            $conditions[] = 'geo.started_at >= NOW()';
+            // Lo que antes empieza, primero: en un feed de eventos la fecha
+            // manda sobre la cercanía.
             $orderBy = 'geo.started_at ASC';
         } elseif ($feedType === 'geostories' && $categoryId === null) {
             $conditions[] = "cat.slug = 'news'";
-            $conditions[] = "geo.created_at >= NOW() - INTERVAL '30 days'";
         } elseif ($feedType === 'tourism' && $categoryId === null) {
             $conditions[] = "cat.slug IN ('place', 'nature', 'culture')";
         } elseif ($feedType === 'local') {
