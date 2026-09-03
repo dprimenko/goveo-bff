@@ -13,6 +13,12 @@ nginx en `:8080`, Postgres/PostGIS en `goveo-db`, DB `goveo`/`goveo`).
   `radius` (metros, máx 500 km) acota con `ST_DWithin` sobre el índice GiST: lo usa el mapa de la
   app para pedir sólo la zona visible en vez de traer todo por cercanía. Cada item incluye
   `lat`/`lng` para los marcadores.
+  `category` admite **varias separadas por coma**, cada una como id **o slug**, y con `-` delante
+  **excluye** (`category=-hotels,-boats` = todo menos esas). La home lo usa para partir el listado
+  en «turismo» y «comercio local»: el segundo es *todo lo demás*, y enumerarlo serían cuarenta y
+  tantos slugs en la URL que además habría que mantener al día. Lo que no existe se descarta en
+  silencio —un slug renombrado dejaría la home vacía sin explicar por qué—, y al excluir entran
+  también los negocios **sin categoría** (`IS NULL`), que con `NOT IN` a secas desaparecerían.
 - `GET /public/businesses/{id}` — negocio por id (guid) **o** slug: `id,name,description,avatar,main_image,meta`.
 - `GET /public/businesses/{id}/subcategories` — subcategorías del negocio: `[{id,name,sort_order}]`.
 - `GET /public/businesses/{id}/products?subcategory=&page=&size=` — productos paginados

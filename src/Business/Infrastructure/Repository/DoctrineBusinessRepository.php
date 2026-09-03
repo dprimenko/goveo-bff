@@ -43,7 +43,8 @@ class DoctrineBusinessRepository implements BusinessRepository
         float $longitude,
         int $page,
         int $size,
-        ?string $categoryId = null,
+        ?array $categoryIds = null,
+        ?array $excludeCategoryIds = null,
         ?float $radiusMeters = null,
         ?string $query = null,
     ): array {
@@ -57,10 +58,28 @@ class DoctrineBusinessRepository implements BusinessRepository
         $countParams = [];
         $dataParams  = [$longitude, $latitude];
 
-        if ($categoryId !== null) {
-            $where .= ' AND b.category_id = ?';
-            $countParams[] = $categoryId;
-            $dataParams[]  = $categoryId;
+        if (!empty($categoryIds)) {
+            // `IN` con un `?` por id: los parámetros van posicionales en el
+            // resto de la consulta, y mezclar nombrados aquí obligaría a
+            // reescribirla entera.
+            $where .= ' AND b.category_id IN (' . implode(', ', array_fill(0, count($categoryIds), '?')) . ')';
+            foreach ($categoryIds as $id) {
+                $countParams[] = $id;
+                $dataParams[]  = $id;
+            }
+        }
+
+        if (!empty($excludeCategoryIds)) {
+            // `IS NULL` incluido: un negocio sin categoría no está en el grupo
+            // excluido, y `NOT IN` por sí solo lo dejaría fuera —en SQL,
+            // comparar con NULL no es ni verdadero ni falso—, así que
+            // desaparecería del listado sin que nadie lo hubiera pedido.
+            $where .= ' AND (b.category_id IS NULL OR b.category_id NOT IN ('
+                    . implode(', ', array_fill(0, count($excludeCategoryIds), '?')) . '))';
+            foreach ($excludeCategoryIds as $id) {
+                $countParams[] = $id;
+                $dataParams[]  = $id;
+            }
         }
 
         // Búsqueda por nombre: `unaccent` para que "jamoneria" encuentre

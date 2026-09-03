@@ -19,9 +19,14 @@ class DoctrineCategoryRepository implements CategoryRepository
         return $this->em->find(Category::class, $id);
     }
 
+    /**
+     * Buscaba por `name`, que es la clave de traducción («category.fashion») y
+     * no el slug («fashion»), así que no encontraba nada con lo que se le
+     * pasaba. No lo notó nadie porque hasta ahora no lo llamaba nadie.
+     */
     public function findBySlug(string $slug): ?Category
     {
-        return $this->em->getRepository(Category::class)->findOneBy(['name' => $slug]);
+        return $this->em->getRepository(Category::class)->findOneBy(['slug' => $slug]);
     }
 
     public function findAll(): array

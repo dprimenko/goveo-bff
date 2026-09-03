@@ -6,6 +6,7 @@ namespace App\Business\Infrastructure\Controller;
 
 use App\Business\Domain\Business;
 use App\Business\Domain\BusinessRepository;
+use App\Categories\Domain\CategoryRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,6 +14,16 @@ use Symfony\Component\Routing\Attribute\Route;
 
 /**
  * GET /public/businesses?lat=&lng=&page=&size=&category=&radius=&q=
+ *
+ * `category` admite **varias separadas por coma**, y cada una puede ser el id o
+ * el slug. Varias porque la home agrupa —«comercio local» son casi treinta
+ * categorías— y con una sola habría que pedir una página por categoría y
+ * mezclarlas en el cliente, perdiendo el orden por cercanía. Por slug porque
+ * así el grupo se escribe legible («hotels,boats,excursions») en vez de con
+ * una lista de uuids que nadie puede revisar. Un valor con `-` delante
+ * **excluye** en vez de incluir (`category=-hotels,-boats`): la home necesita
+ * «todo lo que no es turismo», y enumerarlo serían cuarenta y tantos slugs en
+ * la URL que además habría que mantener al día cada vez que nace una categoría.
  *
  * Returns businesses ordered by proximity to the given coordinates.
  * `radius` (metros) acota el resultado: lo usa el mapa para pedir sólo los
@@ -33,6 +44,7 @@ class ListBusinessesController
 
     public function __construct(
         private readonly BusinessRepository $repository,
+        private readonly CategoryRepository $categories,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -41,7 +53,7 @@ class ListBusinessesController
         $lng        = (float)  ($request->query->get('lng',      self::DEFAULT_LNG));
         $page       = max(1, (int) ($request->query->get('page', 1)));
         $size       = min(self::MAX_SIZE, max(1, (int) ($request->query->get('size', self::DEFAULT_SIZE))));
-        $categoryId = $request->query->get('category');
+        $category    = $this->readCategories((string) $request->query->get('category', ''));
 
         $rawRadius = $request->query->get('radius');
         $radius    = $rawRadius === null || $rawRadius === ''
@@ -55,7 +67,8 @@ class ListBusinessesController
             longitude:    $lng,
             page:         $page,
             size:         $size,
-            categoryId:   $categoryId ?: null,
+            categoryIds:  $category['include'],
+            excludeCategoryIds: $category['exclude'],
             radiusMeters: $radius,
             query:        $query !== '' ? $query : null,
         );
@@ -76,6 +89,49 @@ class ListBusinessesController
             'page'  => $page,
             'size'  => $size,
         ]);
+    }
+
+    /**
+     * Las categorías pedidas, repartidas entre las que incluyen y las que
+     * excluyen (las que llevan `-` delante). Cada una puede ser id o slug.
+     *
+     * Lo que no existe se descarta en silencio en vez de vaciar el listado: un
+     * slug que ya no está —renombrado, borrado— dejaría la home sin nada y sin
+     * explicar por qué. Un lado vacío es `null`, que es «sin filtro por ahí».
+     *
+     * @return array{include: ?string[], exclude: ?string[]}
+     */
+    private function readCategories(string $raw): array
+    {
+        $include = [];
+        $exclude = [];
+
+        foreach (array_filter(array_map('trim', explode(',', $raw))) as $value) {
+            $negated = str_starts_with($value, '-');
+            $value   = ltrim($value, '-');
+
+            // Se mira la forma antes de preguntar: la columna es `uuid` y
+            // buscar un slug por id revienta la consulta en Postgres en vez de
+            // devolver «no encontrado».
+            $category = preg_match('/^[0-9a-f-]{36}$/i', $value)
+                ? $this->categories->findById($value)
+                : $this->categories->findBySlug($value);
+
+            if ($category === null) {
+                continue;
+            }
+
+            if ($negated) {
+                $exclude[$category->getId()] = true;
+            } else {
+                $include[$category->getId()] = true;
+            }
+        }
+
+        return [
+            'include' => $include === [] ? null : array_keys($include),
+            'exclude' => $exclude === [] ? null : array_keys($exclude),
+        ];
     }
 
     private function serialize(
