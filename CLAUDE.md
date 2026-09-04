@@ -415,11 +415,25 @@ El alta web crea la cuenta **sin contraseña**, así que hace falta un correo qu
 **Cuándo sale**: con tarifa de pago, cuando el webhook confirma el cobro; con tarifa gratuita, en el
 propio alta. Nunca antes — quien abandona en la pasarela no debe recibir un «bienvenido».
 
-**Qué dice** ([`WelcomeMailer`](src/Account/Application/WelcomeMailer.php)): crear la contraseña como
-**acción única** (competir con otros enlaces sólo baja la probabilidad de que la cree), que la ficha
-**está pendiente de validación** —dicho aquí y no descubierto después, que es la pregunta que llega a
-soporte— y qué puede ir haciendo mientras. **No lleva importes**: de eso se encarga el recibo de
-Stripe, y repetirlos aquí invita a discutir el cobro en el correo equivocado.
+**Va en dos versiones** ([`WelcomeMailer`](src/Account/Application/WelcomeMailer.php)), según tenga
+o no contraseña pendiente en Keycloak:
+
+- **Cuenta nueva** (alta desde la web): crear la contraseña como **acción única** — competir con
+  otros enlaces sólo baja la probabilidad de que la cree.
+- **Cuenta que ya existía** (alta **desde la app**, o segundo negocio): sin enlace de contraseña,
+  porque ya tiene una y el negocio quedó colgado de su cuenta al enviarlo. Se le dice dónde
+  encontrarlo (Mi cuenta → Gestión de negocios) y qué le queda por hacer. Antes este caso **no
+  recibía nada**: el correo se saltaba entero y quien daba de alta desde la app no se enteraba de
+  que su ficha estaba pendiente de validación.
+
+En las dos: que la ficha **está pendiente de validación** —dicho aquí y no descubierto después, que
+es la pregunta que llega a soporte— y qué puede ir haciendo mientras. **No lleva importes**: de eso
+se encarga el recibo de Stripe, y repetirlos aquí invita a discutir el cobro en el correo
+equivocado.
+
+⚠️ El comando `goveo:account:resend-welcome` dice **ENVIADO aunque el envío falle**: `send()` no
+lanza a propósito —que falle el correo no puede tumbar un webhook ya cobrado— y el comando no
+distingue. El error sí queda en el log.
 
 HTML con estilos en línea y tablas, que es lo único que respetan los clientes de correo.
 

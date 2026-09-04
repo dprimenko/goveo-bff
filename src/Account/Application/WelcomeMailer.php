@@ -22,10 +22,21 @@ use Symfony\Component\Uid\Uuid;
  * en que el dueño necesita entrar. Antes no: quien abandona en la pasarela no
  * debería recibir un «bienvenido».
  *
+ * **Va en dos versiones, según de dónde venga el alta.** Quien la hizo desde la
+ * web no tiene todavía contraseña, así que lo único que necesita es crearla, y
+ * el correo se reduce a eso. Pero quien la hizo **desde la app** ya entró con su
+ * cuenta y el negocio quedó colgado de ella: mandarle un enlace para crear una
+ * contraseña que ya tiene no significa nada, y encima inquieta. A ése se le
+ * cuenta cómo seguir configurando el negocio, que es lo que le queda por hacer.
+ *
+ * Antes ese segundo caso **no recibía nada**: si la cuenta ya tenía contraseña
+ * el correo se saltaba entero, y quien daba de alta desde la app se quedaba sin
+ * enterarse de que su ficha estaba pendiente de validación.
+ *
  * Qué cuenta, y por qué sólo eso:
- *  - **Crear la contraseña**, que es lo único que el usuario tiene que hacer.
- *    Va como acción única y destacada; competir con otros enlaces sólo baja la
- *    probabilidad de que la cree.
+ *  - **La acción que toca**, una sola: crear la contraseña, o entrar a
+ *    completar la ficha. Competir con otros enlaces sólo baja la probabilidad
+ *    de que se haga.
  *  - **Que la ficha está pendiente de validación**, dicho aquí y no descubierto
  *    después: es la pregunta que llega a soporte si no se avisa.
  *  - **Qué puede ir haciendo mientras**, para que la espera no sea tiempo
@@ -54,23 +65,26 @@ final class WelcomeMailer
     public function send(Business $business, string $userId, string $email, ?string $ownerName = null): void
     {
         try {
-            // A quien ya tiene contraseña no se le manda un correo para crearla:
-            // pasa cuando alguien da de alta un segundo negocio con su cuenta, y
-            // recibir un enlace de contraseña que no ha pedido inquieta.
-            if (!$this->keycloak->hasPendingPasswordSetup($email)) {
-                $business->markWelcomeEmailSent();
-                $this->businesses->save($business);
+            // Sólo hay contraseña que crear si la cuenta nació con este alta.
+            // Quien ya la tenía —alta desde la app, o segundo negocio— recibe la
+            // otra versión: un enlace para crear algo que ya existe no le dice
+            // nada y le hace dudar de si le han tocado la cuenta.
+            $needsPassword = $this->keycloak->hasPendingPasswordSetup($email);
+            $link          = null;
 
-                return;
+            if ($needsPassword) {
+                ['token' => $token, 'plain' => $plain] = PasswordSetupToken::issue(
+                    Uuid::v4()->toRfc4122(),
+                    $userId,
+                );
+                $this->tokens->save($token);
+
+                $link = sprintf('%s/bienvenida?token=%s', rtrim($this->webUrl, '/'), $plain);
             }
 
-            ['token' => $token, 'plain' => $plain] = PasswordSetupToken::issue(
-                Uuid::v4()->toRfc4122(),
-                $userId,
-            );
-            $this->tokens->save($token);
-
-            $link = sprintf('%s/bienvenida?token=%s', rtrim($this->webUrl, '/'), $plain);
+            $subject = $needsPassword
+                ? sprintf('%s ya está en Goveo — crea tu contraseña', $business->getName())
+                : sprintf('%s ya está en Goveo — termina de configurarlo', $business->getName());
 
             $message = (new Email())
                 // El nombre visible va aquí y no en `EMAIL_FROM` a propósito:
@@ -81,7 +95,7 @@ final class WelcomeMailer
                 // la dirección a secas, que nunca lleva espacios.
                 ->from(new Address($this->fromAddress, 'Goveo'))
                 ->to($email)
-                ->subject(sprintf('%s ya está en Goveo — crea tu contraseña', $business->getName()))
+                ->subject($subject)
                 ->text($this->text($business, $link, $ownerName))
                 ->html($this->html($business, $link, $ownerName));
 
@@ -107,8 +121,30 @@ final class WelcomeMailer
             : 'Hola,';
     }
 
-    private function text(Business $business, string $link, ?string $ownerName): string
+    private function text(Business $business, ?string $link, ?string $ownerName): string
     {
+        $next = <<<TEXT
+        Qué pasa ahora
+        Nuestro equipo revisará tu ficha antes de publicarla. Mientras tanto ya
+        puedes entrar y completarla: fotos, descripción, horarios y productos.
+        En cuanto la validemos, tu negocio aparecerá en el mapa y en las
+        búsquedas de tu zona.
+        TEXT;
+
+        if ($link === null) {
+            return <<<TEXT
+            {$this->greeting($ownerName)}
+
+            Ya hemos creado la ficha de {$business->getName()} en Goveo, colgada
+            de tu cuenta: entra en la app con ella y la verás en Mi cuenta →
+            Gestión de negocios.
+
+            {$next}
+
+            El equipo de Goveo
+            TEXT;
+        }
+
         return <<<TEXT
         {$this->greeting($ownerName)}
 
@@ -119,11 +155,7 @@ final class WelcomeMailer
 
         El enlace caduca en 7 días y sólo se puede usar una vez.
 
-        Qué pasa ahora
-        Nuestro equipo revisará tu ficha antes de publicarla. Mientras tanto ya
-        puedes entrar y completarla: fotos, descripción, horarios y productos.
-        En cuanto la validemos, tu negocio aparecerá en el mapa y en las
-        búsquedas de tu zona.
+        {$next}
 
         Si no has sido tú, ignora este correo: sin crear la contraseña nadie
         puede entrar en la cuenta.
@@ -132,11 +164,52 @@ final class WelcomeMailer
         TEXT;
     }
 
-    private function html(Business $business, string $link, ?string $ownerName): string
+    private function html(Business $business, ?string $link, ?string $ownerName): string
     {
         $name     = htmlspecialchars($business->getName(), ENT_QUOTES, 'UTF-8');
         $greeting = htmlspecialchars($this->greeting($ownerName), ENT_QUOTES, 'UTF-8');
-        $href     = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
+
+        // Con cuenta ya hecha no hay botón: la acción no es pulsar nada aquí,
+        // es abrir la app. Un botón que sólo lleva a una página informativa
+        // gasta el sitio de la llamada a la acción sin llevar a ninguna parte.
+        if ($link === null) {
+            $intro  = sprintf(
+                '%s hemos creado la ficha de tu negocio y la hemos colgado de tu cuenta.',
+                $greeting,
+            );
+            $action = <<<HTML
+            <p style="margin:0 0 32px;color:#c8c8c8;font-size:15px;line-height:1.6;">
+              Entra en la app con tu cuenta y la encontrarás en <strong style="color:#ffffff;">Mi
+              cuenta → Gestión de negocios</strong>.
+            </p>
+            HTML;
+            $footer = '';
+        } else {
+            $href   = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
+            $intro  = sprintf(
+                '%s hemos creado la ficha de tu negocio. Crea tu contraseña para entrar.',
+                $greeting,
+            );
+            $action = <<<HTML
+            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+              <tr><td style="background:#e98027;border-radius:12px;">
+                <a href="{$href}" style="display:inline-block;padding:16px 32px;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;">
+                  Crear mi contraseña
+                </a>
+              </td></tr>
+            </table>
+
+            <p style="margin:0 0 32px;color:#8a8a8a;font-size:13px;line-height:1.5;">
+              El enlace caduca en 7 días y sólo se puede usar una vez.
+            </p>
+            HTML;
+            $footer = <<<HTML
+            <p style="margin:0;color:#6a6a6a;font-size:12px;line-height:1.5;">
+              Si no has sido tú, ignora este correo: sin crear la contraseña nadie puede entrar
+              en la cuenta.
+            </p>
+            HTML;
+        }
 
         // HTML deliberadamente simple y con estilos en línea: los clientes de
         // correo ignoran las hojas de estilo y buena parte del CSS moderno.
@@ -155,20 +228,10 @@ final class WelcomeMailer
                   </h1>
 
                   <p style="margin:0 0 24px;color:#c8c8c8;font-size:15px;line-height:1.6;">
-                    {$greeting} hemos creado la ficha de tu negocio. Crea tu contraseña para entrar.
+                    {$intro}
                   </p>
 
-                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
-                    <tr><td style="background:#e98027;border-radius:12px;">
-                      <a href="{$href}" style="display:inline-block;padding:16px 32px;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;">
-                        Crear mi contraseña
-                      </a>
-                    </td></tr>
-                  </table>
-
-                  <p style="margin:0 0 32px;color:#8a8a8a;font-size:13px;line-height:1.5;">
-                    El enlace caduca en 7 días y sólo se puede usar una vez.
-                  </p>
+                  {$action}
 
                   <div style="height:1px;background:#262626;margin:0 0 24px;"></div>
 
@@ -181,10 +244,7 @@ final class WelcomeMailer
                     En cuanto la validemos, tu negocio aparecerá en el mapa y en las búsquedas de tu zona.
                   </p>
 
-                  <p style="margin:0;color:#6a6a6a;font-size:12px;line-height:1.5;">
-                    Si no has sido tú, ignora este correo: sin crear la contraseña nadie puede entrar
-                    en la cuenta.
-                  </p>
+                  {$footer}
                 </td></tr>
               </table>
             </td></tr>
