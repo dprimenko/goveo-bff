@@ -85,13 +85,37 @@ BUNNY_STORAGE_CDN_HOSTNAME=...
 BUNNY_API_KEY / BUNNY_LIBRARY_ID / BUNNY_CDN_HOSTNAME_VIDEOS   # Stream, vídeo
 
 MAILER_DSN=smtp://...
-EMAIL_FROM="Goveo <noreply@goveo.app>"
+EMAIL_FROM=noreply@goveo.app
 WEB_URL=https://demo.goveo.app | https://goveo.app
 ```
+
+⚠️ **`EMAIL_FROM` es sólo la dirección**, sin el nombre visible: ése lo pone el
+código. Con `"Goveo <noreply@goveo.app>"` el envío falla con un error de RFC 2822
+y **no sale ningún correo** — ni el de bienvenida ni ninguno—, pero el fallo se
+traga (que se caiga un correo no puede tumbar un webhook ya cobrado) y sólo se ve
+en el log. El comando de reenvío dice `ENVIADO` igualmente, así que no sirve para
+descartarlo.
+
+⚠️ **El host del SMTP es `smtp.dondominio.com`, no `smtp.goveo.app`.** El nombre
+propio es un CNAME al servidor de DonDominio, pero su certificado sólo cubre
+`*.dondominio.com`: al validarlo, la conexión se cae antes de enviar nada y en el
+log queda `Peer certificate CN=*.dondominio.com did not match expected
+CN=smtp.goveo.app`. Tampoco vale apuntar al servidor concreto donde vive hoy el
+buzón (`mailsrv8`): funciona, pero deja de hacerlo el día que DonDominio lo
+mueva. El genérico autentica igual aunque el buzón esté en otro. Lo mismo aplica
+a `KC_SMTP_HOST`, o Keycloak se queda sin mandar sus correos.
 
 ⚠️ `MAILER_DSN` aparece **dos veces** en `.env` si alguien reinstala
 `symfony/mailer`: la receta de Flex añade `null://null` al final, que gana y tira
 los correos en silencio. Si dejan de salir correos, mirar eso primero.
+
+**Si no llega un correo, en este orden:**
+
+```bash
+docker compose exec php printenv EMAIL_FROM MAILER_DSN   # sin espacios, sin null://
+docker compose logs php | grep -i "No se pudo enviar la bienvenida"
+docker compose exec php php bin/console goveo:account:resend-welcome  # a quién le falta
+```
 
 ---
 
