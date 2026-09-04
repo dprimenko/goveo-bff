@@ -18,11 +18,17 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 
 /**
- * Edit an existing GeoStory. Editable fields mirror the upload form: title,
- * description and — for influencer posts only — category + location (a business
- * post inherits both from the store, so they are not editable here). Optionally
- * overwrites the video: a new file is uploaded to Bunny (new GUID, status →
- * processing) and the previous Bunny video is deleted.
+ * Edita una GeoStory. Se editan los mismos campos que en el alta: título,
+ * descripción y categoría —también en un vídeo de tienda, que es lo que
+ * distingue uno fijo de un evento o una noticia— y, sólo en influencer, la
+ * localización: la de una tienda es la de la tienda.
+ *
+ * Cambiar de categoría **borra la vigencia anterior**: las fechas que tuviera
+ * las puso la categoría de antes y con su regla, así que heredarlas colaba a un
+ * evento la fecha de publicación de cuando era noticia.
+ *
+ * Opcionalmente sustituye el vídeo: el nuevo se sube a Bunny (otro GUID, estado
+ * `processing`) y el anterior se borra allí.
  *
  * Multipart POST (not PATCH) because PHP only parses multipart bodies for POST.
  */
@@ -67,6 +73,11 @@ class UpdateGeoStoryController
         // La localización de un vídeo de tienda es la de la tienda y no se
         // toca. La categoría sí: es lo que distingue lo que se queda fijo en su
         // perfil de un evento o una noticia, que caducan.
+        // La de antes, para saber si ha cambiado: es lo que decide si la
+        // vigencia guardada sigue valiendo o la puso una categoría que ya no es
+        // la suya.
+        $previousCategoryId = $story->getCategoryId();
+
         if ($request->request->has('categoryId')) {
             $categoryId = trim((string) $request->request->get('categoryId'));
 
@@ -107,6 +118,7 @@ class UpdateGeoStoryController
             $story->getCategoryId(),
             $request->request->has('started_at') ? (string) $request->request->get('started_at') : null,
             $request->request->has('ended_at')   ? (string) $request->request->get('ended_at')   : null,
+            categoryChanged: $previousCategoryId !== $story->getCategoryId(),
         );
         if ($scheduleError !== null) {
             return new JsonResponse(['error' => $scheduleError], Response::HTTP_UNPROCESSABLE_ENTITY);

@@ -75,6 +75,13 @@ final class StorySchedule
      * «déjalo como está»: sólo se recalcula cuando llega algo o cuando el vídeo
      * aún no tiene fechas —el caso de cambiar la categoría a Eventos—.
      *
+     * **Al cambiar de categoría no se hereda nada** (`$categoryChanged`). Las
+     * fechas que tenía las puso la categoría anterior y con su regla: la semana
+     * de una noticia no es la vigencia de un evento, ni al revés. Heredándolas,
+     * pasar una noticia a evento le colaba como hora de inicio el día en que se
+     * publicó, y sacar un evento de Eventos le dejaba la caducidad puesta
+     * aunque su categoría nueva no caduque.
+     *
      * @return ?string el código de error si lo pedido no vale, o `null` si todo
      *                 bien. El vídeo no se toca cuando hay error.
      */
@@ -83,13 +90,16 @@ final class StorySchedule
         ?string $categoryId,
         ?string $rawStart,
         ?string $rawEnd,
+        bool $categoryChanged = false,
     ): ?string {
         $slug = $this->slugOf($categoryId);
 
         if ($slug === self::NEWS) {
             // Se respeta la que ya tenga: reeditar una noticia no le regala otra
-            // semana de vida, que sería la forma de que no caducara nunca.
-            if ($story->getStartedAt() === null) {
+            // semana de vida, que sería la forma de que no caducara nunca. Pero
+            // si acaba de llegar a Noticias, la fecha que traía es de su vida
+            // anterior y ahí sí empieza a contar desde ahora.
+            if ($categoryChanged || $story->getStartedAt() === null) {
                 $story->scheduleNews();
             }
 
@@ -109,14 +119,18 @@ final class StorySchedule
             return self::ERROR_INVALID_DATE;
         }
 
-        $start ??= $story->getStartedAt();
+        // Recién llegado a Eventos no hay nada que heredar: la fecha vieja la
+        // puso otra categoría. Sin fecha en la petición, se pide.
+        if (!$categoryChanged) {
+            $start ??= $story->getStartedAt();
+        }
         if ($start === null) {
             return self::ERROR_START_REQUIRED;
         }
 
         // Sólo se hereda el fin guardado cuando no se toca el inicio: si el
         // inicio se mueve, un fin viejo podría quedar por detrás.
-        if ($end === null && $rawStart === null) {
+        if ($end === null && $rawStart === null && !$categoryChanged) {
             $end = $story->getEndedAt();
         }
 
