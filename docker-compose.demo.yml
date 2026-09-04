@@ -51,6 +51,10 @@ services:
       MAILER_DSN: ${MAILER_DSN:-smtp://mailpit:1025}
       EMAIL_FROM: ${EMAIL_FROM}
       BILLING_TAX_PERCENT: ${BILLING_TAX_PERCENT:-21}
+
+      # Igual que en producción: sin esto, la variable del `.env` no llega al
+      # contenedor y la caducidad se queda apagada haga lo que haga el panel.
+      GEOSTORY_EXPIRY_ENABLED: ${GEOSTORY_EXPIRY_ENABLED:-0}
     depends_on:
       db:
         condition: service_healthy

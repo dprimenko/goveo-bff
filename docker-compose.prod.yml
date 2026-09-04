@@ -52,6 +52,12 @@ services:
       MAILER_DSN: ${MAILER_DSN}
       EMAIL_FROM: ${EMAIL_FROM}
       BILLING_TAX_PERCENT: ${BILLING_TAX_PERCENT:-21}
+
+      # Caducidad de eventos y noticias. No estaba aquí, así que en el servidor
+      # valía siempre el 0 por defecto de services.yaml y **no había forma de
+      # encenderla desde el `.env`**: se ponía la variable, se redesplegaba, y
+      # el feed seguía enseñando eventos de hace tres años.
+      GEOSTORY_EXPIRY_ENABLED: ${GEOSTORY_EXPIRY_ENABLED:-0}
     depends_on:
       db:
         condition: service_healthy
