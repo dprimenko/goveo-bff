@@ -6,21 +6,30 @@
 # herramienta sólo es accesible para quien ya tiene SSH.
 #
 #   goveo-db open [prod|demo]    abre el túnel y da la URL
+#   goveo-db open prod --background   lo deja suelto, como antes
 #   goveo-db close [prod|demo]   lo cierra
 #   goveo-db status              qué hay abierto
 #
+# El túnel se queda en primer plano y Ctrl+C lo cierra. Suelto se olvidaba
+# abierto: mientras lo esté, cualquier cosa que corra en la máquina llega al
+# Adminer de producción por localhost, y cerrar la ventana no lo cerraba. Atarlo
+# al terminal hace que el olvido se note. Para lo de antes está `--background`.
+#
 # Se apoya en una *control socket* de SSH en vez de buscar el proceso con
 # `pgrep`: cerrar por PID es frágil —acaba matando otra sesión SSH— y con el
-# socket es el propio ssh quien sabe cuál cerrar.
+# socket es el propio ssh quien sabe cuál cerrar. Con `--background` sigue siendo
+# lo que permite cerrarlo desde otra ventana.
 set -euo pipefail
 
 SERVER="${GOVEO_SSH:-root@76.13.63.176}"
 SOCKET_DIR="${TMPDIR:-/tmp}/goveo-db"
 
 env_config() {
+    # El 8090 y el 8091 se los queda Metro en la app (ver su CLAUDE.md): con el
+    # túnel abierto no arrancaba, y con Metro puesto no abría el túnel.
     case "${1:-prod}" in
-        prod) REMOTE_PORT=8082; LOCAL_PORT=8090 ;;
-        demo) REMOTE_PORT=8083; LOCAL_PORT=8091 ;;
+        prod) REMOTE_PORT=8082; LOCAL_PORT=8095 ;;
+        demo) REMOTE_PORT=8083; LOCAL_PORT=8096 ;;
         *) echo "Entorno desconocido: $1 (usa prod o demo)" >&2; exit 1 ;;
     esac
     ENV_NAME="${1:-prod}"
@@ -28,7 +37,16 @@ env_config() {
 }
 
 open_tunnel() {
-    env_config "$@"
+    local detach=0 target=""
+
+    for arg in "$@"; do
+        case "$arg" in
+            --background|-b) detach=1 ;;
+            *) target="$arg" ;;
+        esac
+    done
+
+    env_config "$target"
     mkdir -p "$SOCKET_DIR"
 
     if ssh -S "$SOCKET" -O check "$SERVER" 2>/dev/null; then
@@ -40,13 +58,28 @@ open_tunnel() {
     # otro: se limpia antes de intentarlo.
     rm -f "$SOCKET"
 
-    ssh -M -S "$SOCKET" -fNT \
-        -o ExitOnForwardFailure=yes \
-        -L "$LOCAL_PORT:127.0.0.1:$REMOTE_PORT" "$SERVER"
-
     echo "Túnel abierto ($ENV_NAME) → http://localhost:$LOCAL_PORT"
     echo "  servidor: db · usuario y base: los de POSTGRES_USER / POSTGRES_DB"
-    echo "  cerrar:   goveo-db close $ENV_NAME"
+
+    if [ "$detach" -eq 1 ]; then
+        ssh -M -S "$SOCKET" -fNT \
+            -o ExitOnForwardFailure=yes \
+            -L "$LOCAL_PORT:127.0.0.1:$REMOTE_PORT" "$SERVER"
+        echo "  cerrar:   goveo-db close $ENV_NAME"
+        return
+    fi
+
+    echo "  cerrar:   Ctrl+C aquí (o goveo-db close $ENV_NAME desde otra ventana)"
+
+    # El socket se queda escrito aunque ssh se vaya por Ctrl+C, y uno viejo
+    # impide abrir el siguiente túnel: se borra pase lo que pase.
+    trap 'rm -f "$SOCKET"; echo; echo "Túnel cerrado ($ENV_NAME)"' EXIT
+
+    # Sin -f: es lo que ata el túnel a este terminal. `|| true` porque Ctrl+C
+    # devuelve 130 y `set -e` lo tomaría por un fallo que anunciar.
+    ssh -M -S "$SOCKET" -NT \
+        -o ExitOnForwardFailure=yes \
+        -L "$LOCAL_PORT:127.0.0.1:$REMOTE_PORT" "$SERVER" || true
 }
 
 close_tunnel() {
@@ -76,5 +109,5 @@ case "${1:-}" in
     open)   shift; open_tunnel "$@" ;;
     close)  shift; close_tunnel "$@" ;;
     status) status ;;
-    *) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+    *) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
 esac

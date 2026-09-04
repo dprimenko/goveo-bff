@@ -193,14 +193,19 @@ intentos ni segundo factor — publicado sería la puerta más débil de todo el
 Se llega por túnel SSH:
 
 ```bash
-goveo-db open prod     # → http://localhost:8090
-goveo-db open demo     # → http://localhost:8091
+goveo-db open prod     # → http://localhost:8095
+goveo-db open demo     # → http://localhost:8096
 goveo-db status
 goveo-db close prod
 ```
 
 `make install-cli` lo deja en el PATH. También hay `make db-prod`, `db-demo`, `db-close`
 y `db-status`.
+
+**El túnel se queda en primer plano y Ctrl+C lo cierra**, para que no se quede abierto de
+un día para otro: mientras lo esté, cualquier cosa que corra en la máquina llega al
+Adminer de producción. Con `--background` se comporta como antes. Los puertos locales son
+el 8095 y el 8096 y no el 8090: ése lo usa Metro en la app.
 
 Dentro de Adminer: servidor `db`, y usuario y base los de `POSTGRES_USER` /
 `POSTGRES_DB`.
