@@ -9,6 +9,13 @@ parameters:
     # debería empezar a esconder contenido por su cuenta.
     env(GEOSTORY_EXPIRY_ENABLED): '0'
 
+    # Audiencias aceptadas al verificar un token social, separadas por comas.
+    # Vacías a propósito: sin lista, valen los clientes del mismo proyecto que
+    # `GOOGLE_SOCIAL_CLIENT_ID` / `APPLE_CLIENT_ID`, que es lo que la app usa en
+    # iOS, en Android y en la web. Se rellenan sólo para apretar el cerco.
+    env(GOOGLE_ALLOWED_AUDIENCES): ''
+    env(APPLE_ALLOWED_AUDIENCES): ''
+
 services:
     _defaults:
         autowire: true
@@ -45,6 +52,16 @@ services:
             $keycloakClientSecret: '%env(KEYCLOAK_CLIENT_SECRET)%'
             $keycloakAdminUser: '%env(KEYCLOAK_ADMIN_USER)%'
             $keycloakAdminPassword: '%env(KEYCLOAK_ADMIN_PASSWORD)%'
+
+    # Verificación propia de los tokens sociales. Se usa para vincular cuentas
+    # antiguas con su proveedor (ver SocialLoginController); la audiencia es lo
+    # que impide que valga el token que otra aplicación obtuvo de sus usuarios.
+    App\Auth\Infrastructure\Service\SocialTokenVerifier:
+        arguments:
+            $googleClientId: '%env(GOOGLE_SOCIAL_CLIENT_ID)%'
+            $googleAllowedAudiences: '%env(GOOGLE_ALLOWED_AUDIENCES)%'
+            $appleClientId: '%env(APPLE_CLIENT_ID)%'
+            $appleAllowedAudiences: '%env(APPLE_ALLOWED_AUDIENCES)%'
 
     # Firebase / Firestore — data migration commands
     App\Shared\Infrastructure\Firebase\FirestoreClientFactory:

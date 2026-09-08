@@ -299,6 +299,62 @@ class KeycloakService
     }
 
     /**
+     * Vincula un usuario existente con un proveedor social.
+     *
+     * Es lo que hace el flujo «goveo auto link» del realm cuando alguien entra
+     * por el navegador. Por `token-exchange` no hay flujo que valga, así que el
+     * vínculo lo creamos nosotros: ver `SocialLoginController`.
+     *
+     * @return bool false si el vínculo ya existía o Keycloak lo rechazó.
+     */
+    public function linkFederatedIdentity(
+        string $userId,
+        string $provider,
+        string $providerUserId,
+        string $providerUsername,
+    ): bool {
+        $response = $this->httpClient->request(
+            'POST',
+            sprintf('%s/%s/federated-identity/%s', $this->usersUrl, $userId, $provider),
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->getAdminToken(),
+                    'Content-Type'  => 'application/json',
+                ],
+                'json' => [
+                    'identityProvider' => $provider,
+                    'userId'           => $providerUserId,
+                    'userName'         => $providerUsername,
+                ],
+            ],
+        );
+
+        return in_array($response->getStatusCode(), [201, 204], true);
+    }
+
+    /** El `sub` con el que ese usuario ya está vinculado a un proveedor, o null. */
+    public function findFederatedIdentity(string $userId, string $provider): ?string
+    {
+        $response = $this->httpClient->request(
+            'GET',
+            sprintf('%s/%s/federated-identity', $this->usersUrl, $userId),
+            ['headers' => ['Authorization' => 'Bearer ' . $this->getAdminToken()]],
+        );
+
+        if ($response->getStatusCode() !== 200) {
+            return null;
+        }
+
+        foreach ($response->toArray(throw: false) as $link) {
+            if (($link['identityProvider'] ?? null) === $provider) {
+                return (string) ($link['userId'] ?? '');
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Exchange a social identity token for Goveo tokens via Keycloak.
      * Keycloak must have the corresponding Identity Provider configured.
      */

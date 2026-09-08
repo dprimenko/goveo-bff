@@ -573,6 +573,46 @@ Las subcategorías de tienda viven **dentro del doc de `stores`** en Firestore, 
 `subCategories: [{custom, id, name}]` (el nombre lo pone la propia tienda). NO hay tabla de
 subcategorías en Supabase.
 
+## Acceso con Google y Apple
+
+La app obtiene el token con el SDK nativo y el BFF lo canjea en Keycloak por tokens del realm
+(`POST /api/auth/social/{google|apple}` → `KeycloakService::loginWithSocialToken`, grant
+`token-exchange`). Así el usuario acaba siendo uno de Keycloak como cualquier otro.
+
+⚠️ **El `token-exchange` no ejecuta ningún flujo de autenticación**, y eso rompía a todo el que
+venía de Firebase. Keycloak busca al usuario por su identidad federada; al no encontrarla lo busca
+por correo, lo encuentra —está migrado— y aborta con `federated_identity_account_exists`. El flujo
+«goveo auto link» que monta `docker/keycloak/configure-idp.sh` resuelve exactamente ese caso, pero
+**sólo en el login por navegador**: por aquí no se llega a invocar.
+
+La causa de fondo es que `goveo:migrate:firebase-auth-to-keycloak` trajo correos y hashes pero no
+las identidades federadas, que el export de Firebase sí trae. Afectaba a los **640** usuarios con
+Google (565) o Apple (75), no a un caso suelto.
+
+Se ataja por dos sitios, y hacen falta los dos:
+
+- **`goveo:migrate:firebase-social-links`** rellena los vínculos que faltan a partir del export
+  (`--firebase-export-file=users.json`, `--dry-run`, `--provider=google|apple`). El `rawId` de
+  `providerUserInfo` **es** el `sub` del proveedor, que es lo que Keycloak guarda en el vínculo, así
+  que el enlace es el mismo que se habría creado entrando por el navegador. Es idempotente: repetir
+  la pasada no duplica nada. Un vínculo ya existente **con otro `sub`** no se pisa —serían dos
+  identidades compartiendo correo— y se reporta aparte.
+- **Auto-vínculo al vuelo** en `SocialLoginController`: si el canje falla porque la cuenta ya
+  existe, se verifica el token por nuestra cuenta, se crea el vínculo y se reintenta una vez. Cubre
+  lo que el backfill no puede: quien se registró aquí con contraseña y luego pulsa «entrar con
+  Google».
+
+`SocialTokenVerifier` es quien decide si ese token es de fiar: `tokeninfo` de Google, y el JWT de
+Apple contra su JWKS (cacheado una hora). Sólo se vincula con **correo verificado por el proveedor**
+—es lo que hace equivalentes las dos cuentas— y con **audiencia nuestra**: un token de acceso vale
+en cualquier sitio que se limite a preguntar de quién es, así que sin mirar el `aud` quien opere
+otra app con acceso por Google podría entrar aquí como sus usuarios. Sin lista explícita
+(`GOOGLE_ALLOWED_AUDIENCES` / `APPLE_ALLOWED_AUDIENCES`, opcionales) valen los clientes del mismo
+proyecto que `GOOGLE_SOCIAL_CLIENT_ID`: la app usa uno distinto en iOS, en Android y en la web, y
+enumerarlos es fácil de olvidar.
+
+Facebook queda fuera: el realm no tiene ese proveedor. Esos 7 usuarios entran con contraseña.
+
 ## Comandos de import (Firestore → Postgres)
 
 - `goveo:migrate:products` — `geoproducts` → `products`.
