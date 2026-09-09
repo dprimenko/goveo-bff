@@ -144,6 +144,7 @@ ensure_role() {
 ensure_role "backoffice.access" "Entrar al panel. Sin este rol, ninguna pantalla."
 ensure_role "business.verify"   "Validar y retirar la validación de negocios."
 ensure_role "geostory.moderate" "Aprobar y retirar vídeos."
+ensure_role "business.edit"     "Editar la ficha de cualquier negocio."
 
 # ============================================================
 # LOS PUESTOS
@@ -175,7 +176,8 @@ ensure_group() {
 ensure_group "backoffice-admin" \
     --rolename "backoffice.access" \
     --rolename "business.verify" \
-    --rolename "geostory.moderate"
+    --rolename "geostory.moderate" \
+    --rolename "business.edit"
 
 # ============================================================
 # USUARIO DE PRUEBA (sólo donde se pida)

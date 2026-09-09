@@ -123,7 +123,7 @@ class MyBusinessController
         // haber dejado de gestionarlo. `null` es tanto «no existe» como «es de
         // otro», y se responde 404 en ambos: decir «existe pero no es tuyo»
         // permitiría averiguar qué negocios hay probando ids.
-        return $this->managed->find($id)
+        return $this->managed->find($id, allowBackoffice: true)
             ?? new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
     }
 

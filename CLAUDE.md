@@ -630,6 +630,22 @@ El listado devuelve las fechas en **ISO 8601** y no como las da Postgres (`2026-
 ese formato no lo entiende el `Date` del navegador —el desfase sin minutos no es válido— y las
 fechas salían vacías en el panel sin ningún error.
 
+### Editar la ficha desde el panel
+
+El panel **no tiene endpoints propios de edición**: usa `GET`/`PATCH /api/businesses/{id}` y
+`POST /api/businesses/{id}/images/{slot}`, los mismos que la app. La validación, el guardado parcial
+y el aviso de pérdida de validación al cambiar de categoría ya estaban escritos y probados ahí;
+duplicarlos sólo habría servido para que las dos versiones se separaran con el tiempo.
+
+Lo único que hizo falta es que `ManagedBusinessFinder::find()` acepte un `allowBackoffice`, que deja
+pasar a quien tenga `ROLE_BUSINESS_EDIT` aunque no gestione el negocio. **Va apagado por defecto** y
+se enciende sólo en la ficha y sus imágenes: si estuviera dentro del propio finder, `business.edit`
+abriría de paso productos, subcategorías e imágenes de producto, que usan ese mismo finder y no son
+lo que ese permiso dice permitir.
+
+Para quien no tiene el permiso no cambia nada: sigue siendo 404 tanto si el negocio no existe como
+si es de otro, porque un 403 confirmaría que ese id está dado de alta.
+
 ### Cola de vídeos
 
 `GET /api/admin/geostories?status=pending|published|removed&q=&page=&size=` y

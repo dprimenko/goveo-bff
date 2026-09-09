@@ -8,6 +8,7 @@ use App\Business\Domain\Business;
 use App\Business\Domain\BusinessManagerRepository;
 use App\Business\Domain\BusinessRepository;
 use App\Users\Infrastructure\Service\LocalUserResolver;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * El negocio que gestiona quien hace la petición, o nada.
@@ -27,9 +28,19 @@ final class ManagedBusinessFinder
         private readonly BusinessRepository $businesses,
         private readonly BusinessManagerRepository $managers,
         private readonly LocalUserResolver $currentUser,
+        private readonly Security $security,
     ) {}
 
-    public function find(string $idOrSlug): ?Business
+    /**
+     * @param bool $allowBackoffice deja pasar también a quien tenga permiso de
+     *                              edición en el panel, aunque no gestione el
+     *                              negocio. Va apagado por defecto y se enciende
+     *                              **sólo** en la ficha y sus imágenes: así
+     *                              `business.edit` permite exactamente lo que su
+     *                              nombre dice, y no de paso tocar productos o
+     *                              subcategorías por estos mismos endpoints.
+     */
+    public function find(string $idOrSlug, bool $allowBackoffice = false): ?Business
     {
         $userId = $this->currentUser->currentId();
         if ($userId === null) {
@@ -41,6 +52,10 @@ final class ManagedBusinessFinder
 
         if ($business === null) {
             return null;
+        }
+
+        if ($allowBackoffice && $this->security->isGranted('ROLE_BUSINESS_EDIT')) {
+            return $business;
         }
 
         return $this->managers->findByUserAndBusiness($userId, $business->getId()) !== null

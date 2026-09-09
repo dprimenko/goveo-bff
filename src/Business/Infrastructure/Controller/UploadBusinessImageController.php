@@ -47,7 +47,7 @@ class UploadBusinessImageController
 
         // `null` es tanto «no existe» como «es de otro»: un 403 confirmaría que
         // ese id está dado de alta.
-        $business = $this->managed->find($id);
+        $business = $this->managed->find($id, allowBackoffice: true);
         if ($business === null) {
             return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
         }
