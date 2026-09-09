@@ -9,7 +9,8 @@ COPY providers/keycloak-firebase-scrypt-0.0.1.jar /opt/keycloak/providers/
 # Copy init scripts
 COPY init.sh /opt/keycloak/bin/init.sh
 COPY configure-idp.sh /opt/keycloak/bin/configure-idp.sh
-RUN chmod +x /opt/keycloak/bin/init.sh /opt/keycloak/bin/configure-idp.sh
+COPY configure-backoffice.sh /opt/keycloak/bin/configure-backoffice.sh
+RUN chmod +x /opt/keycloak/bin/init.sh /opt/keycloak/bin/configure-idp.sh /opt/keycloak/bin/configure-backoffice.sh
 
 USER keycloak
 

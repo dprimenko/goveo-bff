@@ -17,8 +17,7 @@ use Symfony\Component\Security\Http\Authenticator\Passport\SelfValidatingPasspor
 class KeycloakAuthenticator extends AbstractAuthenticator
 {
     public function __construct(
-        private readonly string $keycloakUrl,
-        private readonly string $keycloakRealm,
+        private readonly KeycloakTokenVerifier $verifier,
         private readonly string $keycloakClientId,
     ) {}
 
@@ -31,7 +30,10 @@ class KeycloakAuthenticator extends AbstractAuthenticator
     public function authenticate(Request $request): Passport
     {
         $token = $this->extractToken($request);
-        $payload = $this->decodeJwt($token);
+
+        // Verificado de verdad —firma, caducidad, emisor y cliente— antes de
+        // creerse una sola línea de lo que hay dentro. Ver KeycloakTokenVerifier.
+        $payload = $this->verifier->verify($token);
 
         if (!isset($payload['sub'])) {
             throw new AuthenticationException('Invalid JWT: missing subject claim.');
@@ -68,31 +70,6 @@ class KeycloakAuthenticator extends AbstractAuthenticator
         return substr($header, 7); // Strip "Bearer "
     }
 
-    /**
-     * Decode JWT payload WITHOUT signature verification.
-     * Signature validation should be done at the infrastructure level (Nginx/API Gateway)
-     * or via Keycloak's introspection endpoint for high-security endpoints.
-     */
-    private function decodeJwt(string $token): array
-    {
-        $parts = explode('.', $token);
-        if (count($parts) !== 3) {
-            throw new AuthenticationException('Malformed JWT token.');
-        }
-
-        $payload = base64_decode(strtr($parts[1], '-_', '+/'), strict: false);
-        if ($payload === false) {
-            throw new AuthenticationException('Failed to decode JWT payload.');
-        }
-
-        $data = json_decode($payload, associative: true);
-        if (!is_array($data)) {
-            throw new AuthenticationException('Invalid JWT payload.');
-        }
-
-        return $data;
-    }
-
     private function resolveRoles(array $payload): array
     {
         $roles = ['ROLE_USER'];
@@ -100,15 +77,33 @@ class KeycloakAuthenticator extends AbstractAuthenticator
         // Keycloak realm roles
         $realmRoles = $payload['realm_access']['roles'] ?? [];
         foreach ($realmRoles as $role) {
-            $roles[] = 'ROLE_' . strtoupper((string) $role);
+            $roles[] = $this->toSymfonyRole((string) $role);
         }
 
-        // Keycloak client roles
-        $clientRoles = $payload['resource_access'][$this->keycloakClientId]['roles'] ?? [];
+        // Roles del cliente que emitió el token (`azp`), no del que lleve la
+        // configuración: con más de un cliente en el realm —la app y el
+        // backoffice— mirar sólo el configurado dejaría al panel sin permisos.
+        // Cada token trae los suyos y no los del otro cliente, que es
+        // justo lo que se quiere.
+        $client = $payload['azp'] ?? $this->keycloakClientId;
+        $clientRoles = $payload['resource_access'][$client]['roles'] ?? [];
         foreach ($clientRoles as $role) {
-            $roles[] = 'ROLE_' . strtoupper((string) $role);
+            $roles[] = $this->toSymfonyRole((string) $role);
         }
 
         return array_unique($roles);
+    }
+
+    /**
+     * `business.verify` → `ROLE_BUSINESS_VERIFY`.
+     *
+     * Los permisos del panel se nombran `recurso.acción` para que se lean en el
+     * dashboard de Keycloak; Symfony los quiere en mayúsculas y sin puntos.
+     */
+    private function toSymfonyRole(string $role): string
+    {
+        $normalized = preg_replace('/[^a-zA-Z0-9]+/', '_', $role) ?? $role;
+
+        return 'ROLE_' . strtoupper(trim($normalized, '_'));
     }
 }

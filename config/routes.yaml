@@ -51,3 +51,9 @@ account_controllers:
         path: ../src/Account/Infrastructure/Controller/
         namespace: App\Account\Infrastructure\Controller
     type: attribute
+
+backoffice_controllers:
+    resource:
+        path: ../src/Backoffice/Infrastructure/Controller/
+        namespace: App\Backoffice\Infrastructure\Controller
+    type: attribute

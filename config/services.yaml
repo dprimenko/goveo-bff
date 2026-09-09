@@ -40,9 +40,19 @@ services:
     # Keycloak parameters
     App\Security\KeycloakAuthenticator:
         arguments:
-            $keycloakUrl: '%env(KEYCLOAK_URL)%'
-            $keycloakRealm: '%env(KEYCLOAK_REALM)%'
             $keycloakClientId: '%env(KEYCLOAK_CLIENT_ID)%'
+
+    # Comprueba la firma de los tokens contra las claves del realm. La URL
+    # interna es por donde se piden esas claves; la pública es la que Keycloak
+    # escribe como `iss` en el token, se haya pedido por donde se haya pedido.
+    App\Security\KeycloakTokenVerifier:
+        arguments:
+            $keycloakUrl: '%env(KEYCLOAK_URL)%'
+            $keycloakPublicUrl: '%env(KEYCLOAK_PUBLIC_URL)%'
+            $keycloakRealm: '%env(KEYCLOAK_REALM)%'
+            # Los clientes de los que aceptamos tokens. Uno nuevo se añade aquí
+            # a propósito: que exista en el realm no lo hace nuestro.
+            $allowedClients: ['%env(KEYCLOAK_CLIENT_ID)%', 'goveo-backoffice']
 
     App\Auth\Infrastructure\Service\KeycloakService:
         arguments:

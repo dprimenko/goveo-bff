@@ -32,4 +32,8 @@ echo "🚀 Starting Keycloak..."
 # Launch IDP configurator in background (activates Google/Apple with real credentials)
 /opt/keycloak/bin/configure-idp.sh &
 
+# Cliente y roles del backoffice (ver configure-backoffice.sh: no puede ir en el
+# JSON del realm porque ése sólo se lee en el primer arranque)
+/opt/keycloak/bin/configure-backoffice.sh &
+
 exec /opt/keycloak/bin/kc.sh "$@"

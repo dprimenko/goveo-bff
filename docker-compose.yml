@@ -93,6 +93,11 @@ services:
       APPLE_KEY_ID: ${APPLE_KEY_ID:-}
       APPLE_PRIVATE_KEY: ${APPLE_PRIVATE_KEY:-}
       APPLE_PRIVATE_KEY_B64: ${APPLE_PRIVATE_KEY_B64:-}
+      # Usuario del backoffice para desarrollo. Sólo existe aquí: los compose de
+      # demo y producción no definen estas variables, y sin ellas el script no
+      # crea ninguna cuenta (ver docker/keycloak/configure-backoffice.sh).
+      GOVEO_BACKOFFICE_DEV_USER: ${GOVEO_BACKOFFICE_DEV_USER:-backoffice@goveo.app}
+      GOVEO_BACKOFFICE_DEV_PASSWORD: ${GOVEO_BACKOFFICE_DEV_PASSWORD:-backoffice123}
     ports:
       - "8081:8080"
     depends_on:

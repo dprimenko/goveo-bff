@@ -561,6 +561,100 @@ con un error que no apunta a la causa («STRIPE_SECRET_KEY no está configurada�
 Arreglado añadiendo `.env.local` al `env_file` con `required: false`. Si añades una variable nueva,
 o va en `.env` con su valor, o va **sólo** en `.env.local`; declararla vacía en `.env` la rompe.
 
+## Backoffice (`/api/admin`)
+
+Panel interno, proyecto aparte (`../goveo-backoffice`, Vite + React). Entra por **Authorization
+Code + PKCE contra Keycloak**, no por `/api/auth/login`: así ni una contraseña pasa por nuestro
+código y la fuerza bruta, la política de contraseñas, el reseteo y el segundo factor los pone
+Keycloak. El cliente lleva los Direct Access Grants apagados justo para que ese camino no exista.
+
+**El cliente no está en `goveo-realm.json`,** sino en
+[`docker/keycloak/configure-backoffice.sh`](docker/keycloak/configure-backoffice.sh), que corre en
+cada arranque y es idempotente. El JSON del realm sólo se lee la primera vez que se levanta un realm
+vacío, así que lo que se añada ahí no llega ni a local (ya arrancado), ni a demo, ni a producción.
+
+**Los permisos son roles del cliente `goveo-backoffice`, no del realm.** Tres piezas:
+
+| Pieza | Dónde | Para qué |
+|---|---|---|
+| `backoffice.access` | client role | la puerta: sin él, ninguna pantalla |
+| `recurso.acción` (`business.verify`…) | client roles | una funcionalidad concreta |
+| `backoffice-admin` y los grupos que vengan | grupos del realm | un puesto = su juego de roles |
+
+De cliente y no de realm porque los de realm viajan en el token de la app, y con
+`fullScopeAllowed: false` en el panel el token de cada cliente lleva sólo lo suyo: un token del
+backoffice no arrastra los roles de la app ni al revés. Dar de alta a alguien es meterlo en un
+grupo; un permiso suelto para una persona se le asigna encima, y Keycloak aplana grupo y directos
+en el mismo `resource_access`.
+
+Lo que **no** va ahí es el alcance por recurso —«esta persona sólo lleva estos negocios»—: no cabe
+en una lista de roles sin inflar el token y obligar a reloguear al cambiarlo. Roles = *qué* puede
+hacer; tabla en la base = *sobre qué*, el día que haga falta.
+
+`KeycloakAuthenticator` lee los roles de cliente del **`azp` del token**, no del cliente que lleve la
+configuración: con dos clientes en el realm, mirar sólo el configurado dejaba al panel sin permisos.
+Y normaliza el nombre (`business.verify` → `ROLE_BUSINESS_VERIFY`) porque Symfony no quiere puntos.
+
+**Registro cerrado**: `registrationAllowed` del realm queda en `false`. Es del realm y no del
+cliente —Keycloak no tiene interruptor por cliente—, y se puede apagar entero porque la app nunca
+usó esa página: sus altas van por la Admin API (`KeycloakService::registerUser`).
+
+**Usuario de prueba**: `backoffice@goveo.app` / `backoffice123`, sólo en local. Lo crea el mismo
+script, pero **detrás de `GOVEO_BACKOFFICE_DEV_USER`**, que únicamente define `docker-compose.yml`;
+en demo y producción las cuentas se dan de alta a mano desde el dashboard de Keycloak.
+
+### Cola de revisión de negocios
+
+`GET /api/admin/businesses?status=pending|rejected|verified&q=&page=&size=` y
+`PUT /api/admin/businesses/{id}/{approve|reject}`, todo bajo `ROLE_BUSINESS_VERIFY`.
+
+La migración `Version20260909200000` añade **`business.rejected_at`**. Antes la validación era una
+sola fecha: con `verified_at` el negocio se ve y sin ella no. Eso basta para el feed, pero deja la
+cola del panel sin fondo — lo que alguien miró y descartó volvía a salir como pendiente en cada
+visita, mezclado con lo que nadie había tocado.
+
+Con la fecha nueva, **pendiente** es no tener ninguna de las dos y **rechazado** es tener ésta. Para
+lo público no cambia nada: lo que se mira sigue siendo `verified_at`, así que un rechazado se
+comporta igual que un pendiente en feed, mapa y búsqueda.
+
+**Las dos decisiones se deshacen**: aprobar limpia el rechazo y rechazar retira la validación. Quien
+revisa se equivoca, y arreglarlo no puede exigir tocar la base a mano. Por eso son `PUT` y no `POST`:
+llamarlo cinco veces deja lo mismo que llamarlo una.
+
+El listado devuelve las fechas en **ISO 8601** y no como las da Postgres (`2026-09-04 11:56:16+00`):
+ese formato no lo entiende el `Date` del navegador —el desfase sin minutos no es válido— y las
+fechas salían vacías en el panel sin ningún error.
+
+### La firma del token sí se comprueba
+
+[`KeycloakTokenVerifier`](src/Security/KeycloakTokenVerifier.php) valida cada access token contra las
+claves públicas del realm (JWKS) antes de creerse una línea de lo que lleva dentro. Lo usan el
+firewall (`KeycloakAuthenticator`) y `JwtUserResolver`.
+
+Hasta ahora el BFF descodificaba el JWT **sin mirar la firma** y delegaba la comprobación en «Nginx o
+el API Gateway», donde no había nada: bastaba escribirse un token con `realm_access.roles:
+["admin"]` para entrar por `/api/admin`. Mientras esa ruta estuvo vacía era teórico; con la cola de
+validación detrás, no.
+
+Se comprueban cuatro cosas y las cuatro hacen falta: **firma**, **`exp`/`nbf`** (con un minuto de
+margen por el desfase de relojes), **`iss`** —una firma válida de otro Keycloak sigue siendo válida—
+y **`azp`** contra `$allowedClients` en `config/services.yaml`, que es lo que impide que un cliente
+nuevo del realm sirva para entrar al panel. `aud` no se mira: los tokens de este realm no la traen.
+
+Dos detalles que costaría redescubrir:
+
+- **El `iss` es siempre el público.** Keycloak lo saca de `KC_HOSTNAME`, así que un token pedido por
+  la red interna (`http://keycloak:8080`, que es como hace login el BFF) también lleva
+  `KEYCLOAK_PUBLIC_URL`. Por eso el verificador recibe las dos URLs: la interna para pedir el JWKS y
+  la pública para comparar el emisor. Comparar contra la interna dejaría a la app sin poder entrar.
+- **Las claves se recargan como mucho una vez por minuto.** Si el `kid` del token no está entre las
+  conocidas se vuelven a pedir, porque el realm las rota y esperar a que caduque la caché serían
+  hasta 60 minutos devolviendo 401 a todo el mundo. Pero sin freno, mandar tokens basura con `kid`
+  distintos convierte el BFF en un ariete contra Keycloak sin necesidad de autenticarse.
+
+Cubierto por [`tests/Security/KeycloakTokenVerifierTest.php`](tests/Security/KeycloakTokenVerifierTest.php),
+que se monta su propio par de claves y no necesita un Keycloak levantado.
+
 ## ⚠️ Origen de datos e IDs deterministas (UUID v5)
 
 Los datos migran desde **Firestore** (colecciones `stores`, `geoproducts`) y Supabase. Los ids

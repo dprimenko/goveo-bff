@@ -69,6 +69,15 @@ class Business
     #[ORM\Column(name: 'verified_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $verifiedAt;
 
+    /**
+     * Revisado y descartado, que no es lo mismo que estar sin revisar. Lo
+     * público sigue mirando sólo `verifiedAt`: un rechazado no se ve, igual que
+     * un pendiente. Esta fecha existe para que la cola del backoffice tenga
+     * fondo y no devuelva siempre lo mismo.
+     */
+    #[ORM\Column(name: 'rejected_at', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $rejectedAt;
+
     /** Cuándo salió la bienvenida. Nulo = no le ha llegado a su dueño. */
     #[ORM\Column(name: 'welcome_email_sent_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $welcomeEmailSentAt = null;
@@ -101,6 +110,7 @@ class Business
         $this->updatedAt = $updatedAt ?? new \DateTimeImmutable();
         $this->deletedAt = null;
         $this->verifiedAt = null;
+        $this->rejectedAt = null;
     }
 
     public function getId(): string { return $this->id; }
@@ -118,6 +128,7 @@ class Business
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
     public function getDeletedAt(): ?\DateTimeImmutable { return $this->deletedAt; }
     public function getVerifiedAt(): ?\DateTimeImmutable { return $this->verifiedAt; }
+    public function getRejectedAt(): ?\DateTimeImmutable { return $this->rejectedAt; }
 
     public function setName(?string $name): self
     {
@@ -233,7 +244,19 @@ class Business
     public function verify(): self
     {
         $this->verifiedAt = new \DateTimeImmutable();
+        // Aprobar borra el rechazo: quien revisa tiene que poder desdecirse sin
+        // que el negocio quede aprobado y rechazado a la vez.
+        $this->rejectedAt = null;
         $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    /** Revisado y descartado. Deja de contar como pendiente. */
+    public function reject(): self
+    {
+        $this->rejectedAt = new \DateTimeImmutable();
+        $this->verifiedAt = null;
+        $this->updatedAt  = new \DateTimeImmutable();
         return $this;
     }
 
@@ -254,4 +277,5 @@ class Business
 
     public function isDeleted(): bool { return $this->deletedAt !== null; }
     public function isVerified(): bool { return $this->verifiedAt !== null; }
+    public function isRejected(): bool { return $this->rejectedAt !== null; }
 }

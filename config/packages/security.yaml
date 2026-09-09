@@ -22,8 +22,10 @@ security:
         - { path: ^/api/v1/webhooks, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth, roles: PUBLIC_ACCESS }
         - { path: ^/health, roles: PUBLIC_ACCESS }
-        # Panel comercial interno: no basta con estar autenticado
-        - { path: ^/api/admin, roles: ROLE_ADMIN }
+        # Backoffice: no basta con estar autenticado. `backoffice.access` es un
+        # rol del cliente goveo-backoffice, así que un token de la app nunca lo
+        # trae por mucho que su dueño lo tenga concedido.
+        - { path: ^/api/admin, roles: ROLE_BACKOFFICE_ACCESS }
         # Everything else requires auth
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
