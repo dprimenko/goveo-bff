@@ -143,6 +143,7 @@ ensure_role() {
 
 ensure_role "backoffice.access" "Entrar al panel. Sin este rol, ninguna pantalla."
 ensure_role "business.verify"   "Validar y retirar la validación de negocios."
+ensure_role "geostory.moderate" "Aprobar y retirar vídeos."
 
 # ============================================================
 # LOS PUESTOS
@@ -171,7 +172,10 @@ ensure_group() {
         --gid "$group_uuid" --cclientid "$CLIENT_ID" "$@" >/dev/null 2>&1
 }
 
-ensure_group "backoffice-admin" --rolename "backoffice.access" --rolename "business.verify"
+ensure_group "backoffice-admin" \
+    --rolename "backoffice.access" \
+    --rolename "business.verify" \
+    --rolename "geostory.moderate"
 
 # ============================================================
 # USUARIO DE PRUEBA (sólo donde se pida)

@@ -333,6 +333,19 @@ class GeoStory
         return $this;
     }
 
+    /**
+     * Lo saca de los feeds sin borrarlo: sigue estando, y su dueño lo sigue
+     * viendo en su perfil, pero deja de ser público. Es lo que se quiere para
+     * retirar un vídeo que no encaja sin destruir lo que alguien subió, y lo que
+     * permite deshacer una decisión equivocada.
+     */
+    public function unverify(): self
+    {
+        $this->verifiedAt = null;
+        $this->updatedAt  = new \DateTimeImmutable();
+        return $this;
+    }
+
     public function softDelete(): self
     {
         $this->deletedAt = new \DateTimeImmutable();

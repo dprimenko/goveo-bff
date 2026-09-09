@@ -621,9 +621,36 @@ comporta igual que un pendiente en feed, mapa y búsqueda.
 revisa se equivoca, y arreglarlo no puede exigir tocar la base a mano. Por eso son `PUT` y no `POST`:
 llamarlo cinco veces deja lo mismo que llamarlo una.
 
+**El orden depende de la pestaña**: la cola de pendientes va por antigüedad —quien lleva más tiempo
+esperando es a quien peor se le atiende— y lo ya decidido, por fecha de decisión descendente, que es
+lo que responde a «qué hemos hecho últimamente». Ordenar lo decidido por fecha de alta no ordena
+nada: puede ser de hace dos años.
+
 El listado devuelve las fechas en **ISO 8601** y no como las da Postgres (`2026-09-04 11:56:16+00`):
 ese formato no lo entiende el `Date` del navegador —el desfase sin minutos no es válido— y las
 fechas salían vacías en el panel sin ningún error.
+
+### Cola de vídeos
+
+`GET /api/admin/geostories?status=pending|published|removed&q=&page=&size=` y
+`PUT /api/admin/geostories/{id}/{approve|reject}`, bajo `ROLE_GEOSTORY_MODERATE`.
+
+⚠️ **`geostories.verified_at` ya decidía la visibilidad, pero nadie la ponía.**
+`DoctrineGeoStoryRepository` deja fuera de todos los feeds lo que no está verificado —sólo su dueño
+lo ve en su propio perfil—, y sin embargo `GeoStory::verify()` no la llamaba **ningún** sitio del
+código: al crear se llama a `publish()`, y el webhook de Bunny sólo marca `status = ready`. Resultado
+al montar esta pantalla: **137 vídeos subidos que no veía nadie más que quien los subió**, el más
+antiguo de 2023 y el más reciente de septiembre de 2026. Esta cola es lo que faltaba para que lo
+subido llegue a verse, no una moderación preventiva.
+
+Ojo con las dos columnas que se parecen: `status` es cómo va la **codificación** en Bunny
+(`processing|ready|failed`) y `verified_at` es si es **público**. Aprobar algo que aún se está
+codificando responde `409`: no hay vídeo que mirar todavía y se estaría aprobando a ciegas.
+
+**Retirar no borra.** `reject` llama al `unverify()` nuevo del dominio: el vídeo deja de salir en los
+feeds pero sigue existiendo y su dueño lo sigue viendo. Lo que se retira suele ser discutible, no
+delictivo, y destruir lo que alguien subió por una decisión revisable mañana es desproporcionado.
+Borrar de verdad sigue siendo cosa de su dueño desde la app.
 
 ### La firma del token sí se comprueba
 

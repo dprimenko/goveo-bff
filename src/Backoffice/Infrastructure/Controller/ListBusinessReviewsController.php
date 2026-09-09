@@ -77,6 +77,16 @@ class ListBusinessReviewsController
             $params,
         );
 
+        // La cola se lee por antigüedad —quien lleva más tiempo esperando es a
+        // quien peor se le está atendiendo—, pero lo ya decidido se consulta al
+        // revés: lo que se busca ahí es «qué hemos hecho últimamente», y la
+        // fecha de alta no ordena nada porque puede ser de hace dos años.
+        $order = match ($status) {
+            'verified' => 'b.verified_at DESC',
+            'rejected' => 'b.rejected_at DESC',
+            default    => 'b.created_at ASC',
+        };
+
         $rows = $this->db->fetchAllAssociative(
             "SELECT b.id, b.slug, b.name, b.avatar, b.main_image, b.meta,
                     b.created_at, b.verified_at, b.rejected_at,
@@ -84,9 +94,7 @@ class ListBusinessReviewsController
                FROM business b
           LEFT JOIN categories c ON c.id = b.category_id
               WHERE {$where}
-              -- Lo más antiguo primero: en una cola de revisión, quien lleva más
-              -- tiempo esperando es a quien peor se le está atendiendo.
-              ORDER BY b.created_at ASC
+              ORDER BY {$order}
               LIMIT ? OFFSET ?",
             [...$params, $size, ($page - 1) * $size],
         );
