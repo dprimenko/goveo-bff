@@ -63,12 +63,29 @@ class ReviewGeoStoryController
             );
         }
 
-        $approve ? $story->verify() : $story->unverify();
+        if ($approve) {
+            $story->verify();
+
+            // `published_at` es la otra puerta, y se cierra más fuerte: el
+            // repositorio la exige **siempre**, incluso al dueño en su propio
+            // perfil, mientras que `verified_at` sólo hace falta para el resto
+            // del mundo. Se pone al crear, pero 43 vídeos de la base no la
+            // tienen —importados o de antes de que existiera—, y aprobarlos sin
+            // esto los dejaría igual de invisibles con el panel diciendo que
+            // están publicados.
+            if (!$story->isPublished()) {
+                $story->publish();
+            }
+        } else {
+            $story->unverify();
+        }
+
         $this->geoStories->save($story);
 
         return new JsonResponse([
-            'id'          => $story->getId(),
-            'verified_at' => $story->getVerifiedAt()?->format(\DATE_ATOM),
+            'id'           => $story->getId(),
+            'verified_at'  => $story->getVerifiedAt()?->format(\DATE_ATOM),
+            'published_at' => $story->getPublishedAt()?->format(\DATE_ATOM),
         ]);
     }
 }
