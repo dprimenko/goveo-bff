@@ -9,6 +9,7 @@ use App\GeoStories\Domain\GeoStory;
 use App\Influencers\Domain\InfluencerRepository;
 use App\Security\GoveoUser;
 use App\Users\Domain\UserRepository;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * Resolves whether the authenticated user owns a GeoStory — an influencer owns
@@ -21,10 +22,22 @@ final class GeoStoryOwnership
         private readonly InfluencerRepository $influencers,
         private readonly BusinessManagerRepository $businessManagers,
         private readonly UserRepository $users,
+        private readonly Security $security,
     ) {}
 
-    public function userOwns(GoveoUser $user, GeoStory $story): bool
+    /**
+     * @param bool $allowBackoffice deja pasar también a quien modere vídeos en
+     *                              el panel, aunque no sea suyo. Apagado por
+     *                              defecto: se enciende sólo donde el panel
+     *                              tiene que poder editar, y así el permiso no
+     *                              abre de paso todo lo que use este servicio.
+     */
+    public function userOwns(GoveoUser $user, GeoStory $story, bool $allowBackoffice = false): bool
     {
+        if ($allowBackoffice && $this->security->isGranted('ROLE_GEOSTORY_MODERATE')) {
+            return true;
+        }
+
         $userId = ($user->getEmail() !== null
             ? $this->users->findByEmail($user->getEmail())?->getId()
             : null) ?? $user->getId();

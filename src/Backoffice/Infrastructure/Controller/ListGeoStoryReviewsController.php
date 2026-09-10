@@ -91,7 +91,8 @@ class ListGeoStoryReviewsController
         $total = (int) $this->db->fetchOne("SELECT COUNT(*) {$from} WHERE {$where}", $params);
 
         $rows = $this->db->fetchAllAssociative(
-            "SELECT g.id, g.title, g.thumbnail, g.url, g.status, g.likes, g.views,
+            "SELECT g.id, g.title, g.description, g.category_id, g.thumbnail, g.url,
+                    g.status, g.likes, g.views,
                     g.created_at, g.verified_at, g.deleted_at, g.started_at, g.ended_at,
                     c.slug AS category_slug, c.name AS category_name,
                     b.id AS business_id, b.name AS business_name, b.avatar AS business_avatar,
@@ -124,9 +125,13 @@ class ListGeoStoryReviewsController
                 : null);
 
         return [
-            'id'        => $row['id'],
-            'title'     => $row['title'],
-            'thumbnail' => $row['thumbnail'],
+            'id'          => $row['id'],
+            'title'       => $row['title'],
+            // Para poder editarlo sin una segunda petición: la ficha de un vídeo
+            // es tan corta que traerla aparte sólo añadiría espera.
+            'description' => $row['description'],
+            'category_id' => $row['category_id'],
+            'thumbnail'   => $row['thumbnail'],
             'url'       => $row['url'],
             // Cómo va la codificación en Bunny: en `processing` no hay nada que
             // mirar todavía, y aprobarlo a ciegas es aprobar cualquier cosa.

@@ -57,7 +57,8 @@ class UpdateGeoStoryController
         if ($story === null || $story->isDeleted()) {
             return new JsonResponse(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
         }
-        if (!$this->ownership->userOwns($user, $story)) {
+        // El panel edita vídeos de cualquiera: es su trabajo. Ver GeoStoryOwnership.
+        if (!$this->ownership->userOwns($user, $story, allowBackoffice: true)) {
             return new JsonResponse(['error' => 'Forbidden'], Response::HTTP_FORBIDDEN);
         }
 
