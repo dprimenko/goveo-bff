@@ -621,6 +621,11 @@ comporta igual que un pendiente en feed, mapa y búsqueda.
 revisa se equivoca, y arreglarlo no puede exigir tocar la base a mano. Por eso son `PUT` y no `POST`:
 llamarlo cinco veces deja lo mismo que llamarlo una.
 
+**Archivar y recuperar** (`PUT .../remove` y `PUT .../restore`) hacen lo mismo que en vídeos:
+un borrado blando para lo que no se va a validar nunca —una prueba, un duplicado—, porque rechazarlo
+sólo lo mueve a su propia pestaña, donde se acumula. `removed` es entonces el cajón de los dados de
+baja, aquí o desde la app.
+
 **El orden depende de la pestaña**: la cola de pendientes va por antigüedad —quien lleva más tiempo
 esperando es a quien peor se le atiende— y lo ya decidido, por fecha de decisión descendente, que es
 lo que responde a «qué hemos hecho últimamente». Ordenar lo decidido por fecha de alta no ordena

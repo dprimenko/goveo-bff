@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * GET /api/admin/businesses?status=pending|rejected|verified&q=&page=&size=
+ * GET /api/admin/businesses?status=pending|rejected|verified|removed&q=&page=&size=
  *
  * La cola de revisión del panel. Tres estados que se excluyen entre sí:
  *
@@ -48,21 +48,24 @@ class ListBusinessReviewsController
         $size   = min(self::MAX_SIZE, max(1, (int) $request->query->get('size', self::DEFAULT_SIZE)));
         $q      = trim((string) $request->query->get('q', ''));
 
+        // Los tres primeros son estados de un negocio vivo; `removed` corta por
+        // otro sitio, así que la condición de «no borrado» se añade sólo a ésos.
         $condition = match ($status) {
-            'rejected' => 'b.rejected_at IS NOT NULL',
-            'verified' => 'b.verified_at IS NOT NULL',
-            'pending'  => 'b.verified_at IS NULL AND b.rejected_at IS NULL',
+            'rejected' => 'b.deleted_at IS NULL AND b.rejected_at IS NOT NULL',
+            'verified' => 'b.deleted_at IS NULL AND b.verified_at IS NOT NULL',
+            'pending'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL',
+            'removed'  => 'b.deleted_at IS NOT NULL',
             default    => null,
         };
 
         if ($condition === null) {
             return new JsonResponse(
-                ['error' => 'Unknown status. Use pending, rejected or verified.'],
+                ['error' => 'Unknown status. Use pending, rejected, verified or removed.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         }
 
-        $where  = "b.deleted_at IS NULL AND ({$condition})";
+        $where  = $condition;
         $params = [];
 
         if ($q !== '') {
@@ -84,12 +87,13 @@ class ListBusinessReviewsController
         $order = match ($status) {
             'verified' => 'b.verified_at DESC',
             'rejected' => 'b.rejected_at DESC',
+            'removed'  => 'b.deleted_at DESC',
             default    => 'b.created_at ASC',
         };
 
         $rows = $this->db->fetchAllAssociative(
             "SELECT b.id, b.slug, b.name, b.avatar, b.main_image, b.meta,
-                    b.created_at, b.verified_at, b.rejected_at,
+                    b.created_at, b.verified_at, b.rejected_at, b.deleted_at,
                     c.slug AS category_slug, c.name AS category_name
                FROM business b
           LEFT JOIN categories c ON c.id = b.category_id
@@ -148,6 +152,7 @@ class ListBusinessReviewsController
             'created_at'  => self::iso($row['created_at']),
             'verified_at' => self::iso($row['verified_at']),
             'rejected_at' => self::iso($row['rejected_at']),
+            'deleted_at'  => self::iso($row['deleted_at']),
         ];
     }
 }

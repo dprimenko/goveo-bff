@@ -275,6 +275,18 @@ class Business
         return $this;
     }
 
+    /**
+     * Deshace la baja. El negocio vuelve donde estaba —validado, rechazado o
+     * pendiente, según sus fechas—, que es lo que permite archivar para quitar
+     * ruido de la cola sin que sea una decisión definitiva.
+     */
+    public function restore(): self
+    {
+        $this->deletedAt = null;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
     public function isDeleted(): bool { return $this->deletedAt !== null; }
     public function isVerified(): bool { return $this->verifiedAt !== null; }
     public function isRejected(): bool { return $this->rejectedAt !== null; }
