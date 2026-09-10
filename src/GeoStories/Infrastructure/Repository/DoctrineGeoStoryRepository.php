@@ -125,7 +125,6 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 geo.created_at,
                 geo.verified_at,
                 geo.deleted_at,
-                geo.published_at,
                 ST_Y(geo.location::geometry)                                            AS lat,
                 ST_X(geo.location::geometry)                                            AS long,
                 ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) AS dist_meters,
@@ -184,7 +183,6 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 geo.created_at,
                 geo.verified_at,
                 geo.deleted_at,
-                geo.published_at,
                 ST_Y(geo.location::geometry)                                            AS lat,
                 ST_X(geo.location::geometry)                                            AS long,
                 ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) AS dist_meters,
@@ -235,7 +233,6 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
-            'geo.published_at IS NOT NULL',
         ];
         $params = [
             'lat'      => $latitude,
@@ -365,7 +362,6 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 geo.created_at,
                 geo.verified_at,
                 geo.deleted_at,
-                geo.published_at,
                 ST_Y(geo.location::geometry)                                                        AS lat,
                 ST_X(geo.location::geometry)                                                        AS long,
                 ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography)   AS dist_meters,

@@ -14,7 +14,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity]
 #[ORM\Table(name: 'geostories')]
 #[ORM\Index(name: 'idx_geostories_location_gist', columns: ['location'])]
-#[ORM\Index(name: 'idx_geostories_active', columns: ['published_at', 'started_at', 'created_at'], options: ['where' => '(deleted_at IS NULL) AND (published_at IS NOT NULL)'])]
+#[ORM\Index(name: 'idx_geostories_visible', columns: ['started_at', 'created_at'], options: ['where' => '(deleted_at IS NULL) AND (verified_at IS NOT NULL)'])]
 #[ORM\Index(name: 'idx_geostories_business_id', columns: ['business_id'], options: ['where' => 'deleted_at IS NULL'])]
 #[ORM\Index(name: 'idx_geostories_category_id', columns: ['category_id'], options: ['where' => 'deleted_at IS NULL'])]
 #[ORM\Index(name: 'idx_geostories_influencer_id', columns: ['influencer_id'], options: ['where' => 'deleted_at IS NULL'])]
@@ -93,8 +93,6 @@ class GeoStory
     #[ORM\Column(name: 'verified_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $verifiedAt;
 
-    #[ORM\Column(name: 'published_at', type: 'datetimetz_immutable', nullable: true)]
-    private ?\DateTimeImmutable $publishedAt;
 
     #[ORM\Column(name: 'started_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $startedAt;
@@ -138,7 +136,6 @@ class GeoStory
         $this->updatedAt = $updatedAt ?? new \DateTimeImmutable();
         $this->deletedAt = null;
         $this->verifiedAt = null;
-        $this->publishedAt = null;
         $this->startedAt = null;
         $this->endedAt = null;
     }
@@ -162,7 +159,6 @@ class GeoStory
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
     public function getDeletedAt(): ?\DateTimeImmutable { return $this->deletedAt; }
     public function getVerifiedAt(): ?\DateTimeImmutable { return $this->verifiedAt; }
-    public function getPublishedAt(): ?\DateTimeImmutable { return $this->publishedAt; }
     public function getStartedAt(): ?\DateTimeImmutable { return $this->startedAt; }
     public function getEndedAt(): ?\DateTimeImmutable { return $this->endedAt; }
 
@@ -319,12 +315,6 @@ class GeoStory
         return $this;
     }
 
-    public function publish(): self
-    {
-        $this->publishedAt = new \DateTimeImmutable();
-        $this->updatedAt = new \DateTimeImmutable();
-        return $this;
-    }
 
     public function verify(): self
     {
@@ -353,7 +343,18 @@ class GeoStory
         return $this;
     }
 
+    /**
+     * Deshace el borrado. El vídeo vuelve donde estaba —validado o no, según su
+     * `verifiedAt`—, que es lo que permite usar el borrado para quitar ruido de
+     * la cola sin que sea una decisión definitiva.
+     */
+    public function restore(): self
+    {
+        $this->deletedAt = null;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
     public function isDeleted(): bool { return $this->deletedAt !== null; }
-    public function isPublished(): bool { return $this->publishedAt !== null; }
     public function isVerified(): bool { return $this->verifiedAt !== null; }
 }

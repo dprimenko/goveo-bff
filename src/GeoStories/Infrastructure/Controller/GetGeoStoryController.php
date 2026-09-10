@@ -50,7 +50,6 @@ class GetGeoStoryController
             'started_at'        => $s->startedAt?->format(\DateTimeInterface::ATOM),
             'ended_at'          => $s->endedAt?->format(\DateTimeInterface::ATOM),
             'created_at'        => $s->createdAt?->format(\DateTimeInterface::ATOM),
-            'published_at'      => $s->publishedAt?->format(\DateTimeInterface::ATOM),
             'influencer_id'     => $s->influencerId,
             'influencer_name'   => $s->influencerName,
             'influencer_avatar' => $s->influencerAvatar,

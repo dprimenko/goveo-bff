@@ -13,10 +13,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 /**
  * PUT /api/admin/geostories/{id}/approve
  * PUT /api/admin/geostories/{id}/reject
+ * PUT /api/admin/geostories/{id}/remove
+ * PUT /api/admin/geostories/{id}/restore
  *
- * Aprobar pone `verified_at`, que es lo que hace público un vídeo. Retirar lo
- * quita: el vídeo **no se borra** —sigue estando y su dueño lo sigue viendo en
- * su perfil—, simplemente deja de salir en los feeds.
+ * Validar pone `verified_at`, que es lo único que decide si un vídeo se ve.
+ * Retirar la validación lo quita: el vídeo **no se borra** —sigue estando y su
+ * dueño lo sigue viendo en su perfil—, vuelve a «sin validar».
  *
  * Retirar y no borrar a propósito: lo que se retira suele ser discutible, no
  * delictivo, y destruir lo que alguien subió por una decisión que se puede
@@ -42,6 +44,43 @@ class ReviewGeoStoryController
         return $this->decide($id, approve: false);
     }
 
+    /**
+     * Lo archiva sin destruirlo. Es lo que permite dejar la cola con
+     * lo que de verdad hay que mirar: un vídeo que no se va a validar nunca
+     * —una prueba, algo repetido— estorba ahí para siempre, y retirarlo no lo
+     * saca de la cola porque «sin validar» es justo donde estaba.
+     */
+    #[Route('/api/admin/geostories/{id}/remove', name: 'admin_geostory_remove', methods: ['PUT'])]
+    public function remove(string $id): Response
+    {
+        $story = $this->geoStories->findById($id);
+
+        if ($story === null) {
+            return new JsonResponse(['error' => 'GeoStory not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $story->softDelete();
+        $this->geoStories->save($story);
+
+        return $this->state($story);
+    }
+
+    /** Y la vuelta: sin esto, archivar sería tan definitivo como borrar. */
+    #[Route('/api/admin/geostories/{id}/restore', name: 'admin_geostory_restore', methods: ['PUT'])]
+    public function restore(string $id): Response
+    {
+        $story = $this->geoStories->findById($id);
+
+        if ($story === null) {
+            return new JsonResponse(['error' => 'GeoStory not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        $story->restore();
+        $this->geoStories->save($story);
+
+        return $this->state($story);
+    }
+
     private function decide(string $id, bool $approve): Response
     {
         $story = $this->geoStories->findById($id);
@@ -63,29 +102,18 @@ class ReviewGeoStoryController
             );
         }
 
-        if ($approve) {
-            $story->verify();
-
-            // `published_at` es la otra puerta, y se cierra más fuerte: el
-            // repositorio la exige **siempre**, incluso al dueño en su propio
-            // perfil, mientras que `verified_at` sólo hace falta para el resto
-            // del mundo. Se pone al crear, pero 43 vídeos de la base no la
-            // tienen —importados o de antes de que existiera—, y aprobarlos sin
-            // esto los dejaría igual de invisibles con el panel diciendo que
-            // están publicados.
-            if (!$story->isPublished()) {
-                $story->publish();
-            }
-        } else {
-            $story->unverify();
-        }
-
+        $approve ? $story->verify() : $story->unverify();
         $this->geoStories->save($story);
 
+        return $this->state($story);
+    }
+
+    private function state(\App\GeoStories\Domain\GeoStory $story): JsonResponse
+    {
         return new JsonResponse([
-            'id'           => $story->getId(),
-            'verified_at'  => $story->getVerifiedAt()?->format(\DATE_ATOM),
-            'published_at' => $story->getPublishedAt()?->format(\DATE_ATOM),
+            'id'          => $story->getId(),
+            'verified_at' => $story->getVerifiedAt()?->format(\DATE_ATOM),
+            'deleted_at'  => $story->getDeletedAt()?->format(\DATE_ATOM),
         ]);
     }
 }

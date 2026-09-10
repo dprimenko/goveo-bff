@@ -137,7 +137,6 @@ class ListGeoStoriesController
             'ended_at'         => $s->endedAt?->format(\DateTimeInterface::ATOM),
             'created_at'       => $s->createdAt?->format(\DateTimeInterface::ATOM),
             'verified_at'      => $s->verifiedAt?->format(\DateTimeInterface::ATOM),
-            'published_at'     => $s->publishedAt?->format(\DateTimeInterface::ATOM),
             'influencer_id'    => $s->influencerId,
             'influencer_name'  => $s->influencerName,
             'influencer_avatar' => $s->influencerAvatar,

@@ -667,22 +667,21 @@ codificando responde `409`: no hay vídeo que mirar todavía y se estaría aprob
 feeds pero sigue existiendo y su dueño lo sigue viendo. Lo que se retira suele ser discutible, no
 delictivo, y destruir lo que alguien subió por una decisión revisable mañana es desproporcionado.
 
-⚠️ **`published_at` y `verified_at` son dos puertas, no una.** Y no filtran igual:
+**Una sola puerta: `verified_at`.** `published_at` se quitó en `Version20260910090000`. Eran dos
+columnas para lo mismo que ni siquiera filtraban igual —`published_at` se exigía **siempre**, incluso
+al dueño en su propio perfil—, y como la app no tiene borradores (al subir un vídeo se publica en el
+acto) nunca distinguió nada. Lo único que decidía era `verified_at`, que hasta ahora no ponía nadie.
 
-| Columna | Cuándo filtra | Quién se queda fuera |
-|---|---|---|
-| `published_at` | **siempre** | todo el mundo, incluido su dueño |
-| `verified_at` | salvo consulta del propio dueño | el resto del mundo |
+Su único efecto real era esconder vídeos sin motivo: 43 no la tenían —importados, o de antes de que
+existiera— y 20 de ésos estaban aprobados, así que no los veía nadie pese a estar en regla. Antes de
+quitarla se comprobó que ni la app ni la web la leen: las dos la declaran en su `types.ts` y ninguna
+la usa, y el SQL de Supabase que la nombraba en `goveo-astro` es legado sin uso.
 
-`published_at` se pone al crear (`CreateGeoStoryController` llama a `publish()`), así que en teoría
-nunca falta. En la práctica **43 vídeos de la base no la tienen** —importados, o de antes de que eso
-existiera—, el más reciente de mayo de 2026, y ésos no los ve absolutamente nadie. Por eso `approve`
-publica además de verificar: sin ello, aprobarlos los dejaba igual de invisibles con el panel
-diciendo que estaban publicados.
-
-Dicho eso, hoy las dos columnas hacen casi lo mismo: no hay borradores, todo se publica al subirse, y
-lo único que decidía de verdad era `verified_at`, que nadie ponía. Unificar en una sola queda
-pendiente de decidir.
+**Archivar y recuperar**: `PUT .../remove` y `PUT .../restore`. Archivar es un borrado blando que
+manda el vídeo al cajón de «borrados» sin destruirlo, y sirve para lo que no se va a validar
+nunca —una prueba, algo repetido—: retirar la validación no lo sacaría de la cola, porque «sin
+validar» es justo donde ya estaba. `restore` existe para que archivar no acabe siendo tan definitivo
+como borrar.
 
 **Borrado definitivo**: `DELETE /api/admin/geostories/{id}`, con permiso propio `geostory.delete` y
 **sólo sobre lo ya borrado**. Quita la fila, sus likes —no tienen clave ajena, así que no se van

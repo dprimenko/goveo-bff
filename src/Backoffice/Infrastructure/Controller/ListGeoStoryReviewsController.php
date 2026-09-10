@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * GET /api/admin/geostories?status=pending|published|removed&q=&page=&size=
+ * GET /api/admin/geostories?status=pending|verified|removed&q=&page=&size=
  *
  * La cola de vídeos. **`verified_at` ya decidía la visibilidad** —el repositorio
  * de geostories deja fuera de todos los feeds lo que no está verificado, y sólo
@@ -23,11 +23,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  *
  * De ahí los tres estados:
  *
- * | Estado    | Condición                          | Qué significa                    |
- * |-----------|------------------------------------|----------------------------------|
- * | pending   | `verified_at IS NULL`              | subido y esperando; no se ve     |
- * | published | `verified_at IS NOT NULL`          | en los feeds                     |
- * | removed   | `deleted_at IS NOT NULL`           | borrado por su dueño             |
+ * | Estado   | Condición                 | Qué significa                |
+ * |----------|---------------------------|------------------------------|
+ * | pending  | `verified_at IS NULL`     | subido y esperando; no se ve |
+ * | verified | `verified_at IS NOT NULL` | validado, y por eso se ve    |
+ * | removed  | `deleted_at IS NOT NULL`  | borrado por su dueño         |
  *
  * `status` de la columna es otra cosa —cómo va la codificación en Bunny— y viaja
  * aparte: un vídeo en `processing` todavía no se puede ver para juzgarlo.
@@ -51,15 +51,15 @@ class ListGeoStoryReviewsController
         $q      = trim((string) $request->query->get('q', ''));
 
         $condition = match ($status) {
-            'pending'   => 'g.deleted_at IS NULL AND g.verified_at IS NULL',
-            'published' => 'g.deleted_at IS NULL AND g.verified_at IS NOT NULL',
-            'removed'   => 'g.deleted_at IS NOT NULL',
-            default     => null,
+            'pending'  => 'g.deleted_at IS NULL AND g.verified_at IS NULL',
+            'verified' => 'g.deleted_at IS NULL AND g.verified_at IS NOT NULL',
+            'removed'  => 'g.deleted_at IS NOT NULL',
+            default    => null,
         };
 
         if ($condition === null) {
             return new JsonResponse(
-                ['error' => 'Unknown status. Use pending, published or removed.'],
+                ['error' => 'Unknown status. Use pending, verified or removed.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         }

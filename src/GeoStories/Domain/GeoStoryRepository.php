@@ -51,7 +51,7 @@ interface GeoStoryRepository
     /**
      * Full feed query replacing the Supabase retrieveGeoStories use case.
      * Supports feedType-based category filtering, pagination, and entity filters.
-     * Only returns published geostories (published_at IS NOT NULL).
+     * Only returns verified geostories (verified_at IS NOT NULL).
      *
      * @return array{items: GeoStoryWithDistance[], total: int}
      */

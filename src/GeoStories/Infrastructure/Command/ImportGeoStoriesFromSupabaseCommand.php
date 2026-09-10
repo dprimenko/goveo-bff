@@ -69,7 +69,7 @@ final class ImportGeoStoriesFromSupabaseCommand extends AbstractSupabaseMigratio
                     likes::integer AS likes, views::integer AS views,
                     gis.ST_AsText(location) AS location_wkt,
                     category_id, influencer_id, business_id, meta,
-                    created_at, updated_at, deleted_at, verified_at, published_at, started_at, ended_at
+                    created_at, updated_at, deleted_at, verified_at, started_at, ended_at
              FROM geostories ORDER BY created_at ASC"
         );
 
@@ -143,7 +143,7 @@ final class ImportGeoStoriesFromSupabaseCommand extends AbstractSupabaseMigratio
         $sql = "INSERT INTO geostories
                     (id, title, description, thumbnail, url, likes, views, location,
                      category_id, influencer_id, business_id, meta,
-                     created_at, updated_at, deleted_at, verified_at, published_at, started_at, ended_at)
+                     created_at, updated_at, deleted_at, verified_at, started_at, ended_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, {$locationSql}, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (id) DO NOTHING";
 
@@ -164,7 +164,6 @@ final class ImportGeoStoriesFromSupabaseCommand extends AbstractSupabaseMigratio
             $this->ts($row['updated_at']),
             $this->ts($row['deleted_at'] ?? null),
             $this->ts($row['verified_at'] ?? null),
-            $this->ts($row['published_at'] ?? null),
             $this->ts($row['started_at'] ?? null),
             $this->ts($row['ended_at'] ?? null),
         ];

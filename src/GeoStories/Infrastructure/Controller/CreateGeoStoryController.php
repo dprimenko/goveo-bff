@@ -156,7 +156,6 @@ class CreateGeoStoryController
 
         // Published so it shows in the owner's profile immediately (as processing);
         // discovery feeds still hide it until status = ready (see findFeed).
-        $geoStory->publish();
         $this->geoStories->save($geoStory);
 
         return new JsonResponse([
