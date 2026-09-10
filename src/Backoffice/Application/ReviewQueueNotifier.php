@@ -62,8 +62,23 @@ final class ReviewQueueNotifier
         );
     }
 
+    /**
+     * Un vídeo llega a la cola cuando **queda listo**, y a eso se llega por dos
+     * caminos: el webhook de Bunny y la reconciliación que hace el BFF cuando su
+     * dueño abre el perfil y pregunta el estado. Al vivir el aviso sólo en el
+     * primero, los vídeos que se enteraban por el segundo no avisaban a nadie.
+     *
+     * Las condiciones viven aquí y no en quien llama, para que añadir un tercer
+     * camino no vuelva a dejarse el aviso por el camino.
+     */
     public function geoStoryPendingReview(GeoStory $story): void
     {
+        // Sin codificar no hay nada que mirar, y validado ya no está en la cola
+        // —es el caso de los que sube el propio panel—.
+        if ($story->getStatus() !== GeoStory::STATUS_READY || $story->isVerified()) {
+            return;
+        }
+
         $this->send(
             sprintf('Nuevo vídeo por validar: %s', $story->getTitle() ?? '(sin título)'),
             [

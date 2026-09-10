@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\GeoStories\Infrastructure\Controller;
 
+use App\Backoffice\Application\ReviewQueueNotifier;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
@@ -26,6 +27,7 @@ class ListGeoStoriesController
     public function __construct(
         private readonly GeoStoryRepository $repository,
         private readonly BunnyVideoService $bunny,
+        private readonly ReviewQueueNotifier $reviewQueue,
         private readonly ProfileOwnership $ownership,
     ) {}
 
@@ -109,6 +111,11 @@ class ListGeoStoriesController
                 $entity->markReady();
                 $this->repository->save($entity);
                 $changed = true;
+
+                // También desde aquí: este camino existe justo para cuando el
+                // webhook no ha llegado, así que es el único que se entera de
+                // que el vídeo ya se puede revisar.
+                $this->reviewQueue->geoStoryPendingReview($entity);
             } elseif ($bunnyStatus === self::BUNNY_FAILED) {
                 $entity->markFailed();
                 $this->repository->save($entity);

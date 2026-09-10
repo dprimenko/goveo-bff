@@ -702,10 +702,18 @@ alta —que ha pagado— no sale en la app hasta que se valida.
 
 - **Negocio**: junto a la bienvenida, es decir, **cuando el alta ya está cobrada** (o es gratuita).
   Al crear la ficha no: quien abandona en la pasarela no deja nada que revisar.
-- **Vídeo**: en el webhook de Bunny, **al quedar `ready`**. Al subirse no: hasta que termina de
-  codificarse no hay vídeo que mirar, y avisar antes es mandar a alguien a una pantalla que pone
-  «procesando». Sólo la primera vez que queda listo, porque Bunny reintenta sus avisos y cada
-  reintento sería otro correo.
+- **Vídeo**: **al quedar `ready`**, y no al subirse: hasta que termina de codificarse no hay vídeo
+  que mirar, y avisar antes es mandar a alguien a una pantalla que pone «procesando».
+
+⚠️ **A «listo» se llega por dos caminos**, y el aviso vivía sólo en uno. El webhook de Bunny es el
+primero; el segundo es la reconciliación de `ListGeoStoriesController`, que cuando el dueño abre su
+perfil pregunta el estado a Bunny y marca la fila. Los vídeos que se enteraban por ahí —justo los del
+webhook que no llegó— no avisaban a nadie: el estado cambiaba y el correo no salía nunca. Ahora
+avisan los dos, y **las condiciones viven dentro del notificador** (`ready`, sin validar y con
+`REVIEW_EMAIL` puesto) para que añadir un tercer camino no vuelva a dejarse el aviso por el camino.
+
+El webhook además sólo avisa la primera vez que pasa a listo, porque Bunny reintenta sus envíos y
+cada reintento sería otro correo.
 
 Es texto plano y sin adornos —es interno— y no lleva botones de aprobar ni rechazar: decidir se hace
 mirando la ficha, no desde la bandeja de entrada. `REVIEW_EMAIL` vacío apaga el aviso, que es lo

@@ -78,10 +78,10 @@ class BunnyWebhookController
         }
         $this->geoStories->save($geoStory);
 
-        // Al quedar listo y no al subirse: hasta que Bunny termina de codificar
-        // no hay vídeo que mirar, y avisar antes es mandar a alguien a una
-        // pantalla que dice «procesando».
-        if ($ready && !($wasReady ?? true) && !$geoStory->isVerified()) {
+        // Sólo al pasar de «procesando» a listo: Bunny reintenta sus avisos, y
+        // sin esto cada reintento sería otro correo. El resto de condiciones las
+        // pone el notificador.
+        if ($ready && !($wasReady ?? true)) {
             $this->reviewQueue->geoStoryPendingReview($geoStory);
         }
 
