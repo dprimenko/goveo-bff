@@ -711,6 +711,26 @@ Es texto plano y sin adornos —es interno— y no lleva botones de aprobar ni r
 mirando la ficha, no desde la bandeja de entrada. `REVIEW_EMAIL` vacío apaga el aviso, que es lo
 cómodo en local; en el compose de desarrollo apunta a Mailpit igual que el resto del correo.
 
+### El catálogo de un negocio desde el panel
+
+[`BusinessProductsController`](src/Backoffice/Infrastructure/Controller/BusinessProductsController.php):
+`GET /api/admin/businesses/{id}/products?status=published|draft|removed`, las acciones
+`PUT .../{publish|unpublish|remove|restore}` y el borrado definitivo `DELETE .../{productId}`, que se
+lleva también la carpeta de imágenes del producto.
+
+Un producto tiene **dos estados independientes** y conviene no confundirlos: `published_at` decide si
+se ve en la tienda —sin ella es un borrador de su dueño— y `deleted_at`, si existe. Se pueden dar a
+la vez: un borrador borrado es un borrador borrado.
+
+**Se mira y se quita de en medio, no se edita.** El catálogo lo mantiene su dueño desde la app, y un
+panel que además editara productos acabaría pisando lo que la tienda acaba de cambiar.
+
+Toda acción comprueba **que el producto es de ese negocio**: sin eso, el id de un producto ajeno
+colado en la URL se gestionaría igual.
+
+Los vídeos se filtran por dueño con `business=` en `/api/admin/geostories`, que es como se llega
+desde la ficha del negocio.
+
 ### Cola de vídeos
 
 `GET /api/admin/geostories?status=pending|published|removed&q=&page=&size=` y

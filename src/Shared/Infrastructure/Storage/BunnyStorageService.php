@@ -177,6 +177,17 @@ final class BunnyStorageService
      */
     public function deleteBusinessFolder(string $businessId): bool
     {
+        return $this->deleteFolder(sprintf('business/%s', $businessId));
+    }
+
+    /** Las imágenes de un producto, que cuelgan de la carpeta de su negocio. */
+    public function deleteProductFolder(string $businessId, string $productId): bool
+    {
+        return $this->deleteFolder(sprintf('business/%s/products/%s', $businessId, $productId));
+    }
+
+    private function deleteFolder(string $path): bool
+    {
         if (!$this->isConfigured()) {
             return false;
         }
@@ -184,17 +195,17 @@ final class BunnyStorageService
         try {
             $status = $this->httpClient->request(
                 'DELETE',
-                sprintf('https://%s/%s/business/%s/', $this->host, $this->zone, $businessId),
+                sprintf('https://%s/%s/%s/', $this->host, $this->zone, trim($path, '/')),
                 ['headers' => ['AccessKey' => $this->password]],
             )->getStatusCode();
 
             // 404 es que no había nada que borrar, y eso también es haber
-            // terminado: un negocio sin imágenes es un caso normal.
+            // terminado: un producto sin imágenes es un caso normal.
             return $status < 300 || $status === 404;
         } catch (\Throwable $e) {
-            $this->logger->error('No se pudo borrar la carpeta de un negocio', [
-                'business' => $businessId,
-                'message'  => $e->getMessage(),
+            $this->logger->error('No se pudo borrar una carpeta de imágenes', [
+                'path'    => $path,
+                'message' => $e->getMessage(),
             ]);
 
             return false;

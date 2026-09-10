@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * GET /api/admin/geostories?status=pending|verified|removed&q=&page=&size=
+ * GET /api/admin/geostories?status=pending|verified|removed&business=&q=&page=&size=
  *
  * La cola de vídeos. **`verified_at` ya decidía la visibilidad** —el repositorio
  * de geostories deja fuera de todos los feeds lo que no está verificado, y sólo
@@ -49,6 +49,8 @@ class ListGeoStoryReviewsController
         $page   = max(1, (int) $request->query->get('page', 1));
         $size   = min(self::MAX_SIZE, max(1, (int) $request->query->get('size', self::DEFAULT_SIZE)));
         $q      = trim((string) $request->query->get('q', ''));
+        // Los de un negocio concreto: es como se llega desde su ficha.
+        $business = trim((string) $request->query->get('business', ''));
 
         $condition = match ($status) {
             'pending'  => 'g.deleted_at IS NULL AND g.verified_at IS NULL',
@@ -66,6 +68,11 @@ class ListGeoStoryReviewsController
 
         $where  = $condition;
         $params = [];
+
+        if ($business !== '') {
+            $where   .= ' AND g.business_id = ?';
+            $params[] = $business;
+        }
 
         if ($q !== '') {
             // Por título y por el nombre de quien lo subió: quien busca aquí

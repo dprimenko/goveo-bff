@@ -258,11 +258,29 @@ class Product
         $this->updatedAt   = new \DateTimeImmutable();
     }
 
+    /** Lo saca del escaparate sin borrarlo: vuelve a ser un borrador. */
+    public function unpublish(): void
+    {
+        $this->publishedAt = null;
+        $this->updatedAt   = new \DateTimeImmutable();
+    }
+
     public function softDelete(): void
     {
         $this->deletedAt = new \DateTimeImmutable();
         $this->updatedAt = new \DateTimeImmutable();
     }
+
+    /** Deshace la baja. Vuelve como estaba: publicado o borrador. */
+    public function restore(): void
+    {
+        $this->deletedAt = null;
+        $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    public function isPublished(): bool { return $this->publishedAt !== null; }
+
+    public function isDeleted(): bool { return $this->deletedAt !== null; }
 
     /**
      * Acciones que puede ofrecer el enlace directo.
