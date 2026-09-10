@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Business\Application;
 
+use App\Billing\Application\SubscriptionCanceller;
 use App\Business\Domain\Business;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
@@ -23,9 +24,10 @@ use Psr\Log\LoggerInterface;
  * sustituyendo al editar no están en ninguna fila, así que borrando sólo lo que
  * la base conoce se quedarían allí para siempre.
  *
- * ⚠️ **Esto no toca Stripe.** Si el negocio tenía una suscripción activa, sigue
- * cobrándose después de borrarlo; hay que cancelarla a mano. Se devuelve en el
- * resultado para poder avisar de ello.
+ * **La suscripción se cancela en Stripe antes de borrar nada**, y en el acto:
+ * aquí no hay vuelta atrás que preservar. Si Stripe fallara, el negocio se borra
+ * igual —dejarlo a medio borrar es peor— y el resultado lo dice para poder
+ * cancelarla a mano.
  */
 final class BusinessPurger
 {
@@ -33,6 +35,7 @@ final class BusinessPurger
         private readonly Connection $db,
         private readonly BunnyStorageService $storage,
         private readonly BunnyVideoService $videos,
+        private readonly SubscriptionCanceller $subscriptions,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -40,19 +43,16 @@ final class BusinessPurger
      * @return array{
      *     products: int, videos: int, subcategories: int, managers: int,
      *     subscriptions: int, follows: int, likes: int,
-     *     storage_deleted: bool, active_subscription: bool
+     *     storage_deleted: bool, subscription: string
      * }
      */
     public function purge(Business $business): array
     {
         $id = $business->getId();
 
-        // Aviso antes de borrar nada: después ya no se puede consultar.
-        $activeSubscription = (bool) $this->db->fetchOne(
-            "SELECT COUNT(*) FROM business_subscriptions
-              WHERE business_id = ? AND status = 'active'",
-            [$id],
-        );
+        // Lo primero, y antes de borrar la fila: después no habría con qué
+        // saber qué cancelar en Stripe.
+        $subscription = $this->subscriptions->cancelNow($id);
 
         // --- Bunny: vídeos uno a uno, imágenes de una tacada ---
         $videoIds = $this->db->fetchFirstColumn(
@@ -115,8 +115,8 @@ final class BusinessPurger
         ]);
 
         return $counts + [
-            'storage_deleted'     => $storageDeleted,
-            'active_subscription' => $activeSubscription,
+            'storage_deleted' => $storageDeleted,
+            'subscription'    => $subscription,
         ];
     }
 }

@@ -646,8 +646,30 @@ editar no están en ninguna fila, así que borrando sólo lo que la base conoce 
 para siempre. Y primero Bunny, después las filas: al revés, un fallo a mitad dejaría vídeos e
 imágenes allí sin nada que los nombre.
 
-⚠️ **No toca Stripe.** Si el negocio tenía suscripción activa, sigue cobrándose después de borrarlo y
-hay que cancelarla a mano. La respuesta trae `active_subscription` para poder avisarlo en el panel.
+**Deja de cobrarse** ([`SubscriptionCanceller`](src/Billing/Application/SubscriptionCanceller.php)), y
+archivar y borrar no cancelan igual porque **uno se deshace y el otro no**:
+
+| Acción | En Stripe | Por qué |
+|---|---|---|
+| Archivar | `cancel_at_period_end = true` | nadie paga un mes más por algo que ya no se ve, y si vuelve antes de esa fecha basta con quitar la marca |
+| Recuperar | `cancel_at_period_end = false` | deshace lo anterior, si aún está a tiempo |
+| Borrar del todo | cancelación inmediata | no hay vuelta que preservar |
+
+Cancelar en el acto al archivar sería tirar los días ya pagados y, sobre todo, irreversible: una
+suscripción cancelada no se descancela. Al borrar se cancelan **todas** las del negocio y no sólo la
+«activa»: una en impago o a medio pagar también sigue viva en Stripe e intentaría cobrar.
+
+El estado vuelve solo a la base por el webhook (`customer.subscription.updated|deleted`), así que
+archivar no toca la fila —sigue activa hasta que Stripe corte—; sólo al borrar se marca cancelada,
+porque la fila desaparece antes de que llegue el aviso.
+
+**Un fallo de Stripe no impide archivar ni borrar**: se registra, se devuelve `subscription:
+"failed"` y el panel lo dice. Dejar un negocio a medio archivar porque la pasarela no contesta es
+peor que archivarlo y avisar.
+
+Probado contra Stripe en modo prueba (`sk_test`, en `.env.local`): archivar deja
+`cancel_at_period_end=true`, recuperar lo devuelve a `false` y borrar deja la suscripción en
+`canceled`.
 
 **El orden depende de la pestaña**: la cola de pendientes va por antigüedad —quien lleva más tiempo
 esperando es a quien peor se le atiende— y lo ya decidido, por fecha de decisión descendente, que es
