@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\GeoStories\Infrastructure\Controller;
 
+use App\Backoffice\Application\ReviewQueueNotifier;
+use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -28,6 +30,7 @@ class BunnyWebhookController
 
     public function __construct(
         private readonly GeoStoryRepository $geoStories,
+        private readonly ReviewQueueNotifier $reviewQueue,
         private readonly LoggerInterface $logger,
         private readonly string $webhookSecret,
     ) {}
@@ -63,6 +66,10 @@ class BunnyWebhookController
         $failed = $eventType === 'video.failed'  || $status === self::STATUS_FAILED;
 
         if ($ready) {
+            // Sólo la primera vez que queda listo: Bunny reintenta sus avisos, y
+            // sin esto cada reintento sería otro correo.
+            $wasReady = $geoStory->getStatus() === GeoStory::STATUS_READY;
+
             $geoStory->markReady();
         } elseif ($failed) {
             $geoStory->markFailed();
@@ -70,6 +77,13 @@ class BunnyWebhookController
             $geoStory->markProcessing();
         }
         $this->geoStories->save($geoStory);
+
+        // Al quedar listo y no al subirse: hasta que Bunny termina de codificar
+        // no hay vídeo que mirar, y avisar antes es mandar a alguien a una
+        // pantalla que dice «procesando».
+        if ($ready && !($wasReady ?? true) && !$geoStory->isVerified()) {
+            $this->reviewQueue->geoStoryPendingReview($geoStory);
+        }
 
         return new JsonResponse([
             'id'     => $geoStory->getId(),

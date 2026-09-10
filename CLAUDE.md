@@ -691,6 +691,26 @@ si es de otro, porque un 403 confirmaría que ese id está dado de alta.
 subir una imagen de negocio —desde el panel **y desde la app**— subía el fichero a Bunny y moría al
 guardarlo en la ficha. Se vio al usar el editor del panel; llevaba una semana fallando en silencio.
 
+### Aviso de que hay algo que revisar
+
+[`ReviewQueueNotifier`](src/Backoffice/Application/ReviewQueueNotifier.php) manda un correo interno a
+`REVIEW_EMAIL` (hola@goveo.app) cuando entra algo en la cola. Sin esto, la cola sólo se vacía si
+alguien se acuerda de mirarla, y lo que espera ahí no es cualquier cosa: un negocio recién dado de
+alta —que ha pagado— no sale en la app hasta que se valida.
+
+**Cuándo se avisa, y por qué ahí:**
+
+- **Negocio**: junto a la bienvenida, es decir, **cuando el alta ya está cobrada** (o es gratuita).
+  Al crear la ficha no: quien abandona en la pasarela no deja nada que revisar.
+- **Vídeo**: en el webhook de Bunny, **al quedar `ready`**. Al subirse no: hasta que termina de
+  codificarse no hay vídeo que mirar, y avisar antes es mandar a alguien a una pantalla que pone
+  «procesando». Sólo la primera vez que queda listo, porque Bunny reintenta sus avisos y cada
+  reintento sería otro correo.
+
+Es texto plano y sin adornos —es interno— y no lleva botones de aprobar ni rechazar: decidir se hace
+mirando la ficha, no desde la bandeja de entrada. `REVIEW_EMAIL` vacío apaga el aviso, que es lo
+cómodo en local; en el compose de desarrollo apunta a Mailpit igual que el resto del correo.
+
 ### Cola de vídeos
 
 `GET /api/admin/geostories?status=pending|published|removed&q=&page=&size=` y

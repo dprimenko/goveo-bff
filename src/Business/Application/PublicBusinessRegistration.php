@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Business\Application;
 
 use App\Account\Application\WelcomeMailer;
+use App\Backoffice\Application\ReviewQueueNotifier;
 use App\Auth\Infrastructure\Service\KeycloakService;
 use App\Billing\Domain\BillingPlan;
 use App\Billing\Domain\BusinessSubscription;
@@ -47,6 +48,7 @@ final class PublicBusinessRegistration
         private readonly BusinessSlugger $slugger,
         private readonly StripeClientFactory $stripeFactory,
         private readonly WelcomeMailer $welcome,
+        private readonly ReviewQueueNotifier $reviewQueue,
         private readonly EntityManagerInterface $em,
     ) {}
 
@@ -158,6 +160,10 @@ final class PublicBusinessRegistration
         // sale ya. En las de pago la manda el webhook al confirmarse el cobro:
         // quien abandona en la pasarela no debe recibir un «bienvenido».
         if ($checkout['url'] === null) {
+            // El aviso interno sale con la bienvenida y no al crear la ficha:
+            // quien abandona en la pasarela no deja nada que revisar.
+            $this->reviewQueue->businessPendingReview($business);
+
             $this->welcome->send(
                 $business,
                 $user->getId(),

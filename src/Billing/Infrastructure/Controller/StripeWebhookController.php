@@ -9,6 +9,7 @@ use App\Billing\Domain\BusinessSubscriptionRepository;
 use App\Billing\Domain\SubscriptionStatus;
 use App\Billing\Infrastructure\Stripe\StripeClientFactory;
 use App\Account\Application\WelcomeMailer;
+use App\Backoffice\Application\ReviewQueueNotifier;
 use App\Business\Domain\BusinessRepository;
 use App\Users\Domain\UserRepository;
 use Psr\Log\LoggerInterface;
@@ -41,6 +42,7 @@ class StripeWebhookController
         private readonly BusinessRepository $businesses,
         private readonly UserRepository $users,
         private readonly WelcomeMailer $welcome,
+        private readonly ReviewQueueNotifier $reviewQueue,
         private readonly BillingPlanRepository $plans,
         private readonly BusinessSubscriptionRepository $subscriptions,
         private readonly LoggerInterface $logger,
@@ -136,6 +138,10 @@ class StripeWebhookController
         $owner    = $business !== null ? $this->users->findById($business->getCreatorId()) : null;
 
         if ($business !== null && $owner !== null && $owner->getEmail() !== null) {
+            // Aquí es cuando el alta se ha cobrado: hasta ahora no había nada
+            // que revisar, porque el negocio podía quedarse a medias.
+            $this->reviewQueue->businessPendingReview($business);
+
             $this->welcome->send($business, $owner->getId(), $owner->getEmail(), $owner->getName());
         }
     }

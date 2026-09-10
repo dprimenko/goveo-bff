@@ -94,7 +94,22 @@ class ListBusinessReviewsController
         $rows = $this->db->fetchAllAssociative(
             "SELECT b.id, b.slug, b.name, b.avatar, b.main_image, b.meta,
                     b.created_at, b.verified_at, b.rejected_at, b.deleted_at,
-                    c.slug AS category_slug, c.name AS category_name
+                    c.slug AS category_slug, c.name AS category_name,
+                    ST_Y(b.location::geometry) AS lat,
+                    ST_X(b.location::geometry) AS lng,
+                    -- La tarifa contratada. Se coge la última suscripción y no la
+                    -- «activa»: una en impago o pendiente de pago también dice
+                    -- con qué se dio de alta, y es justo lo que hay que mirar.
+                    (SELECT p.name FROM business_subscriptions s
+                       LEFT JOIN billing_plans p ON p.id = s.billing_plan_id
+                      WHERE s.business_id = b.id
+                      ORDER BY s.created_at DESC LIMIT 1) AS plan_name,
+                    (SELECT s.amount_cents FROM business_subscriptions s
+                      WHERE s.business_id = b.id
+                      ORDER BY s.created_at DESC LIMIT 1) AS plan_amount,
+                    (SELECT s.status FROM business_subscriptions s
+                      WHERE s.business_id = b.id
+                      ORDER BY s.created_at DESC LIMIT 1) AS plan_status
                FROM business b
           LEFT JOIN categories c ON c.id = b.category_id
               WHERE {$where}
@@ -137,6 +152,17 @@ class ListBusinessReviewsController
                 'name' => $row['category_name'],
             ],
             'address'    => $meta['address'] ?? null,
+            // Para poder abrir la dirección en el mapa sin fiarse del texto:
+            // el mismo texto puede geocodificar en otro sitio.
+            'location'   => $row['lat'] === null ? null : [
+                'lat' => (float) $row['lat'],
+                'lng' => (float) $row['lng'],
+            ],
+            'plan'       => $row['plan_name'] === null ? null : [
+                'name'         => $row['plan_name'],
+                'amount_cents' => $row['plan_amount'] === null ? null : (int) $row['plan_amount'],
+                'status'       => $row['plan_status'],
+            ],
             'phone'      => $meta['public_phone'] ?? ($billing['phone'] ?? null),
             'website'    => $meta['website_url'] ?? null,
             // Con qué se dio de alta: es lo que se comprueba para validar.

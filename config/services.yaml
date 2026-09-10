@@ -123,6 +123,14 @@ services:
             $fromAddress: '%env(EMAIL_FROM)%'
             $webUrl: '%env(WEB_URL)%'
 
+    # Aviso interno de que hay algo nuevo en la cola del panel. Con
+    # REVIEW_EMAIL vacío no se manda nada, que es lo que se quiere en local.
+    App\Backoffice\Application\ReviewQueueNotifier:
+        arguments:
+            $fromAddress: '%env(EMAIL_FROM)%'
+            $reviewAddress: '%env(REVIEW_EMAIL)%'
+            $backofficeUrl: '%env(BACKOFFICE_URL)%'
+
     # Bunny Storage — imágenes de la ficha de negocio (distinto del Stream de vídeo)
     App\Shared\Infrastructure\Storage\BunnyStorageService:
         arguments:
