@@ -99,10 +99,13 @@ class ListGeoStoryReviewsController
                     i.id AS influencer_id, i.name AS influencer_name, i.avatar AS influencer_avatar
                {$from}
               WHERE {$where}
-              -- Lo más antiguo primero en la cola, por lo mismo que en negocios:
-              -- quien lleva más tiempo esperando es a quien peor se le atiende.
-              ORDER BY g.created_at " . ($status === 'pending' ? 'ASC' : 'DESC') . '
-              LIMIT ? OFFSET ?',
+              -- Lo más reciente primero, también en la cola. Lo natural sería
+              -- atender antes a quien lleva más tiempo esperando, pero aquí los
+              -- que llevan más tiempo son los 137 importados de 2023 que nadie
+              -- va a revisar: con ese orden, un vídeo subido ayer aparecía en la
+              -- página 28 y no se veía nunca.
+              ORDER BY g.created_at DESC
+              LIMIT ? OFFSET ?",
             [...$params, $size, ($page - 1) * $size],
         );
 
