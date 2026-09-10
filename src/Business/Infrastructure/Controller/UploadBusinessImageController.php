@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Business\Infrastructure\Controller;
 
 use App\Business\Application\ManagedBusinessFinder;
+use App\Business\Domain\BusinessRepository;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use App\Shared\Infrastructure\Storage\StorageException;
 use Psr\Log\LoggerInterface;
@@ -31,6 +32,10 @@ class UploadBusinessImageController
 
     public function __construct(
         private readonly ManagedBusinessFinder $managed,
+        // Hace falta para guardar la URL nueva en el negocio. Se perdió al
+        // extraer `ManagedBusinessFinder`, y con ella la imagen se subía a Bunny
+        // pero no llegaba a la ficha: la petición moría en el `save`.
+        private readonly BusinessRepository $businesses,
         private readonly BunnyStorageService $storage,
         private readonly LoggerInterface $logger,
     ) {}

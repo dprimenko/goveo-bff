@@ -651,6 +651,11 @@ lo que ese permiso dice permitir.
 Para quien no tiene el permiso no cambia nada: sigue siendo 404 tanto si el negocio no existe como
 si es de otro, porque un 403 confirmaría que ese id está dado de alta.
 
+⚠️ **`UploadBusinessImageController` llevaba roto desde el 2 de septiembre** (`2738000`): al extraer
+`ManagedBusinessFinder` se le quitó el `BusinessRepository` pero quedó el `save()` del final, así que
+subir una imagen de negocio —desde el panel **y desde la app**— subía el fichero a Bunny y moría al
+guardarlo en la ficha. Se vio al usar el editor del panel; llevaba una semana fallando en silencio.
+
 ### Cola de vídeos
 
 `GET /api/admin/geostories?status=pending|published|removed&q=&page=&size=` y
