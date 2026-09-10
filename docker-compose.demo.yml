@@ -111,6 +111,10 @@ services:
       # El TLS lo termina el proxy de Dokploy. Sin esta línea Keycloak genera
       # los enlaces del login en http:// y el retorno del alta se rompe.
       KC_PROXY_HEADERS: xforwarded
+      # Orígenes del panel. **Sin localhost**: un redirect a localhost en un
+      # cliente de producción deja que, si alguien te hace abrir un enlace
+      # mientras tienes algo escuchando en ese puerto, se lleve el código.
+      GOVEO_BACKOFFICE_ORIGINS: ${GOVEO_BACKOFFICE_ORIGINS:-https://admin-demo.goveo.app}
 
       KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
