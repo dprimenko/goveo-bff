@@ -222,6 +222,10 @@ fi
 # ============================================================
 # GOOGLE IDENTITY PROVIDER
 # ============================================================
+# `prompt=select_account` para que Google **pregunte con qué cuenta**. Sin él
+# reutiliza la sesión que haya abierta en el navegador y entra directo: quien
+# tiene dos cuentas —la personal y la de trabajo— no puede elegir, y para
+# cambiar tendría que salir de Google entero.
 if [ -n "${GOOGLE_SOCIAL_CLIENT_ID}" ]; then
     echo "🔧 [configure-idp] Configurando Google Identity Provider..."
     if "$KCADM" update identity-provider/instances/google \
@@ -230,7 +234,8 @@ if [ -n "${GOOGLE_SOCIAL_CLIENT_ID}" ]; then
         -s enabled=true \
         -s trustEmail=true \
         -s "config.clientId=${GOOGLE_SOCIAL_CLIENT_ID}" \
-        -s "config.clientSecret=${GOOGLE_SOCIAL_CLIENT_SECRET}"; then
+        -s "config.clientSecret=${GOOGLE_SOCIAL_CLIENT_SECRET}" \
+        -s "config.prompt=select_account"; then
         echo "✅ [configure-idp] Google Identity Provider activado"
         allow_token_exchange google
         use_auto_link google

@@ -828,6 +828,12 @@ subcategorías en Supabase.
 
 ## Acceso con Google y Apple
 
+⚠️ **Google pregunta con qué cuenta entrar** gracias a `prompt=select_account` en el proveedor
+(`configure-idp.sh`). Sin él, Google reutiliza la sesión abierta en el navegador y entra directo:
+quien tiene dos cuentas —la personal y la de trabajo— no puede elegir, y para cambiar tendría que
+cerrar la sesión de Google entera. En el panel de Keycloak es *Identity providers → google →
+Advanced settings → Prompt*.
+
 La app obtiene el token con el SDK nativo y el BFF lo canjea en Keycloak por tokens del realm
 (`POST /api/auth/social/{google|apple}` → `KeycloakService::loginWithSocialToken`, grant
 `token-exchange`). Así el usuario acaba siendo uno de Keycloak como cualquier otro.
