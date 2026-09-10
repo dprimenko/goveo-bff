@@ -626,6 +626,29 @@ un borrado blando para lo que no se va a validar nunca —una prueba, un duplica
 sólo lo mueve a su propia pestaña, donde se acumula. `removed` es entonces el cajón de los dados de
 baja, aquí o desde la app.
 
+**Archivar arrastra sus productos y sus vídeos** ([`BusinessArchiver`](src/Business/Application/BusinessArchiver.php)).
+Sin eso, dar de baja una tienda dejaba su escaparate vivo: los vídeos seguían saliendo en el feed y
+en el mapa —el repositorio de geostories no mira si el negocio existe— y los productos seguían
+respondiendo por su enlace.
+
+El truco para poder deshacerlo es que **la marca de tiempo es la misma para todo**: al recuperar sólo
+vuelven los que tienen exactamente esa fecha, así que lo que su dueño ya había borrado antes se queda
+borrado. Sin esa condición, recuperar un negocio resucitaría productos que nadie quería.
+
+**Borrado definitivo**: `DELETE /api/admin/businesses/{id}`, permiso propio `business.delete` y sólo
+sobre lo ya archivado ([`BusinessPurger`](src/Business/Application/BusinessPurger.php)). Se lleva
+productos, vídeos, subcategorías, el vínculo de sus gestores —**no sus cuentas**, que son de personas
+y pueden llevar otros negocios—, suscripciones, quién lo seguía, los vídeos de Bunny Stream y **la
+carpeta entera** `business/{id}/` de Bunny Storage.
+
+La carpeta entera y no fichero a fichero a propósito: las imágenes que se fueron sustituyendo al
+editar no están en ninguna fila, así que borrando sólo lo que la base conoce se quedarían pagándose
+para siempre. Y primero Bunny, después las filas: al revés, un fallo a mitad dejaría vídeos e
+imágenes allí sin nada que los nombre.
+
+⚠️ **No toca Stripe.** Si el negocio tenía suscripción activa, sigue cobrándose después de borrarlo y
+hay que cancelarla a mano. La respuesta trae `active_subscription` para poder avisarlo en el panel.
+
 **El orden depende de la pestaña**: la cola de pendientes va por antigüedad —quien lleva más tiempo
 esperando es a quien peor se le atiende— y lo ya decidido, por fecha de decisión descendente, que es
 lo que responde a «qué hemos hecho últimamente». Ordenar lo decidido por fecha de alta no ordena

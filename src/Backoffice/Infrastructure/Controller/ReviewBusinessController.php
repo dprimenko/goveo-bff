@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backoffice\Infrastructure\Controller;
 
+use App\Business\Application\BusinessArchiver;
 use App\Business\Domain\BusinessRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,6 +29,7 @@ class ReviewBusinessController
 {
     public function __construct(
         private readonly BusinessRepository $businesses,
+        private readonly BusinessArchiver $archiver,
     ) {}
 
     #[Route('/api/admin/businesses/{id}/approve', name: 'admin_business_approve', methods: ['PUT'])]
@@ -56,10 +58,11 @@ class ReviewBusinessController
             return new JsonResponse(['error' => 'Business not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        $business->softDelete();
-        $this->businesses->save($business);
+        // Se lleva sus productos y sus vídeos: si no, el negocio desaparecía y
+        // su escaparate seguía en el feed y en el mapa (ver BusinessArchiver).
+        $cascade = $this->archiver->archive($business);
 
-        return $this->state($business);
+        return $this->state($business, $cascade);
     }
 
     /** Y la vuelta: sin esto, archivar sería tan definitivo como borrar. */
@@ -72,10 +75,9 @@ class ReviewBusinessController
             return new JsonResponse(['error' => 'Business not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        $business->restore();
-        $this->businesses->save($business);
+        $cascade = $this->archiver->restore($business);
 
-        return $this->state($business);
+        return $this->state($business, $cascade);
     }
 
     private function decide(string $id, bool $approve): Response
@@ -98,13 +100,14 @@ class ReviewBusinessController
         return $this->state($business);
     }
 
-    private function state(\App\Business\Domain\Business $business): JsonResponse
+    /** @param array{products: int, videos: int}|null $cascade */
+    private function state(\App\Business\Domain\Business $business, ?array $cascade = null): JsonResponse
     {
         return new JsonResponse([
             'id'          => $business->getId(),
             'verified_at' => $business->getVerifiedAt()?->format(\DATE_ATOM),
             'rejected_at' => $business->getRejectedAt()?->format(\DATE_ATOM),
             'deleted_at'  => $business->getDeletedAt()?->format(\DATE_ATOM),
-        ]);
+        ] + ($cascade === null ? [] : ['cascade' => $cascade]));
     }
 }

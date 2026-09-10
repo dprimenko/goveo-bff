@@ -164,6 +164,44 @@ final class BunnyStorageService
     }
 
     /**
+     * Borra la carpeta de un negocio **con todo lo que hay dentro**: su avatar,
+     * su portada y las imágenes de todos sus productos, que cuelgan de
+     * `business/{id}/products/{producto}/`.
+     *
+     * Se hace en una llamada y no fichero a fichero porque la lista de lo que
+     * hay ahí no la tenemos completa: las imágenes viejas que se fueron
+     * sustituyendo no están en ninguna fila, y borrando sólo lo que la base
+     * conoce se quedarían pagándose para siempre.
+     *
+     * Bunny borra un directorio cuando la ruta termina en barra.
+     */
+    public function deleteBusinessFolder(string $businessId): bool
+    {
+        if (!$this->isConfigured()) {
+            return false;
+        }
+
+        try {
+            $status = $this->httpClient->request(
+                'DELETE',
+                sprintf('https://%s/%s/business/%s/', $this->host, $this->zone, $businessId),
+                ['headers' => ['AccessKey' => $this->password]],
+            )->getStatusCode();
+
+            // 404 es que no había nada que borrar, y eso también es haber
+            // terminado: un negocio sin imágenes es un caso normal.
+            return $status < 300 || $status === 404;
+        } catch (\Throwable $e) {
+            $this->logger->error('No se pudo borrar la carpeta de un negocio', [
+                'business' => $businessId,
+                'message'  => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
      * Borra una imagen anterior. **No lanza**: es limpieza, y que falle no debe
      * tumbar un guardado que ya ha ido bien.
      */
