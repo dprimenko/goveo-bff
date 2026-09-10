@@ -10,25 +10,16 @@ use App\Billing\Infrastructure\Stripe\StripeClientFactory;
 use Psr\Log\LoggerInterface;
 
 /**
- * Deja de cobrar cuando un negocio deja de estar.
+ * Deja de cobrar un negocio que se borra.
  *
- * Archivar y borrar son cosas distintas y aquí se notan: **archivar se puede
- * deshacer y borrar no**, así que no pueden cancelar igual.
+ * **Sólo lo llama el borrado definitivo.** Archivar, que es reversible, no toca
+ * la suscripción: cancelar en Stripe no se deshace del todo —una cancelada no se
+ * descancela— y un archivado por error no puede acabar costando la suscripción
+ * de alguien. Dejar de cobrar a un negocio archivado se hace a mano.
  *
- * - Al archivar se programa el corte **para el final del periodo ya pagado**
- *   (`cancel_at_period_end`). Nadie paga un mes más por algo que ya no se ve, y
- *   si el negocio vuelve antes de esa fecha basta con quitar la marca: no se ha
- *   perdido nada. Cancelar en el acto sería tirar los días pagados y, sobre
- *   todo, irreversible — una suscripción cancelada no se descancela.
- * - Al borrar del todo se corta ya, porque no hay vuelta.
- *
- * Lo que pasa en Stripe vuelve solo a la base por el webhook
- * (`customer.subscription.updated|deleted`), así que aquí no se toca el estado
- * salvo al borrar, donde la fila desaparece antes de que llegue el aviso.
- *
- * **Un fallo de Stripe no impide archivar ni borrar.** Se registra y se devuelve
- * `failed` para poder decirlo en el panel: dejar el negocio a medio archivar
- * porque la pasarela no contesta es peor que archivarlo y avisar.
+ * **Un fallo de Stripe no impide borrar.** Se registra y se devuelve `failed`
+ * para poder decirlo en el panel: dejar el negocio a medio borrar porque la
+ * pasarela no contesta es peor que borrarlo y avisar.
  */
 final class SubscriptionCanceller
 {
@@ -37,18 +28,6 @@ final class SubscriptionCanceller
         private readonly StripeClientFactory $stripe,
         private readonly LoggerInterface $logger,
     ) {}
-
-    /** Programa el corte al final del periodo pagado. */
-    public function scheduleCancellation(string $businessId): string
-    {
-        return $this->setCancelAtPeriodEnd($businessId, true, 'scheduled');
-    }
-
-    /** Deshace lo anterior, si aún estaba a tiempo. */
-    public function resume(string $businessId): string
-    {
-        return $this->setCancelAtPeriodEnd($businessId, false, 'resumed');
-    }
 
     /**
      * Corta ya, sin esperar al final del periodo, y **todas** las del negocio:
@@ -99,35 +78,4 @@ final class SubscriptionCanceller
         return $result;
     }
 
-    private function setCancelAtPeriodEnd(string $businessId, bool $value, string $done): string
-    {
-        $subscription = $this->subscriptions->findActiveByBusinessId($businessId);
-
-        if ($subscription === null) {
-            return 'none';
-        }
-
-        $stripeId = $subscription->getStripeSubscriptionId();
-
-        if ($stripeId === null || !$this->stripe->isConfigured()) {
-            return 'none';
-        }
-
-        try {
-            $this->stripe->create()->subscriptions->update($stripeId, [
-                'cancel_at_period_end' => $value,
-            ]);
-        } catch (\Throwable $e) {
-            $this->logger->error('No se pudo cambiar la suscripción en Stripe', [
-                'business'     => $businessId,
-                'subscription' => $stripeId,
-                'cancel_at_period_end' => $value,
-                'message'      => $e->getMessage(),
-            ]);
-
-            return 'failed';
-        }
-
-        return $done;
-    }
 }

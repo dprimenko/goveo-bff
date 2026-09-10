@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Business\Application;
 
-use App\Billing\Application\SubscriptionCanceller;
 use App\Business\Domain\Business;
 use App\Business\Domain\BusinessRepository;
 use Doctrine\DBAL\Connection;
@@ -17,9 +16,11 @@ use Doctrine\DBAL\Connection;
  * no mira si el negocio existe— y los productos seguían respondiendo por su
  * enlace. El negocio desaparecía y su escaparate no.
  *
- * Y **deja de cobrarse**: al archivar se programa el corte para el final del
- * periodo ya pagado, y al recuperar se deshace esa marca (ver
- * `SubscriptionCanceller`).
+ * **No toca la suscripción**, a propósito. Archivar es reversible y cancelar en
+ * Stripe no lo es del todo, así que un archivado por error no puede acabar
+ * costando una suscripción. Si hay que dejar de cobrar a un negocio archivado se
+ * hace a mano en Stripe; el corte automático se queda para el borrado
+ * definitivo, que ya no se deshace.
  *
  * **La marca de tiempo es la misma para todo**, y ahí está el truco para poder
  * deshacerlo: al recuperar sólo se devuelven los que tienen exactamente esa
@@ -31,10 +32,9 @@ final class BusinessArchiver
     public function __construct(
         private readonly BusinessRepository $businesses,
         private readonly Connection $db,
-        private readonly SubscriptionCanceller $subscriptions,
     ) {}
 
-    /** @return array{products: int, videos: int, subscription: string} */
+    /** @return array{products: int, videos: int} lo que se ha archivado con él */
     public function archive(Business $business): array
     {
         $business->softDelete();
@@ -53,13 +53,10 @@ final class BusinessArchiver
                   WHERE business_id = ? AND deleted_at IS NULL',
                 [$at, $at, $business->getId()],
             ),
-            // Se deja de cobrar al acabar el periodo ya pagado. No en el acto:
-            // esto se puede deshacer, y una suscripción cancelada no vuelve.
-            'subscription' => $this->subscriptions->scheduleCancellation($business->getId()),
         ];
     }
 
-    /** @return array{products: int, videos: int, subscription: string} */
+    /** @return array{products: int, videos: int} lo que ha vuelto con él */
     public function restore(Business $business): array
     {
         $at = $business->getDeletedAt()?->format('Y-m-d H:i:sP');
@@ -67,10 +64,8 @@ final class BusinessArchiver
         $business->restore();
         $this->businesses->save($business);
 
-        $subscription = $this->subscriptions->resume($business->getId());
-
         if ($at === null) {
-            return ['products' => 0, 'videos' => 0, 'subscription' => $subscription];
+            return ['products' => 0, 'videos' => 0];
         }
 
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:sP');
@@ -86,7 +81,6 @@ final class BusinessArchiver
                   WHERE business_id = ? AND deleted_at = ?',
                 [$now, $business->getId(), $at],
             ),
-            'subscription' => $subscription,
         ];
     }
 }

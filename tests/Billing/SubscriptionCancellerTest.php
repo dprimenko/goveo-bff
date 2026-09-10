@@ -13,12 +13,12 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
 /**
- * Lo que decide si se sigue cobrando por un negocio que ya no está.
+ * Lo que decide si se sigue cobrando por un negocio borrado.
  *
  * Sin clave de Stripe, el servicio no llama a la pasarela; eso es justo lo que
- * pasa en local y en los tests, y lo que se comprueba aquí es que en ese caso no
- * revienta nada y que la parte que sí depende de nosotros —marcar las filas—
- * ocurre igual.
+ * pasa en los tests, y lo que se comprueba aquí es que en ese caso no revienta
+ * nada y que la parte que sí depende de nosotros —marcar las filas— ocurre
+ * igual.
  */
 final class SubscriptionCancellerTest extends TestCase
 {
@@ -26,7 +26,6 @@ final class SubscriptionCancellerTest extends TestCase
     {
         $canceller = $this->canceller(new InMemorySubscriptions([]));
 
-        self::assertSame('none', $canceller->scheduleCancellation('negocio-1'));
         self::assertSame('none', $canceller->cancelNow('negocio-1'));
     }
 
@@ -48,21 +47,6 @@ final class SubscriptionCancellerTest extends TestCase
         );
         // La que ya estaba cancelada no se vuelve a tocar.
         self::assertSame(['a', 'b'], $subscriptions->saved);
-    }
-
-    public function testArchivingDoesNotCancelTheRowYet(): void
-    {
-        // Archivar es reversible, así que la suscripción sigue viva en la base:
-        // lo único que cambia es que Stripe no renovará. Marcarla cancelada aquí
-        // dejaría al negocio recuperado sin suscripción de la nada.
-        $subscriptions = new InMemorySubscriptions([
-            $this->subscription('a', SubscriptionStatus::Active),
-        ]);
-
-        $this->canceller($subscriptions)->scheduleCancellation('negocio-1');
-
-        self::assertSame(SubscriptionStatus::Active, $subscriptions->all[0]->getStatus());
-        self::assertSame([], $subscriptions->saved);
     }
 
     private function canceller(BusinessSubscriptionRepository $subscriptions): SubscriptionCanceller
