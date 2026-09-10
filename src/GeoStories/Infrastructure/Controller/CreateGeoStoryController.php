@@ -90,9 +90,17 @@ class CreateGeoStoryController
         // a GeoJSON array (Doctrine would try to bind the array verbatim).
         $location     = null;
 
-        // Business post if a managed businessId is requested (or the user manages
-        // exactly one store and is not an influencer).
-        if ($requestedBiz !== null && in_array($requestedBiz, $managedBizIds, true)) {
+        // Desde el panel se sube el vídeo de cualquier tienda: es su trabajo, y
+        // quien lo hace no gestiona ese negocio. Se exige el `businessId` a
+        // propósito —no hay «su» tienda que adivinar— y que exista.
+        $fromBackoffice = $this->security->isGranted('ROLE_GEOSTORY_MODERATE');
+
+        if ($fromBackoffice && $requestedBiz !== null && !in_array($requestedBiz, $managedBizIds, true)) {
+            if ($this->businesses->findById($requestedBiz) === null) {
+                return new JsonResponse(['error' => 'Business not found'], Response::HTTP_NOT_FOUND);
+            }
+            $businessId = $requestedBiz;
+        } elseif ($requestedBiz !== null && in_array($requestedBiz, $managedBizIds, true)) {
             $businessId = $requestedBiz;
         } elseif ($influencer !== null) {
             $influencerId = $influencer->getId();
@@ -156,6 +164,13 @@ class CreateGeoStoryController
 
         // Published so it shows in the owner's profile immediately (as processing);
         // discovery feeds still hide it until status = ready (see findFeed).
+        // Un vídeo subido desde el panel nace validado: lo sube justo quien
+        // tendría que validarlo, y dejarlo esperando en su propia cola sería
+        // pedirle que se apruebe a sí mismo.
+        if ($fromBackoffice) {
+            $geoStory->verify();
+        }
+
         $this->geoStories->save($geoStory);
 
         return new JsonResponse([

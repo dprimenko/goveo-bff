@@ -731,6 +731,12 @@ colado en la URL se gestionaría igual.
 Los vídeos se filtran por dueño con `business=` en `/api/admin/geostories`, que es como se llega
 desde la ficha del negocio.
 
+**Subir un vídeo desde el panel** usa `POST /api/geostories`, el de la app. Dos diferencias:
+`CreateGeoStoryController` acepta un `businessId` de un negocio que quien sube **no gestiona** si
+tiene `ROLE_GEOSTORY_MODERATE` —comprobando que existe—, y el vídeo **nace validado**: lo sube justo
+quien tendría que validarlo, y dejarlo esperando en su propia cola sería pedirle que se apruebe a sí
+mismo. El recorte a 30 s lo hace el panel antes de subir, así que aquí llega ya cortado.
+
 **Editar un vídeo desde el panel** usa el endpoint de la app (`POST /api/geostories/{id}`), que ya
 sabe de vigencias y de qué pasa al cambiar de categoría. `GeoStoryOwnership::userOwns()` acepta un
 `allowBackoffice` —apagado por defecto— que deja pasar a quien tenga `ROLE_GEOSTORY_MODERATE` aunque
