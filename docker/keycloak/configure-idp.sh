@@ -193,6 +193,27 @@ else
 fi
 
 # ============================================================
+# TEMA DE GOVEO (login y correos)
+# ============================================================
+# Va aquí y no en goveo-realm.json porque ese fichero sólo se lee en el primer
+# arranque de un realm vacío: en local ya está arrancado, y en demo y producción
+# también, así que un tema puesto ahí no llegaría nunca.
+#
+# El tema lo trae la imagen como `providers/goveo-theme.jar` (ver Dockerfile).
+# Si por lo que sea no estuviera, Keycloak se queda con el suyo y estas líneas
+# fallan sin tumbar nada: se avisa y se sigue.
+if "$KCADM" update realms/"$REALM" --config "$KCADM_CONFIG" \
+    -s "loginTheme=goveo" \
+    -s "emailTheme=goveo" \
+    -s "internationalizationEnabled=true" \
+    -s "defaultLocale=es" \
+    -s "supportedLocales=[\"es\",\"en\"]"; then
+    echo "✅ [configure-idp] Tema goveo aplicado al login y al correo"
+else
+    echo "⚠️  [configure-idp] No se pudo aplicar el tema goveo"
+fi
+
+# ============================================================
 # SMTP DEL REALM
 # ============================================================
 # Son los correos que manda Keycloak por su cuenta (recuperar contraseña,

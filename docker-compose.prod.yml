@@ -93,8 +93,10 @@ services:
 
   keycloak:
     build:
-      context: ./docker/keycloak
-      dockerfile: Dockerfile
+      # La raíz, y no ./docker/keycloak: la imagen se lleva dentro el tema
+      # (keycloak-theme/), que vive fuera de esa carpeta.
+      context: .
+      dockerfile: docker/keycloak/Dockerfile
     restart: unless-stopped
     environment:
       KC_DB: postgres

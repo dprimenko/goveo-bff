@@ -64,8 +64,10 @@ services:
 
   keycloak:
     build:
-      context: ./docker/keycloak
-      dockerfile: Dockerfile
+      # La raíz, y no ./docker/keycloak: la imagen se lleva dentro el tema
+      # (keycloak-theme/), que vive fuera de esa carpeta.
+      context: .
+      dockerfile: docker/keycloak/Dockerfile
     container_name: goveo-keycloak
     # La imagen arranca en modo producción por defecto; en local queremos el
     # modo dev, que no exige hostname ni TLS.

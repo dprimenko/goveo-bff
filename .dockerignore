@@ -1,0 +1,18 @@
+# Lo que no tiene que viajar al construir las imágenes.
+#
+# Importa desde que la imagen de Keycloak se construye con la raíz como contexto
+# (se lleva dentro `keycloak-theme/`): sin esto, cada build mandaría al demonio
+# el `vendor/` de Composer y los `node_modules` del tema — cientos de megas que
+# además invalidan la caché en cuanto cambia cualquier cosa.
+.git/
+var/
+vendor/
+node_modules/
+keycloak-theme/node_modules/
+keycloak-theme/dist/
+keycloak-theme/dist_keycloak/
+backups/
+users.json
+.env.local
+.env.*.local
+config/firebase-credentials.json

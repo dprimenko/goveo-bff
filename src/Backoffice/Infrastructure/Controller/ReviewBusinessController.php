@@ -19,8 +19,20 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * PUT /api/admin/businesses/{id}/restore
  *
  * Las dos decisiones de la cola de revisión, y las dos se pueden deshacer:
- * aprobar limpia el rechazo y rechazar retira la validación. Quien revisa se
- * equivoca, y arreglarlo no puede exigir tocar la base a mano.
+ * aprobar limpia el rechazo, y lo rechazado se recupera desde «borrados».
+ * Quien revisa se equivoca, y arreglarlo no puede exigir tocar la base a mano.
+ *
+ * **Rechazar también archiva.** Son una sola cosa para quien revisa —el negocio
+ * se descarta y desaparece de la cola—, y separarlas dejaba lo rechazado en
+ * «pendientes» para siempre, porque «sin validar» es justo donde ya estaba. Va
+ * junto aquí y no encadenando dos llamadas desde el panel: a medio camino
+ * quedaría un negocio rechazado y aún en la cola, o archivado sin avisar a
+ * nadie.
+ *
+ * **Archivar por su cuenta (`/remove`) no avisa de nada**, y es la diferencia
+ * que importa: ese botón es para lo que no se va a mirar más —un duplicado, una
+ * prueba, un negocio que se da de baja—, y decirle a alguien «tu solicitud no ha
+ * sido aprobada» por limpiar un duplicado es peor que no decir nada.
  *
  * `PUT` y no `POST` porque el resultado es el mismo se llame una vez o cinco:
  * aprobar lo ya aprobado deja el negocio aprobado.
@@ -52,9 +64,10 @@ class ReviewBusinessController
     }
 
     /**
-     * Lo archiva: deja de estar en la cola y en la app, pero no se destruye
-     * nada. Para lo que no se va a validar nunca —una prueba, un duplicado—,
-     * porque rechazarlo lo deja en su propia pestaña acumulándose.
+     * Archiva **sin avisar a nadie**: deja de estar en la cola y en la app, pero
+     * no se destruye nada. Es para lo que no se va a mirar más —una prueba, un
+     * duplicado, un negocio que se da de baja—, no para decirle a su dueño que
+     * no ha pasado la revisión; eso es `reject`, que además archiva.
      */
     #[Route('/api/admin/businesses/{id}/remove', name: 'admin_business_remove', methods: ['PUT'])]
     public function remove(string $id): Response
@@ -95,19 +108,34 @@ class ReviewBusinessController
             return new JsonResponse(['error' => 'Business not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        // Un negocio dado de baja no vuelve por aquí: la cola no lo enseña, y
-        // aprobarlo por su id lo devolvería al feed sin que nadie lo pidiera.
-        if ($business->isDeleted()) {
-            return new JsonResponse(['error' => 'Business is deleted.'], Response::HTTP_CONFLICT);
-        }
-
         // Antes de tocar nada: es la diferencia entre revisar y volver a pulsar.
         $decided = $approve
             ? $business->getVerifiedAt() !== null
             : $business->getRejectedAt() !== null;
 
-        $approve ? $business->verify() : $business->reject();
-        $this->businesses->save($business);
+        $cascade = null;
+
+        if ($approve) {
+            $business->verify();
+            $this->businesses->save($business);
+
+            // Y lo saca del cajón, porque lo rechazado está archivado: validado
+            // y archivado a la vez es validado a medias —no se ve en ninguna
+            // parte—, y desdecirse no puede exigir dos pasos en dos pestañas.
+            $cascade = $this->archiver->restore($business);
+        } else {
+            $business->reject();
+            $this->businesses->save($business);
+
+            // Y fuera de la cola, con sus productos y sus vídeos: si no, el
+            // negocio quedaba rechazado y en «pendientes» a la vez, y su
+            // escaparate seguía en el feed (ver BusinessArchiver).
+            //
+            // Repetirlo no molesta —archivar lo archivado no cambia nada— y es
+            // lo que permite volver a pulsar sin que salte un error: lo que no
+            // se repite es el correo.
+            $cascade = $this->archiver->archive($business);
+        }
 
         // Después de guardar: si el correo falla, la decisión ya está tomada
         // (y el mailer no lanza, ver ReviewDecisionMailer).
@@ -117,7 +145,7 @@ class ReviewBusinessController
                 : $this->mails->businessRejected($business);
         }
 
-        return $this->state($business);
+        return $this->state($business, $cascade);
     }
 
     /** @param array{products: int, videos: int}|null $cascade */

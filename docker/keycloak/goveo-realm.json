@@ -37,7 +37,7 @@
     "port": "1025",
     "host": "mailpit",
     "replyTo": "",
-    "from": "noreply@goveo.app",
+    "from": "hola@goveo.app",
     "fromDisplayName": "Goveo",
     "envelopeFrom": "",
     "ssl": "false"

@@ -119,6 +119,45 @@ final class ReviewDecisionOnlyOnceTest extends TestCase
         self::assertSame(['🎬 Tu vídeo ha sido aprobado en GOVEO'], $mails->subjects());
     }
 
+    public function testRejectingAlsoTakesItOutOfTheQueue(): void
+    {
+        // Rechazar y archivar son una sola cosa para quien revisa. Separadas,
+        // lo rechazado se quedaba en «pendientes» —«sin validar» es de donde
+        // venía— y volvía a aparecer en cada repaso.
+        $mails      = new RecordingMailer();
+        $business   = $this->business();
+        $controller = new ReviewBusinessController(
+            $this->businesses($business),
+            new BusinessArchiver($this->businesses($business), $this->createStub(Connection::class)),
+            $this->mailer($mails),
+        );
+
+        $controller->reject('negocio-1');
+
+        self::assertNotNull($business->getRejectedAt());
+        self::assertTrue($business->isDeleted());
+        self::assertSame(['Sobre tu solicitud de alta en GOVEO'], $mails->subjects());
+    }
+
+    public function testRejectingAVideoAlsoTakesItOutOfTheQueueAndApprovingBringsItBack(): void
+    {
+        $mails      = new RecordingMailer();
+        $story      = $this->story();
+        $controller = new ReviewGeoStoryController($this->stories($story), $this->mailer($mails));
+
+        $controller->reject('video-1');
+
+        self::assertTrue($story->isDeleted());
+        self::assertFalse($story->isVerified());
+
+        // Y aprobarlo después lo devuelve: validado y apartado a la vez sería
+        // aprobarlo a medias — se vería en ninguna parte.
+        $controller->approve('video-1');
+
+        self::assertFalse($story->isDeleted());
+        self::assertTrue($story->isVerified());
+    }
+
     private function mailer(RecordingMailer $mails): ReviewDecisionMailer
     {
         $connection = $this->createStub(Connection::class);

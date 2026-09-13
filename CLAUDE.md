@@ -621,14 +621,24 @@ Con la fecha nueva, **pendiente** es no tener ninguna de las dos y **rechazado**
 lo público no cambia nada: lo que se mira sigue siendo `verified_at`, así que un rechazado se
 comporta igual que un pendiente en feed, mapa y búsqueda.
 
-**Las dos decisiones se deshacen**: aprobar limpia el rechazo y rechazar retira la validación. Quien
-revisa se equivoca, y arreglarlo no puede exigir tocar la base a mano. Por eso son `PUT` y no `POST`:
-llamarlo cinco veces deja lo mismo que llamarlo una.
+**Rechazar archiva también**, en la misma llamada: marca `rejected_at`, manda el negocio al cajón de
+«borrados» con sus productos y sus vídeos, y avisa a su dueño por correo. Son una sola cosa para
+quien revisa —descarto esto y desaparece de la cola—, y separadas dejaban lo rechazado en
+«pendientes» para siempre, porque «sin validar» es justo donde ya estaba. Va junto en el BFF y no
+encadenando dos llamadas desde el panel: a medio camino quedaría un negocio rechazado y aún en la
+cola, o archivado sin avisar a nadie.
 
-**Archivar y recuperar** (`PUT .../remove` y `PUT .../restore`) hacen lo mismo que en vídeos:
-un borrado blando para lo que no se va a validar nunca —una prueba, un duplicado—, porque rechazarlo
-sólo lo mueve a su propia pestaña, donde se acumula. `removed` es entonces el cajón de los dados de
-baja, aquí o desde la app.
+**Las dos decisiones se deshacen**: aprobar limpia el rechazo **y lo saca del cajón** —validado y
+archivado a la vez es validado a medias, no se ve en ninguna parte—. Quien revisa se equivoca, y
+arreglarlo no puede exigir tocar la base a mano ni pasearse por dos pestañas. Por eso son `PUT` y no
+`POST`: llamarlo cinco veces deja lo mismo que llamarlo una… salvo el correo, que sale **una sola
+vez** (ver más abajo).
+
+**Archivar y recuperar** (`PUT .../remove` y `PUT .../restore`) es el borrado blando de siempre, y la
+diferencia con rechazar es que **no avisa a nadie**: es para lo que no se va a mirar más —un
+duplicado, una prueba, un negocio que se da de baja—, y decirle a alguien «tu solicitud no ha sido
+aprobada» por limpiar un duplicado es peor que no decir nada. Por eso el panel no enseña «Archivar»
+en la pestaña de pendientes: ahí todo espera una respuesta.
 
 **Archivar arrastra sus productos y sus vídeos** ([`BusinessArchiver`](src/Business/Application/BusinessArchiver.php)).
 Sin eso, dar de baja una tienda dejaba su escaparate vivo: los vídeos seguían saliendo en el feed y
@@ -745,11 +755,14 @@ Seis correos, con los asuntos que se acordaron (y que los tests fijan):
 reclamación. Lo que sí lleva es **cómo volver a intentarlo** —los tres factores de un vídeo que
 entra, el teléfono de soporte—, porque lo que se rechaza aquí casi siempre es arreglable.
 
+**Rechazar, en los dos, también aparta**: el negocio con sus productos y vídeos, el vídeo por su
+cuenta. Sin eso, lo rechazado se quedaba en «pendientes» —«sin validar» es de donde venía— y volvía
+a decidirse en cada repaso. Y aprobar lo devuelve, que es cómo se deshace.
+
 ⚠️ **Un correo por decisión, aunque la llamada se repita.** `PUT` es idempotente a propósito, pero
 el correo no puede serlo: decir dos veces que un vídeo «necesita un ajuste» es decir que ha fallado
-dos veces. En el negocio se ve en `verified_at` / `rejected_at`; **en el vídeo no**, porque
-rechazarlo lo deja donde estaba —«sin validar» es el estado del que venía— y la cola lo sigue
-enseñando. Por eso el aviso se apunta en su `meta` (`rejection_notified_at`, ver
+dos veces. En el negocio se ve en `verified_at` / `rejected_at`; **en el vídeo no**, porque rechazar
+no le pone fecha propia. Por eso el aviso se apunta en su `meta` (`rejection_notified_at`, ver
 [`GeoStory`](src/GeoStories/Domain/GeoStory.php)), y **aprobar lo borra**, para que un rechazo
 posterior —quien revisa se desdice— vuelva a avisar.
 
@@ -769,6 +782,56 @@ tienda—, y no a la web: lo que hay que hacer después de aprobar (subir un ví
 se hace en la app, y la web no tiene pantalla de cuenta. El del vídeo va a su página pública
 (`WEB_URL/{g|e|t|ol}/{id}`, el mismo reparto por categoría que la app y la web), que se abre desde
 cualquier sitio y es la que se va a compartir.
+
+### «He olvidado mi contraseña»
+
+`POST /public/account/password-reset` `{email}` →
+[`RequestPasswordResetController`](src/Account/Infrastructure/Controller/RequestPasswordResetController.php).
+Antes el enlace del login de la app enseñaba «próximamente disponible»: quien no
+recordaba su contraseña se quedaba fuera, y quien se queda fuera no vuelve.
+
+**El correo lo manda Keycloak, no nosotros.** La contraseña vive ahí y el enlace
+tiene que ser uno de sus *action tokens* —un solo uso, caducable y revocable—;
+montarnos otro sistema de credenciales era la alternativa, y con ella una segunda
+forma de equivocarse. Se dispara por la Admin API
+(`execute-actions-email` con `UPDATE_PASSWORD`, una hora de vida) y no por el
+flujo de recuperación del login, porque **la app no usa la pantalla de login de
+Keycloak**: entra por `/api/auth/*`, así que no hay ningún sitio donde pulsar
+«he olvidado mi contraseña». La app lo pide en su propia pantalla.
+
+⚠️ **Siempre responde 204**, exista la cuenta o no, y **falla en silencio** si
+Keycloak no contesta. Distinguir «te lo he mandado» de «aquí no hay nadie»
+convierte el endpoint en un comprobador de qué direcciones tienen cuenta en
+Goveo. Lo que pasó de verdad queda en el log, que es donde se mira.
+
+Público por necesidad: quien no puede entrar es justo quien lo pide.
+
+### El tema de Keycloak: login y sus correos
+
+[`keycloak-theme/`](keycloak-theme/README.md) — Keycloakify. Las páginas son
+React y los correos también: `keycloakify-emails` los convierte en las plantillas
+FreeMarker que Keycloak espera, en los dos idiomas y en HTML y texto. Escribir
+`.ftl` a mano significaba cuatro ficheros por correo que nadie puede
+previsualizar.
+
+Los correos llevan **la misma caja que los del BFF** (cabecera negra, filete
+naranja, pie con el contacto): dos remitentes que no se parecen son dos empresas
+distintas para quien los recibe, y el correo que cambia una contraseña es el
+último que puede parecer un fraude.
+
+Del login sólo están escritas las tres pantallas que se usan —entrar, pedir el
+enlace, elegir la contraseña nueva—; el resto son las de Keycloakify y heredan la
+caja igual, porque todas pasan por el mismo `Template`.
+
+**Cómo llega**: lo construye la primera etapa del
+[`Dockerfile`](docker/keycloak/Dockerfile) de Keycloak y copia el jar a
+`providers/`. Por eso el contexto de build de ese servicio es **la raíz del repo**
+y no `docker/keycloak`. El realm se apunta al tema en `configure-idp.sh`
+(`loginTheme`, `emailTheme`, y el idioma por defecto en español), que corre en
+cada arranque: el `goveo-realm.json` sólo se lee cuando nace un realm vacío.
+
+⚠️ La etapa de build necesita **Maven y Java** además de Node — es Maven quien
+empaqueta el jar—, de ahí que no sea una imagen `node` a secas.
 
 ### La estética del correo a clientes, en un solo sitio
 
@@ -849,9 +912,15 @@ Ojo con las dos columnas que se parecen: `status` es cómo va la **codificación
 (`processing|ready|failed`) y `verified_at` es si es **público**. Aprobar algo que aún se está
 codificando responde `409`: no hay vídeo que mirar todavía y se estaría aprobando a ciegas.
 
-**Retirar no borra.** `reject` llama al `unverify()` nuevo del dominio: el vídeo deja de salir en los
-feeds pero sigue existiendo y su dueño lo sigue viendo. Lo que se retira suele ser discutible, no
-delictivo, y destruir lo que alguien subió por una decisión revisable mañana es desproporcionado.
+**Rechazar retira la validación y aparta el vídeo**, las dos cosas: `unverify()` + borrado blando.
+Sólo lo primero lo dejaba donde ya estaba —«sin validar» es de donde venía—, así que seguía en la
+cola y volvía a decidirse en cada repaso. **Nada se destruye**: apartado se recupera, y aprobar lo
+devuelve. Lo que se rechaza suele ser discutible, no delictivo, y destruir lo que alguien subió por
+una decisión revisable mañana es desproporcionado; borrar de verdad sigue siendo cosa de su dueño
+desde la app.
+
+Y rechazar **avisa a su dueño** con los tres factores que hacen que un vídeo entre; archivar
+(`/remove`) no avisa de nada — ver «Y lo que se le dice al dueño».
 
 **Una sola puerta: `verified_at`.** `published_at` se quitó en `Version20260910090000`. Eran dos
 columnas para lo mismo que ni siquiera filtraban igual —`published_at` se exigía **siempre**, incluso

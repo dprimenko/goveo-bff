@@ -276,6 +276,53 @@ class KeycloakService
     }
 
     /**
+     * Manda el correo de «he olvidado mi contraseña».
+     *
+     * Lo manda **Keycloak**, no nosotros, y es a propósito: la contraseña vive
+     * ahí y el enlace tiene que ser uno de sus *action tokens* —de un solo uso,
+     * caducable y revocable—. Montarnos un token propio significaría un segundo
+     * sistema de credenciales a mantener y una segunda forma de equivocarse.
+     *
+     * La acción es `UPDATE_PASSWORD`: al pulsar el enlace, Keycloak abre su
+     * pantalla de contraseña nueva (con nuestro tema) y, al guardarla, deja la
+     * sesión iniciada.
+     *
+     * **Por qué por la Admin API y no por el flujo de recuperación del login:**
+     * la app no usa la pantalla de login de Keycloak —entra por `/api/auth/*`—,
+     * así que no hay ningún sitio donde el usuario pueda pulsar «he olvidado mi
+     * contraseña». La app pide el correo en su propia pantalla y lo disparamos
+     * nosotros.
+     *
+     * @param int $lifespanSeconds Cuánto vale el enlace. Una hora: lo bastante
+     *                             para leer el correo con calma, lo bastante
+     *                             poco para que un correo viejo no sea una llave.
+     *
+     * @throws \RuntimeException si Keycloak no lo acepta.
+     */
+    public function sendPasswordResetEmail(string $userId, int $lifespanSeconds = 3600): void
+    {
+        $response = $this->httpClient->request(
+            'PUT',
+            sprintf('%s/%s/execute-actions-email', $this->usersUrl, $userId),
+            [
+                'headers' => [
+                    'Authorization' => 'Bearer ' . $this->getAdminToken(),
+                    'Content-Type'  => 'application/json',
+                ],
+                'query' => ['lifespan' => $lifespanSeconds],
+                'json'  => ['UPDATE_PASSWORD'],
+            ],
+        );
+
+        if (!in_array($response->getStatusCode(), [200, 204], true)) {
+            throw new \RuntimeException(sprintf(
+                'Keycloak rejected the password reset email (%d).',
+                $response->getStatusCode(),
+            ));
+        }
+    }
+
+    /**
      * Deshabilita al usuario en Keycloak.
      *
      * Sin esto, "marcar para borrado" no serviría de nada: el usuario volvería

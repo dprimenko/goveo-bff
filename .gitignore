@@ -42,3 +42,9 @@ config/firebase-credentials.json
 # Export de usuarios de Firebase: contiene hashes de contraseña
 users.json
 backups/
+
+# Tema de Keycloak: dependencias y salida del build (el .jar lo hace el Dockerfile)
+/keycloak-theme/node_modules/
+/keycloak-theme/dist/
+/keycloak-theme/dist_keycloak/
+/keycloak-theme/src/kc.gen.tsx

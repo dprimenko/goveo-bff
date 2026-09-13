@@ -18,13 +18,17 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * PUT /api/admin/geostories/{id}/restore
  *
  * Validar pone `verified_at`, que es lo único que decide si un vídeo se ve.
- * Retirar la validación lo quita: el vídeo **no se borra** —sigue estando y su
- * dueño lo sigue viendo en su perfil—, vuelve a «sin validar».
  *
- * Retirar y no borrar a propósito: lo que se retira suele ser discutible, no
- * delictivo, y destruir lo que alguien subió por una decisión que se puede
- * revisar mañana es desproporcionado. Borrar de verdad sigue siendo cosa de su
- * dueño, desde la app.
+ * **Rechazar retira la validación y aparta el vídeo**, las dos cosas juntas.
+ * Sólo quitar `verified_at` lo dejaba donde ya estaba —«sin validar» es de
+ * donde venía—, así que seguía en la cola y al siguiente repaso volvía a
+ * aparecer para decidirlo otra vez. Nada se destruye: apartado es recuperable,
+ * y borrar de verdad sigue siendo cosa de su dueño desde la app. Lo que se
+ * rechaza suele ser discutible, no delictivo.
+ *
+ * **Archivar por su cuenta (`/remove`) no avisa de nada**: es para lo que no se
+ * va a mirar más —una prueba, algo repetido—, no para decirle a alguien que su
+ * vídeo no ha pasado la selección.
  *
  * **Las dos decisiones avisan a su dueño**: aprobar, con el enlace al vídeo ya
  * publicado; retirar, con los tres factores que hacen que un vídeo entre —lo que
@@ -96,10 +100,9 @@ class ReviewGeoStoryController
             return new JsonResponse(['error' => 'GeoStory not found.'], Response::HTTP_NOT_FOUND);
         }
 
-        if ($story->isDeleted()) {
-            return new JsonResponse(['error' => 'GeoStory is deleted.'], Response::HTTP_CONFLICT);
-        }
-
+        // Un vídeo apartado se puede decidir igual: aprobarlo es justo cómo se
+        // deshace un rechazo, y por eso ya no hay 409 por estar apartado.
+        //
         // Aprobar algo que Bunny aún está codificando es aprobar a ciegas: no hay
         // vídeo que mirar todavía, y cuando lo haya ya estará publicado.
         if ($approve && $story->getStatus() !== 'ready') {
@@ -110,16 +113,20 @@ class ReviewGeoStoryController
         }
 
         // Aprobar es un cambio visible (`verified_at`), así que basta con
-        // mirarlo. Retirar la validación deja el vídeo donde estaba —«sin
-        // validar»—, y por eso el aviso se apunta en su `meta`: si no, la cola
-        // lo sigue enseñando y el siguiente clic manda el correo otra vez.
+        // mirarlo. Rechazar no tiene fecha propia —«sin validar» es de donde
+        // venía—, así que el aviso se apunta en su `meta`: sin eso, rechazar lo
+        // ya rechazado volvería a mandar el mismo «necesita un ajuste».
         $told = $approve ? $story->isVerified() : $story->rejectionNoticeSent();
 
         if ($approve) {
             // Se borra el rastro para que un rechazo posterior vuelva a avisar.
             $story->verify()->clearRejectionNotice();
+            // Y vuelve del cajón: un vídeo se aprueba desde «apartados» cuando
+            // quien revisa se desdice, y dejarlo apartado sería aprobarlo a
+            // medias — validado y sin verse en ninguna parte.
+            $story->restore();
         } else {
-            $story->unverify();
+            $story->unverify()->softDelete();
 
             if (!$told) {
                 $story->markRejectionNoticeSent();

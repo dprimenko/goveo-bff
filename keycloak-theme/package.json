@@ -1,0 +1,30 @@
+{
+    "name": "goveo-keycloak-theme",
+    "version": "0.0.0",
+    "description": "Tema de Keycloak de Goveo — login y correo",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc --noResolve --noCheck && vite build",
+        "build-keycloak-theme": "npm run build && keycloakify build",
+        "start-keycloak": "npx keycloakify start-keycloak",
+        "format": "prettier . --write"
+    },
+    "dependencies": {
+        "keycloakify": "^11.9.3",
+        "react": "^19.1.0",
+        "react-dom": "^19.1.0"
+    },
+    "devDependencies": {
+        "@types/node": "^24.5.2",
+        "@types/react": "19.1.4",
+        "@types/react-dom": "19.1.4",
+        "@vitejs/plugin-react": "^4.4.1",
+        "jsx-email": "^2.7.3",
+        "keycloakify-emails": "^3.3.0",
+        "prettier": "3.3.1",
+        "typescript": "^5.6.3",
+        "vite": "^6.3.5"
+    }
+}
