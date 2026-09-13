@@ -44,6 +44,13 @@ use Symfony\Component\Uid\Uuid;
  *
  * No lleva tarifa ni importes: de eso ya se encarga el recibo de Stripe, y
  * repetirlo aquí invita a discutir el cobro en el correo equivocado.
+ *
+ * **La redacción vive en [`WelcomeMessages`]** y la caja en
+ * [`GoveoEmailLayout`], como el resto del correo a clientes: cuando cada correo
+ * traía su propio HTML, éste se quedó en oscuro y los del panel salieron en
+ * claro, y dos mensajes seguidos del mismo remitente parecían de sitios
+ * distintos. Aquí queda lo que sí es de esta clase: cuándo se manda, a quién, y
+ * con qué enlace de contraseña.
  */
 final class WelcomeMailer
 {
@@ -55,6 +62,8 @@ final class WelcomeMailer
         private readonly LoggerInterface $logger,
         private readonly string $fromAddress,
         private readonly string $webUrl,
+        /** Enlace que abre la app, para quien ya tiene cuenta. */
+        private readonly string $appUrl,
     ) {}
 
     /**
@@ -82,9 +91,12 @@ final class WelcomeMailer
                 $link = sprintf('%s/bienvenida?token=%s', rtrim($this->webUrl, '/'), $plain);
             }
 
-            $subject = $needsPassword
-                ? sprintf('%s ya está en Goveo — crea tu contraseña', $business->getName())
-                : sprintf('%s ya está en Goveo — termina de configurarlo', $business->getName());
+            $mail = WelcomeMessages::create(
+                $business->getName() ?? 'Tu negocio',
+                $link,
+                $ownerName,
+                $this->appUrl,
+            );
 
             $message = (new Email())
                 // El nombre visible va aquí y no en `EMAIL_FROM` a propósito:
@@ -95,9 +107,9 @@ final class WelcomeMailer
                 // la dirección a secas, que nunca lleva espacios.
                 ->from(new Address($this->fromAddress, 'Goveo'))
                 ->to($email)
-                ->subject($subject)
-                ->text($this->text($business, $link, $ownerName))
-                ->html($this->html($business, $link, $ownerName));
+                ->subject($mail->subject)
+                ->text($mail->text)
+                ->html($mail->html);
 
             $this->mailer->send($message);
 
@@ -112,145 +124,5 @@ final class WelcomeMailer
                 'email'    => $email,
             ]);
         }
-    }
-
-    private function greeting(?string $ownerName): string
-    {
-        return $ownerName !== null && trim($ownerName) !== ''
-            ? sprintf('Hola %s,', trim($ownerName))
-            : 'Hola,';
-    }
-
-    private function text(Business $business, ?string $link, ?string $ownerName): string
-    {
-        $next = <<<TEXT
-        Qué pasa ahora
-        Nuestro equipo revisará tu ficha antes de publicarla. Mientras tanto ya
-        puedes entrar y completarla: fotos, descripción, horarios y productos.
-        En cuanto la validemos, tu negocio aparecerá en el mapa y en las
-        búsquedas de tu zona.
-        TEXT;
-
-        if ($link === null) {
-            return <<<TEXT
-            {$this->greeting($ownerName)}
-
-            Ya hemos creado la ficha de {$business->getName()} en Goveo, colgada
-            de tu cuenta: entra en la app con ella y la verás en Mi cuenta →
-            Gestión de negocios.
-
-            {$next}
-
-            El equipo de Goveo
-            TEXT;
-        }
-
-        return <<<TEXT
-        {$this->greeting($ownerName)}
-
-        Ya hemos creado la ficha de {$business->getName()} en Goveo.
-
-        Crea tu contraseña para entrar:
-        {$link}
-
-        El enlace caduca en 7 días y sólo se puede usar una vez.
-
-        {$next}
-
-        Si no has sido tú, ignora este correo: sin crear la contraseña nadie
-        puede entrar en la cuenta.
-
-        El equipo de Goveo
-        TEXT;
-    }
-
-    private function html(Business $business, ?string $link, ?string $ownerName): string
-    {
-        $name     = htmlspecialchars($business->getName(), ENT_QUOTES, 'UTF-8');
-        $greeting = htmlspecialchars($this->greeting($ownerName), ENT_QUOTES, 'UTF-8');
-
-        // Con cuenta ya hecha no hay botón: la acción no es pulsar nada aquí,
-        // es abrir la app. Un botón que sólo lleva a una página informativa
-        // gasta el sitio de la llamada a la acción sin llevar a ninguna parte.
-        if ($link === null) {
-            $intro  = sprintf(
-                '%s hemos creado la ficha de tu negocio y la hemos colgado de tu cuenta.',
-                $greeting,
-            );
-            $action = <<<HTML
-            <p style="margin:0 0 32px;color:#c8c8c8;font-size:15px;line-height:1.6;">
-              Entra en la app con tu cuenta y la encontrarás en <strong style="color:#ffffff;">Mi
-              cuenta → Gestión de negocios</strong>.
-            </p>
-            HTML;
-            $footer = '';
-        } else {
-            $href   = htmlspecialchars($link, ENT_QUOTES, 'UTF-8');
-            $intro  = sprintf(
-                '%s hemos creado la ficha de tu negocio. Crea tu contraseña para entrar.',
-                $greeting,
-            );
-            $action = <<<HTML
-            <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
-              <tr><td style="background:#e98027;border-radius:12px;">
-                <a href="{$href}" style="display:inline-block;padding:16px 32px;color:#ffffff;font-size:16px;font-weight:bold;text-decoration:none;">
-                  Crear mi contraseña
-                </a>
-              </td></tr>
-            </table>
-
-            <p style="margin:0 0 32px;color:#8a8a8a;font-size:13px;line-height:1.5;">
-              El enlace caduca en 7 días y sólo se puede usar una vez.
-            </p>
-            HTML;
-            $footer = <<<HTML
-            <p style="margin:0;color:#6a6a6a;font-size:12px;line-height:1.5;">
-              Si no has sido tú, ignora este correo: sin crear la contraseña nadie puede entrar
-              en la cuenta.
-            </p>
-            HTML;
-        }
-
-        // HTML deliberadamente simple y con estilos en línea: los clientes de
-        // correo ignoran las hojas de estilo y buena parte del CSS moderno.
-        return <<<HTML
-        <!doctype html>
-        <html lang="es">
-        <body style="margin:0;padding:0;background:#0a0a0a;font-family:Helvetica,Arial,sans-serif;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0a;padding:32px 16px;">
-            <tr><td align="center">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#141414;border-radius:16px;padding:32px;">
-                <tr><td>
-                  <p style="margin:0 0 24px;color:#e98027;font-size:13px;font-weight:bold;letter-spacing:2px;text-transform:uppercase;">Goveo</p>
-
-                  <h1 style="margin:0 0 16px;color:#ffffff;font-size:24px;line-height:1.25;">
-                    {$name} ya está en Goveo
-                  </h1>
-
-                  <p style="margin:0 0 24px;color:#c8c8c8;font-size:15px;line-height:1.6;">
-                    {$intro}
-                  </p>
-
-                  {$action}
-
-                  <div style="height:1px;background:#262626;margin:0 0 24px;"></div>
-
-                  <h2 style="margin:0 0 12px;color:#ffffff;font-size:16px;">Qué pasa ahora</h2>
-                  <p style="margin:0 0 12px;color:#c8c8c8;font-size:15px;line-height:1.6;">
-                    Nuestro equipo revisará tu ficha antes de publicarla. Mientras tanto ya puedes
-                    entrar y completarla: fotos, descripción, horarios y productos.
-                  </p>
-                  <p style="margin:0 0 32px;color:#c8c8c8;font-size:15px;line-height:1.6;">
-                    En cuanto la validemos, tu negocio aparecerá en el mapa y en las búsquedas de tu zona.
-                  </p>
-
-                  {$footer}
-                </td></tr>
-              </table>
-            </td></tr>
-          </table>
-        </body>
-        </html>
-        HTML;
     }
 }

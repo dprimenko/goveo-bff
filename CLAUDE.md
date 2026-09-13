@@ -435,7 +435,11 @@ equivocado.
 lanza a propósito —que falle el correo no puede tumbar un webhook ya cobrado— y el comando no
 distingue. El error sí queda en el log.
 
-HTML con estilos en línea y tablas, que es lo único que respetan los clientes de correo.
+La redacción está en [`WelcomeMessages`](src/Account/Application/WelcomeMessages.php) y la caja en
+[`GoveoEmailLayout`](src/Shared/Application/Mail/GoveoEmailLayout.php), como el resto del correo a
+clientes (ver más abajo); en `WelcomeMailer` queda lo que sí es suyo: cuándo se manda, a quién y con
+qué enlace de contraseña. Las **dos versiones siguen siendo dos**: con enlace para crear la
+contraseña, y sin él —con el botón que abre la app— para quien ya tenía cuenta.
 
 **El token** (`password_setup_tokens`): 32 bytes aleatorios, **guardado como hash SHA-256** — en claro
 sería una llave para entrar en cualquier cuenta recién creada. Un solo uso y 7 días. Se marca usado
@@ -718,6 +722,84 @@ cada reintento sería otro correo.
 Es texto plano y sin adornos —es interno— y no lleva botones de aprobar ni rechazar: decidir se hace
 mirando la ficha, no desde la bandeja de entrada. `REVIEW_EMAIL` vacío apaga el aviso, que es lo
 cómodo en local; en el compose de desarrollo apunta a Mailpit igual que el resto del correo.
+
+### Y lo que se le dice al dueño: aprobado o no
+
+[`ReviewDecisionMailer`](src/Backoffice/Application/ReviewDecisionMailer.php) es la otra mitad del
+anterior: ése avisa **hacia dentro** de que hay algo que mirar, éste **hacia fuera** de lo que se ha
+decidido. Sin él, aprobar sólo cambiaba una fecha en la base y el interesado se enteraba —si se
+enteraba— abriendo la app a ver si ya salía.
+
+Seis correos, con los asuntos que se acordaron (y que los tests fijan):
+
+| Caso | Asunto | Botón |
+|---|---|---|
+| Negocio aprobado | ✅ Tu alta en GOVEO está aprobada | Entrar en mi cuenta |
+| Negocio no aprobado | Sobre tu solicitud de alta en GOVEO | — |
+| Vídeo aprobado | 🎬 Tu vídeo ha sido aprobado en GOVEO | Ver mi vídeo en el mapa |
+| Vídeo no aprobado | Tu vídeo en GOVEO necesita un ajuste | — |
+| Publisher aprobado | ✅ Tu cuenta de publisher en GOVEO está aprobada | Entrar en mi cuenta |
+| Publisher no aprobado | Sobre tu solicitud de publisher en GOVEO | — |
+
+**Un negativo no lleva botón**: no hay nada que pulsar, y poner uno lo convierte en un formulario de
+reclamación. Lo que sí lleva es **cómo volver a intentarlo** —los tres factores de un vídeo que
+entra, el teléfono de soporte—, porque lo que se rechaza aquí casi siempre es arreglable.
+
+⚠️ **Un correo por decisión, aunque la llamada se repita.** `PUT` es idempotente a propósito, pero
+el correo no puede serlo: decir dos veces que un vídeo «necesita un ajuste» es decir que ha fallado
+dos veces. En el negocio se ve en `verified_at` / `rejected_at`; **en el vídeo no**, porque
+rechazarlo lo deja donde estaba —«sin validar» es el estado del que venía— y la cola lo sigue
+enseñando. Por eso el aviso se apunta en su `meta` (`rejection_notified_at`, ver
+[`GeoStory`](src/GeoStories/Domain/GeoStory.php)), y **aprobar lo borra**, para que un rechazo
+posterior —quien revisa se desdice— vuelva a avisar.
+
+**El correo del dueño no está en el negocio ni en el vídeo**, está en la cuenta: se busca en el
+creador, luego entre los gestores y por último en el correo de facturación del alta, que es el único
+seguro en una ficha importada. Sin ninguno **no se manda nada** y queda un `warning` en el log: la
+decisión ya está tomada y guardada, y no tener dirección no es algo que deba tumbar la revisión (el
+mailer no lanza nunca, como el resto del correo).
+
+**Los dos de publisher todavía no los llama nadie**: el panel no tiene cola de creadores
+(`influencers.verified_at` sólo se toca a mano o en la importación). Están escritos porque el texto
+es lo que se ha decidido ahora; el día que exista esa cola, sólo falta llamar al mailer desde su
+controlador.
+
+El botón «Entrar en mi cuenta» va a `APP_LINK_URL` —el enlace de Branch que abre la app o lleva a su
+tienda—, y no a la web: lo que hay que hacer después de aprobar (subir un vídeo, completar la ficha)
+se hace en la app, y la web no tiene pantalla de cuenta. El del vídeo va a su página pública
+(`WEB_URL/{g|e|t|ol}/{id}`, el mismo reparto por categoría que la app y la web), que se abre desde
+cualquier sitio y es la que se va a compartir.
+
+### La estética del correo a clientes, en un solo sitio
+
+[`GoveoEmailLayout`](src/Shared/Application/Mail/GoveoEmailLayout.php) es la caja de todos:
+cabecera negra con la marca, cuerpo blanco, un botón naranja y el pie con el contacto. Tablas y
+estilos en línea, que es lo único que respetan los clientes de correo, y **sin imágenes** —la marca
+es texto—: un logotipo remoto se queda en un hueco gris en cuanto el cliente bloquea las imágenes,
+que es lo que hace Gmail con un remitente nuevo.
+
+Vive aparte porque cuando cada correo traía su propio HTML, la bienvenida salió en oscuro y los del
+panel en claro: dos mensajes seguidos del mismo remitente parecían de sitios distintos. El texto de
+cada uno está en su clase de mensajes ([`ReviewDecisionMessages`](src/Backoffice/Application/ReviewDecisionMessages.php),
+[`WelcomeMessages`](src/Account/Application/WelcomeMessages.php)), que **no sabe enviar**: así la
+redacción se lee de un tirón y se prueba sin base de datos ni SMTP.
+
+**Para verlos** sin provocar cada caso de verdad —dar de alta un negocio, pagarlo, subir un vídeo,
+esperar a Bunny y aprobarlo—:
+
+```bash
+php bin/console goveo:mail:preview --to=yo@ejemplo.com
+php bin/console goveo:mail:preview --to=yo@ejemplo.com --only=video.rejected
+```
+
+Los ocho (los seis de decisión más las dos versiones de la bienvenida) con datos de muestra, y en
+local los recoge Mailpit (http://localhost:8025).
+
+**El remitente es `hola@goveo.app`** y no un `noreply`: los correos de rechazo piden expresamente que
+se responda a ellos, y ese es el buzón de soporte. `EMAIL_FROM` lleva **sólo la dirección** —el
+nombre visible «Goveo» lo pone el código—: un valor con espacios hay que entrecomillarlo en el
+`.env` y hay paneles de despliegue que quitan las comillas al guardar, dejando un fichero que
+Symfony no puede leer.
 
 ### El catálogo de un negocio desde el panel
 

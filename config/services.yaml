@@ -13,6 +13,12 @@ parameters:
     # Vacías a propósito: sin lista, valen los clientes del mismo proyecto que
     # `GOOGLE_SOCIAL_CLIENT_ID` / `APPLE_CLIENT_ID`, que es lo que la app usa en
     # iOS, en Android y en la web. Se rellenan sólo para apretar el cerco.
+    # Enlace que abre la app (o lleva a su tienda si no está instalada). Es el
+    # botón «Entrar en mi cuenta» de los correos de aprobación: el panel de
+    # gestión de un negocio vive en la app, y la web no tiene pantalla de cuenta.
+    # Es el mismo enlace de Branch que usa la web para ofrecer la descarga.
+    env(APP_LINK_URL): 'https://links.goveo.app/1GHor7ffjWb'
+
     env(GOOGLE_ALLOWED_AUDIENCES): ''
     env(APPLE_ALLOWED_AUDIENCES): ''
 
@@ -122,6 +128,22 @@ services:
         arguments:
             $fromAddress: '%env(EMAIL_FROM)%'
             $webUrl: '%env(WEB_URL)%'
+            $appUrl: '%env(APP_LINK_URL)%'
+
+    # Lo que se le dice al dueño cuando se decide sobre su negocio, su vídeo o
+    # su cuenta de creador. `webUrl` enlaza el vídeo publicado; `appUrl`, la app.
+    App\Backoffice\Application\ReviewDecisionMailer:
+        arguments:
+            $fromAddress: '%env(EMAIL_FROM)%'
+            $webUrl: '%env(WEB_URL)%'
+            $appUrl: '%env(APP_LINK_URL)%'
+
+    # Previsualización de los correos a clientes (goveo:mail:preview).
+    App\Shared\Infrastructure\Command\PreviewEmailsCommand:
+        arguments:
+            $fromAddress: '%env(EMAIL_FROM)%'
+            $webUrl: '%env(WEB_URL)%'
+            $appUrl: '%env(APP_LINK_URL)%'
 
     # Aviso interno de que hay algo nuevo en la cola del panel. Con
     # REVIEW_EMAIL vacío no se manda nada, que es lo que se quiere en local.

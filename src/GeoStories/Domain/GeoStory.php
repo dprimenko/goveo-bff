@@ -261,6 +261,48 @@ class GeoStory
     public function isReady(): bool { return $this->status === self::STATUS_READY; }
 
     /**
+     * Si ya se le dijo a su dueño que el vídeo no pasó la selección.
+     *
+     * Hace falta porque un vídeo rechazado **se queda donde estaba** —«sin
+     * validar» es justo el estado del que venía—, así que la cola lo sigue
+     * enseñando y el botón de rechazar se puede volver a pulsar. El `PUT` es
+     * idempotente a propósito, pero el correo no: mandarle dos veces el mismo
+     * «necesita un ajuste» es decirle que ha fallado dos veces.
+     *
+     * Va en `meta` y no en una columna propia porque no es estado del vídeo,
+     * es rastro de un envío; y aprobar lo borra, para que un rechazo posterior
+     * —quien revisa se desdice— vuelva a avisar.
+     */
+    public function rejectionNoticeSent(): bool
+    {
+        return ($this->meta['rejection_notified_at'] ?? null) !== null;
+    }
+
+    public function markRejectionNoticeSent(): self
+    {
+        $meta                          = $this->meta ?? [];
+        $meta['rejection_notified_at'] = (new \DateTimeImmutable())->format(\DATE_ATOM);
+        $this->meta                    = $meta;
+        $this->updatedAt               = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    public function clearRejectionNotice(): self
+    {
+        if (!$this->rejectionNoticeSent()) {
+            return $this;
+        }
+
+        $meta = $this->meta ?? [];
+        unset($meta['rejection_notified_at']);
+        $this->meta      = $meta;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    /**
      * Cuánto dura un evento al que no se le pone hora de fin.
      *
      * Se pide la de inicio y se deja opcional la de fin porque quien publica

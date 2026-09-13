@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backoffice\Infrastructure\Controller;
 
+use App\Backoffice\Application\ReviewDecisionMailer;
 use App\Business\Application\BusinessArchiver;
 use App\Business\Domain\BusinessRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -23,6 +24,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  *
  * `PUT` y no `POST` porque el resultado es el mismo se llame una vez o cinco:
  * aprobar lo ya aprobado deja el negocio aprobado.
+ *
+ * **Y se avisa al dueño**, que antes no se hacía: aprobar sólo cambiaba una
+ * fecha y el interesado se enteraba —si se enteraba— abriendo la app a ver si
+ * ya salía. El correo se manda **sólo si la decisión cambia**: la llamada es
+ * idempotente, pero el correo no puede serlo.
  */
 #[IsGranted('ROLE_BUSINESS_VERIFY')]
 class ReviewBusinessController
@@ -30,6 +36,7 @@ class ReviewBusinessController
     public function __construct(
         private readonly BusinessRepository $businesses,
         private readonly BusinessArchiver $archiver,
+        private readonly ReviewDecisionMailer $mails,
     ) {}
 
     #[Route('/api/admin/businesses/{id}/approve', name: 'admin_business_approve', methods: ['PUT'])]
@@ -94,8 +101,21 @@ class ReviewBusinessController
             return new JsonResponse(['error' => 'Business is deleted.'], Response::HTTP_CONFLICT);
         }
 
+        // Antes de tocar nada: es la diferencia entre revisar y volver a pulsar.
+        $decided = $approve
+            ? $business->getVerifiedAt() !== null
+            : $business->getRejectedAt() !== null;
+
         $approve ? $business->verify() : $business->reject();
         $this->businesses->save($business);
+
+        // Después de guardar: si el correo falla, la decisión ya está tomada
+        // (y el mailer no lanza, ver ReviewDecisionMailer).
+        if (!$decided) {
+            $approve
+                ? $this->mails->businessApproved($business)
+                : $this->mails->businessRejected($business);
+        }
 
         return $this->state($business);
     }

@@ -51,6 +51,7 @@ services:
 
       MAILER_DSN: ${MAILER_DSN}
       EMAIL_FROM: ${EMAIL_FROM}
+      APP_LINK_URL: ${APP_LINK_URL:-https://links.goveo.app/1GHor7ffjWb}
       BILLING_TAX_PERCENT: ${BILLING_TAX_PERCENT:-21}
 
       # Caducidad de eventos y noticias. No estaba aquí, así que en el servidor
