@@ -17,8 +17,8 @@ import type { KcContext } from '../KcContext'
 const Login = lazy(() => import('./Login.tsx'))
 const ResetPassword = lazy(() => import('./ResetPassword.tsx'))
 const LoginUpdatePassword = lazy(() => import('./LoginUpdatePassword.tsx'))
+const Info = lazy(() => import('./Info.tsx'))
 
-const Info = lazy(() => import('keycloakify/login/pages/Info'))
 const Error = lazy(() => import('keycloakify/login/pages/Error'))
 const LoginVerifyEmail = lazy(() => import('keycloakify/login/pages/LoginVerifyEmail'))
 const LoginPageExpired = lazy(() => import('keycloakify/login/pages/LoginPageExpired'))

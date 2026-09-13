@@ -41,6 +41,11 @@ const { useI18n, ofTypeI18n } = i18nBuilder
             passwordNew: 'Contraseña nueva',
             passwordConfirm: 'Repite la contraseña',
             doSave: 'Guardar y entrar',
+            // El paso intermedio del enlace del correo
+            infoPasswordTitle: 'Ya casi está',
+            infoPasswordBody:
+                'Pulsa el botón para elegir tu contraseña nueva. El enlace sólo se puede usar una vez.',
+            infoPasswordCta: 'Elegir mi contraseña',
             // Confirmación de correo
             emailVerifyTitle: 'Confirma tu correo',
             emailVerifyInstruction1:
@@ -73,6 +78,10 @@ const { useI18n, ofTypeI18n } = i18nBuilder
             passwordNew: 'New password',
             passwordConfirm: 'Repeat the password',
             doSave: 'Save and sign in',
+            infoPasswordTitle: 'Almost there',
+            infoPasswordBody:
+                'Tap the button to choose your new password. The link can only be used once.',
+            infoPasswordCta: 'Choose my password',
             emailVerifyTitle: 'Confirm your email',
             emailVerifyInstruction1:
                 "We've sent you an email with a link to confirm your address.",
