@@ -6,6 +6,7 @@ namespace App\Shared\Infrastructure\Command;
 
 use App\Account\Application\WelcomeMessages;
 use App\Backoffice\Application\ReviewDecisionMessages;
+use App\Shared\Application\Mail\GoveoMessage;
 use App\Shared\Application\Mail\MailContent;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -14,8 +15,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
-use Symfony\Component\Mime\Email;
 
 /**
  * Manda todos los correos a clientes con datos de muestra, para verlos.
@@ -88,14 +87,7 @@ final class PreviewEmailsCommand extends Command
         $io->title(sprintf('Correos de muestra → %s', $to));
 
         foreach ($all as $kind => $mail) {
-            $this->mailer->send(
-                (new Email())
-                    ->from(new Address($this->fromAddress, 'Goveo'))
-                    ->to($to)
-                    ->subject($mail->subject)
-                    ->text($mail->text)
-                    ->html($mail->html),
-            );
+            $this->mailer->send(GoveoMessage::from($this->fromAddress, $to, $mail));
 
             $io->writeln(sprintf('  <info>✓</info> %-20s %s', $kind, $mail->subject));
         }

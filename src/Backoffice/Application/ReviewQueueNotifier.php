@@ -6,11 +6,10 @@ namespace App\Backoffice\Application;
 
 use App\Business\Domain\Business;
 use App\GeoStories\Domain\GeoStory;
+use App\Shared\Application\Mail\GoveoMessage;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
-use Symfony\Component\Mime\Email;
 
 /**
  * Avisa por correo de que hay algo nuevo que revisar.
@@ -121,10 +120,7 @@ final class ReviewQueueNotifier
 
         try {
             $this->mailer->send(
-                (new Email())
-                    ->from(new Address($this->fromAddress, 'Goveo'))
-                    ->to($this->reviewAddress)
-                    ->subject($subject)
+                GoveoMessage::create($this->fromAddress, $this->reviewAddress, $subject)
                     ->text(implode("\n", $lines) . "\n"),
             );
         } catch (\Throwable $e) {

@@ -10,9 +10,8 @@ use App\Business\Domain\Business;
 use App\Auth\Infrastructure\Service\KeycloakService;
 use App\Business\Domain\BusinessRepository;
 use Psr\Log\LoggerInterface;
+use App\Shared\Application\Mail\GoveoMessage;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
-use Symfony\Component\Mime\Email;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -98,20 +97,7 @@ final class WelcomeMailer
                 $this->appUrl,
             );
 
-            $message = (new Email())
-                // El nombre visible va aquí y no en `EMAIL_FROM` a propósito:
-                // un valor con espacios obliga a entrecomillarlo en el `.env`, y
-                // hay paneles de despliegue que quitan esas comillas al
-                // guardarlo. El resultado es un fichero que Symfony no puede
-                // leer y una aplicación que no arranca. La variable se queda con
-                // la dirección a secas, que nunca lleva espacios.
-                ->from(new Address($this->fromAddress, 'Goveo'))
-                ->to($email)
-                ->subject($mail->subject)
-                ->text($mail->text)
-                ->html($mail->html);
-
-            $this->mailer->send($message);
+            $this->mailer->send(GoveoMessage::from($this->fromAddress, $email, $mail));
 
             // Se marca sólo si el envío no lanzó: es lo que permite listar
             // después a quién no le llegó y reintentarlo.

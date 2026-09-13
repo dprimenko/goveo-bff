@@ -6,11 +6,10 @@ namespace App\Backoffice\Application;
 
 use App\Business\Domain\Business;
 use App\GeoStories\Domain\GeoStory;
+use App\Shared\Application\Mail\GoveoMessage;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Mailer\MailerInterface;
-use Symfony\Component\Mime\Address;
-use Symfony\Component\Mime\Email;
 
 /**
  * Avisa al dueño de lo revisado de la decisión que se ha tomado.
@@ -263,17 +262,7 @@ final class ReviewDecisionMailer
         try {
             $mail = $content();
 
-            $this->mailer->send(
-                (new Email())
-                    // El nombre visible va aquí y no en `EMAIL_FROM`: un valor
-                    // con espacios hay que entrecomillarlo en el `.env`, y hay
-                    // paneles de despliegue que quitan esas comillas al guardar.
-                    ->from(new Address($this->fromAddress, 'Goveo'))
-                    ->to($to)
-                    ->subject($mail->subject)
-                    ->text($mail->text)
-                    ->html($mail->html),
-            );
+            $this->mailer->send(GoveoMessage::from($this->fromAddress, $to, $mail));
         } catch (\Throwable $e) {
             $this->logger->error('No se pudo avisar de la decisión: {message}', [
                 'message' => $e->getMessage(),
