@@ -12,7 +12,8 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * GET /api/admin/geostories?status=pending|verified|removed&business=&q=&page=&size=
+ * GET /api/admin/geostories?status=pending|verified|removed
+ *                          &business=&q=&city=&category=&sort=&dir=&page=&size=
  *
  * La cola de vídeos. **`verified_at` ya decidía la visibilidad** —el repositorio
  * de geostories deja fuera de todos los feeds lo que no está verificado, y sólo
@@ -31,6 +32,16 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  *
  * `status` de la columna es otra cosa —cómo va la codificación en Bunny— y viaja
  * aparte: un vídeo en `processing` todavía no se puede ver para juzgarlo.
+ *
+ * **Filtrar y ordenar se hacen aquí**, sobre el total y no sobre las veinticuatro
+ * tarjetas que hay en pantalla: ordenar una página ordena veinticuatro vídeos
+ * cualesquiera, que no es lo que nadie quiere saber.
+ *
+ * **La ciudad es la del negocio**, no la del vídeo. Un vídeo tiene sus propias
+ * coordenadas —donde se grabó—, pero quien filtra aquí viene de «los vídeos de
+ * tal sitio», y eso es el negocio dueño. Como consecuencia, **filtrar por ciudad
+ * deja fuera los de influencers**: no son de ningún negocio, así que no están en
+ * ninguna de estas ciudades.
  */
 #[Route('/api/admin/geostories', name: 'admin_geostories_list', methods: ['GET'])]
 #[IsGranted('ROLE_GEOSTORY_MODERATE')]
@@ -38,6 +49,16 @@ class ListGeoStoryReviewsController
 {
     private const DEFAULT_SIZE = 24;
     private const MAX_SIZE     = 100;
+
+    /**
+     * Por qué se puede ordenar. Lista blanca: el valor llega por query y acaba
+     * dentro de un `ORDER BY`, donde no hay parámetros que valgan.
+     */
+    private const SORTS = [
+        'created'  => 'g.created_at',
+        'category' => 'c.name',
+        'owner'    => 'coalesce(b.name, i.name)',
+    ];
 
     public function __construct(
         private readonly Connection $db,
@@ -74,13 +95,37 @@ class ListGeoStoryReviewsController
             $params[] = $business;
         }
 
+        // La ciudad del negocio dueño, y `none` para los que no la tienen
+        // resuelta —o no son de un negocio—, que si no desaparecerían del panel
+        // en cuanto alguien filtra.
+        $city = trim((string) $request->query->get('city', ''));
+        if ($city !== '') {
+            if ($city === 'none') {
+                $where .= ' AND b.city IS NULL';
+            } else {
+                $where   .= ' AND b.city = ?';
+                $params[] = $city;
+            }
+        }
+
+        // Por slug o por id, como el filtro público.
+        $category = trim((string) $request->query->get('category', ''));
+        if ($category !== '') {
+            $where   .= ' AND (c.slug = ? OR c.id::text = ?)';
+            $params[] = $category;
+            $params[] = $category;
+        }
+
         if ($q !== '') {
             // Por título y por el nombre de quien lo subió: quien busca aquí
             // suele venir de una queja sobre «los vídeos de tal sitio».
             $where .= ' AND (unaccent(lower(coalesce(g.title, \'\'))) LIKE unaccent(lower(?))
                           OR unaccent(lower(coalesce(b.name, \'\'))) LIKE unaccent(lower(?))
                           OR unaccent(lower(coalesce(i.name, \'\'))) LIKE unaccent(lower(?)))';
-            $params = array_fill(0, 3, '%' . $q . '%');
+            // Se añaden, no se sustituyen: antes esto machacaba `$params`, que
+            // cuando el único filtro era la búsqueda daba igual y ahora se
+            // llevaría por delante la ciudad y la categoría.
+            $params = [...$params, ...array_fill(0, 3, '%' . $q . '%')];
         }
 
         $from = 'FROM geostories g
@@ -99,12 +144,7 @@ class ListGeoStoryReviewsController
                     i.id AS influencer_id, i.name AS influencer_name, i.avatar AS influencer_avatar
                {$from}
               WHERE {$where}
-              -- Lo más reciente primero, también en la cola. Lo natural sería
-              -- atender antes a quien lleva más tiempo esperando, pero aquí los
-              -- que llevan más tiempo son los 137 importados de 2023 que nadie
-              -- va a revisar: con ese orden, un vídeo subido ayer aparecía en la
-              -- página 28 y no se veía nunca.
-              ORDER BY g.created_at DESC
+              ORDER BY " . $this->order($request) . "
               LIMIT ? OFFSET ?",
             [...$params, $size, ($page - 1) * $size],
         );
@@ -152,6 +192,32 @@ class ListGeoStoryReviewsController
             'started_at'  => self::iso($row['started_at']),
             'ended_at'    => self::iso($row['ended_at']),
         ];
+    }
+
+    /**
+     * El `ORDER BY`.
+     *
+     * Por defecto, lo más reciente primero, también en la cola. Lo natural sería
+     * atender antes a quien lleva más tiempo esperando, pero aquí los que llevan
+     * más tiempo son los 137 importados de 2023 que nadie va a revisar: con ese
+     * orden, un vídeo subido ayer aparecía en la página 28 y no se veía nunca.
+     *
+     * Un `sort` desconocido se ignora en lugar de responder un error: viaja en la
+     * URL del panel y un enlace guardado tiene que seguir abriendo la lista.
+     */
+    private function order(Request $request): string
+    {
+        $sort = (string) $request->query->get('sort', '');
+
+        if (!isset(self::SORTS[$sort])) {
+            return 'g.created_at DESC';
+        }
+
+        $direction = strtolower((string) $request->query->get('dir', 'asc')) === 'desc' ? 'DESC' : 'ASC';
+
+        // Los sin categoría al final ordene como ordene, y el id de desempate
+        // para que el orden sea estable al pasar de página.
+        return sprintf('%s %s NULLS LAST, g.id ASC', self::SORTS[$sort], $direction);
     }
 
     private static function iso(?string $timestamp): ?string

@@ -160,3 +160,12 @@ services:
             $password: '%env(BUNNY_STORAGE_PASSWORD)%'
             $host: '%env(BUNNY_STORAGE_HOST)%'
             $cdnHostname: '%env(BUNNY_STORAGE_CDN_HOSTNAME)%'
+
+    # La ciudad de un negocio, por geocodificación inversa contra Google. Sin
+    # clave devuelve null y no rompe nada: en local la columna se queda vacía y
+    # el panel enseña «Sin ciudad».
+    App\Business\Domain\CityLookup: '@App\Business\Infrastructure\Geocoding\GoogleCityLookup'
+
+    App\Business\Infrastructure\Geocoding\GoogleCityLookup:
+        arguments:
+            $apiKey: '%env(GOOGLE_MAPS_API_KEY)%'

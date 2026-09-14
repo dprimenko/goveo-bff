@@ -20,7 +20,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * Pone a la tarifa FREE todos los negocios que no tengan suscripción.
+ * Pone a la tarifa FREE los negocios activos que no tengan suscripción.
  *
  * Los 448 negocios importados venían del sistema antiguo, donde el estado de
  * pago vivía en `stores.paymentData` de Firestore. Ese dato está desincronizado
@@ -31,11 +31,18 @@ use Symfony\Component\Uid\Uuid;
  * suscripción allí. El periodo se deja abierto (`current_period_end` nulo)
  * porque una tarifa gratuita no vence.
  *
- * Idempotente: sólo crea suscripción a quien no tenga ninguna.
+ * **Sólo los activos**: validados y no borrados. Un negocio a medio dar de alta
+ * —esperando el pago, o en la cola de revisión— no tiene tarifa porque todavía
+ * no ha elegido ninguna, y ponerle FREE decidiría por él; uno archivado no tiene
+ * a nadie a quien cobrar. Los que entren después salen de su alta con la suya.
+ *
+ * Idempotente: sólo crea suscripción a quien no tenga ninguna. Se lanza **a
+ * mano** y no desde una migración: escribe una fila de facturación por negocio,
+ * y eso no es algo que deba pasar de refilón en un despliegue.
  */
 #[AsCommand(
     name: 'goveo:billing:assign-free-plan',
-    description: 'Asigna la tarifa FREE a los negocios que no tienen suscripción.',
+    description: 'Asigna la tarifa FREE a los negocios activos que no tienen suscripción.',
 )]
 final class AssignFreePlanCommand extends Command
 {
@@ -64,7 +71,7 @@ final class AssignFreePlanCommand extends Command
             return Command::FAILURE;
         }
 
-        $io->title(sprintf('Asignando «%s» a los negocios sin suscripción', $free->getName()));
+        $io->title(sprintf('Asignando «%s» a los negocios activos sin suscripción', $free->getName()));
         if ($dryRun) {
             $io->note('DRY RUN');
         }
@@ -73,11 +80,13 @@ final class AssignFreePlanCommand extends Command
             SELECT b.id
             FROM business b
             LEFT JOIN business_subscriptions s ON s.business_id = b.id
-            WHERE b.deleted_at IS NULL AND s.id IS NULL
+            WHERE b.deleted_at IS NULL
+              AND b.verified_at IS NOT NULL
+              AND s.id IS NULL
             ORDER BY b.created_at
         SQL);
 
-        $io->writeln(sprintf('  Negocios sin suscripción: <info>%d</info>', count($businessIds)));
+        $io->writeln(sprintf('  Negocios activos sin suscripción: <info>%d</info>', count($businessIds)));
 
         if ($dryRun || $businessIds === []) {
             return Command::SUCCESS;

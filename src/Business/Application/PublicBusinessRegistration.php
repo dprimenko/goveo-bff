@@ -17,6 +17,7 @@ use App\Business\Domain\Business;
 use App\Business\Domain\BusinessManager;
 use App\Business\Domain\BusinessManagerRepository;
 use App\Business\Domain\BusinessRepository;
+use App\Business\Domain\CityLookup;
 use App\Users\Domain\User;
 use App\Users\Domain\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -46,6 +47,7 @@ final class PublicBusinessRegistration
         private readonly BusinessSubscriptionRepository $subscriptions,
         private readonly BillingProductRepository $products,
         private readonly BusinessSlugger $slugger,
+        private readonly CityLookup $cities,
         private readonly StripeClientFactory $stripeFactory,
         private readonly WelcomeMailer $welcome,
         private readonly ReviewQueueNotifier $reviewQueue,
@@ -112,10 +114,14 @@ final class PublicBusinessRegistration
             mainImage:  $this->str($data['main_image'] ?? null),
             meta:       $this->buildMeta($data),
         );
-        $business->setLocation(
-            (float) $data['address']['lat'],
-            (float) $data['address']['lng'],
-        );
+        $latitude  = (float) $data['address']['lat'];
+        $longitude = (float) $data['address']['lng'];
+
+        $business->setLocation($latitude, $longitude);
+        // La ciudad, desde el minuto uno: un alta nueva tiene que salir en el
+        // filtro del panel sin esperar al siguiente relleno. `cityAt` no lanza,
+        // así que Google caído no impide dar de alta un negocio.
+        $business->setCity($this->cities->cityAt($latitude, $longitude));
 
         // El enlace de pago se crea antes de la transacción: si Stripe falla no
         // queremos un negocio a medias, y si falla la base no queda un enlace

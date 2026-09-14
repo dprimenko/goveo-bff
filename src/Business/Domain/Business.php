@@ -54,6 +54,21 @@ class Business
     )]
     private mixed $location = null;
 
+    /**
+     * La ciudad, sacada de las coordenadas por geocodificación inversa.
+     *
+     * No se escribe al guardar la ficha ni sale de `meta['address']`: esa
+     * dirección es texto libre de Google y partirla por comas acierta casi
+     * siempre, que es otra forma de decir que se equivoca. Aquí lo que hay es lo
+     * que Google llama `locality` para ese punto del mapa.
+     *
+     * Nula significa «todavía no se ha mirado», no «no tiene»: la rellena
+     * `goveo:business:backfill-cities`, y quien la lee tiene que contar con que
+     * falte.
+     */
+    #[ORM\Column(type: 'string', length: 120, nullable: true)]
+    private ?string $city = null;
+
     #[ORM\Column(type: 'json', nullable: true)]
     private ?array $meta;
 
@@ -123,6 +138,7 @@ class Business
     public function getCreatorId(): string { return $this->creatorId; }
     public function getPartnerId(): ?string { return $this->partnerId; }
     public function getMeta(): ?array { return $this->meta; }
+    public function getCity(): ?string { return $this->city; }
     public function getLocation(): mixed { return $this->location; }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
@@ -222,6 +238,13 @@ class Business
     public function clearLocation(): self
     {
         $this->location = null;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function setCity(?string $city): self
+    {
+        $this->city = $city === null || trim($city) === '' ? null : trim($city);
         $this->updatedAt = new \DateTimeImmutable();
         return $this;
     }

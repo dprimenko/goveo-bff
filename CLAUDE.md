@@ -372,6 +372,14 @@ desincronizados y no corresponden a cobros reales, así que los 448 negocios imp
 **FREE** (`goveo:billing:assign-free-plan`), con periodo abierto — una tarifa gratuita no vence, y
 dejar `current_period_end` nulo evita que un futuro proceso de renovación se invente un cobro.
 
+**Sólo los activos**: validados y no borrados. Un negocio a medio dar de alta —esperando el pago, o
+en la cola de revisión— no tiene tarifa porque todavía no ha elegido ninguna, y ponerle FREE
+decidiría por él; uno archivado no tiene a nadie a quien cobrar.
+
+**Es un comando y no una migración**, a propósito: escribe una fila de facturación por negocio, y
+eso no puede pasar de refilón en un despliegue. Se lanza a mano cuando toque, es idempotente y trae
+`--dry-run`. Hasta entonces, esos negocios se encuentran en el panel con el filtro «Sin tarifa».
+
 ⚠️ Quedan **180 códigos y 118 descuentos** heredados apuntando a tarifas ya jubiladas (63 de ellos
 a planes inactivos). No estorban, pero tampoco sirven ya: el canje por código se retiró.
 
@@ -609,8 +617,33 @@ en demo y producción las cuentas se dan de alta a mano desde el dashboard de Ke
 
 ### Cola de revisión de negocios
 
-`GET /api/admin/businesses?status=pending|rejected|verified&q=&page=&size=` y
-`PUT /api/admin/businesses/{id}/{approve|reject}`, todo bajo `ROLE_BUSINESS_VERIFY`.
+`GET /api/admin/businesses?status=pending|rejected|verified&q=&city=&category=&plan=&sort=&dir=&page=&size=`
+y `PUT /api/admin/businesses/{id}/{approve|reject}`, todo bajo `ROLE_BUSINESS_VERIFY`.
+
+**Filtrar y ordenar se hacen en la consulta, no en el navegador**, aunque la tabla del panel quepa
+en pantalla: lo que se ve es una página de veinte de cuatrocientas y pico, así que ordenar lo
+visible ordena veinte filas cualesquiera y contesta a otra pregunta. «Los que más vídeos tienen»
+sólo significa algo sobre el total.
+
+`sort` es lista blanca (`created`, `name`, `city`, `category`, `plan`, `products`, `videos`) porque
+acaba dentro de un `ORDER BY`, donde no hay parámetros que valgan; un valor desconocido **se
+ignora** en vez de dar error —viaja en la URL del panel y un enlace guardado tiene que seguir
+abriendo la lista—. Los nulos van siempre al final, ordene como ordene, y el id desempata para que
+el orden sea estable al pasar de página.
+
+⚠️ **La tarifa se ordena por el precio de catálogo (`billing_plans.amount_cents`), no por lo
+cobrado.** `business_subscriptions.amount_cents` está a nulo en trece de las diecisiete
+suscripciones, así que ordenar por él dejaba la columna sin ordenar y sin que se notara. Lo que se
+enseña sigue siendo lo cobrado; lo que ordena es a qué tarifa pertenece. Y por precio y no por
+nombre: alfabéticamente PLATINUM va antes que PREMIUM y TOP 3 queda en medio.
+
+`plan=none` son los que **no tienen ninguna suscripción** —hoy 451 de 454, porque los importados
+nunca pasaron por facturación—, y `city=none` los que aún no tienen ciudad resuelta. Sin esas dos
+opciones, filtrar escondería a casi todo el catálogo sin decir que existe.
+
+El listado trae además el **número de productos y de vídeos** de cada negocio, con la misma cuenta
+que la ficha (todo lo no borrado, borradores incluidos): es lo que dice si una ficha está viva o es
+un cascarón validado hace un año, y abrirla una por una para verlo no lo hace nadie.
 
 La migración `Version20260909200000` añade **`business.rejected_at`**. Antes la validación era una
 sola fecha: con `verified_at` el negocio se ve y sin ella no. Eso basta para el feed, pero deja la
@@ -684,6 +717,43 @@ El listado devuelve las fechas en **ISO 8601** y no como las da Postgres (`2026-
 ese formato no lo entiende el `Date` del navegador —el desfase sin minutos no es válido— y las
 fechas salían vacías en el panel sin ningún error.
 
+### La ciudad de un negocio
+
+`business.city` (migración `Version20260914100000`) y `GET /api/admin/cities`, que devuelve las
+ciudades **donde hay al menos un negocio** con su recuento. No es un catálogo: sale de los propios
+negocios, así que un desplegable con las ciudades de España dejaría elegir cuarenta que no
+devuelven nada. Va ordenado por cantidad y no alfabético —con Madrid a un lado y noventa y seis
+pueblos al otro, lo útil está arriba— y el recuento acompaña para que ese orden no se lea como
+desordenado. Ese endpoint **no pide `business.verify`**: lo usan las dos pantallas, y exigirlo
+dejaría sin filtro a quien sólo modera vídeos.
+
+**La ciudad se saca de las coordenadas, no del texto de la dirección.** `meta['address']` es lo que
+devolvió Google el día del alta y viene en veinte formas —con provincia y sin ella, con código
+postal y sin él, en catalán o en castellano—, así que partirla por comas acierta casi siempre, que
+es otra forma de decir que se equivoca. El punto del mapa, en cambio, pertenece a un municipio y
+sólo a uno: se pregunta por geocodificación inversa
+([`GoogleCityLookup`](src/Business/Infrastructure/Geocoding/GoogleCityLookup.php)), pidiendo
+`locality`, luego `postal_town` y, de última, `administrative_area_level_2` —que en España es la
+provincia y no una ciudad, pero para un punto en despoblado o en una marina es lo único que llega, y
+decir «Illes Balears» es mejor que no decir nada.
+
+**`GOOGLE_MAPS_API_KEY`** es la misma clave que usa goveo-astro en su `/api/maps/*`. Sin ella
+`cityAt` devuelve `null` y no rompe nada: la columna se queda vacía y el panel enseña «Sin ciudad».
+
+**La columna nace vacía y la llena un comando**, `goveo:business:backfill-cities` (`--dry-run`,
+`--force`, `--limit`). Rellenarla son cuatrocientas y pico llamadas a una API de pago: dentro de una
+migración eso se pagaría otra vez en cada entorno y un despliegue se caería porque Google no
+contesta. Es idempotente —sólo mira a quien no la tiene—, así que tras un corte se relanza y sigue
+donde se quedó. Medido sobre los 504 negocios de local: **504 resueltos, 0 sin ciudad, 97 ciudades
+distintas** (Madrid 197, Estación de Cártama 35, Majadahonda 30…).
+
+Al alta y al **cambiar de dirección** se pregunta en el acto
+([`PublicBusinessRegistration`](src/Business/Application/PublicBusinessRegistration.php),
+[`MyBusinessController`](src/Business/Infrastructure/Controller/MyBusinessController.php)): pasa una
+vez en la vida de una ficha, y dejar la ciudad vieja pondría la tienda nueva en el pueblo anterior.
+`cityAt` **no lanza** y tiene cinco segundos de tope, así que Google caído no impide dar de alta ni
+guardar: la ciudad se queda nula y la recupera el comando.
+
 ### Editar la ficha desde el panel
 
 El panel **no tiene endpoints propios de edición**: usa `GET`/`PATCH /api/businesses/{id}` y
@@ -704,6 +774,22 @@ si es de otro, porque un 403 confirmaría que ese id está dado de alta.
 `ManagedBusinessFinder` se le quitó el `BusinessRepository` pero quedó el `save()` del final, así que
 subir una imagen de negocio —desde el panel **y desde la app**— subía el fichero a Bunny y moría al
 guardarlo en la ficha. Se vio al usar el editor del panel; llevaba una semana fallando en silencio.
+
+### Cola de vídeos: filtros
+
+`GET /api/admin/geostories?status=&business=&q=&city=&category=&sort=&dir=&page=&size=`, con las
+mismas reglas que la de negocios: lista blanca de `sort` (`created`, `category`, `owner`), nulos al
+final y desempate por id.
+
+⚠️ **La ciudad es la del negocio dueño, no la del vídeo.** Un vídeo lleva sus propias coordenadas
+—dónde se grabó—, pero quien filtra aquí viene de «los vídeos de tal sitio», y eso es el negocio.
+Como consecuencia, **filtrar por ciudad deja fuera los de influencers**: no son de ningún negocio,
+así que no están en ninguna ciudad.
+
+⚠️ Al añadir filtros hubo que arreglar algo que estaba latente: el filtro de texto hacía
+`$params = array_fill(...)` en vez de añadir, y eso **machacaba los parámetros anteriores**. Con la
+búsqueda como único filtro daba igual; con ciudad y categoría delante se los habría llevado por
+delante.
 
 ### Aviso de que hay algo que revisar
 

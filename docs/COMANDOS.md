@@ -42,7 +42,7 @@ Se puede fijar lo que haga falta: `GOVEO_SSH`, `GOVEO_PHP_CONTAINER`,
 | Comando | Qué hace |
 |---|---|
 | `goveo:billing:seed-plans-2026` | Crea las tarifas TOP 3 · PLATINUM · PREMIUM · FREE (mensual, semestral y anual). Con `--retire-legacy` desactiva las 58 heredadas. Idempotente. |
-| `goveo:billing:assign-free-plan` | Pone en FREE a los negocios que no tienen suscripción. Idempotente. |
+| `goveo:billing:assign-free-plan` | Pone en FREE a los negocios **activos** (validados y no borrados) que no tienen suscripción. Idempotente, con `--dry-run`. |
 | `goveo:stripe:sync` | Crea en Stripe los Products, Prices y Coupons que falten para lo que esté activo. Idempotente. |
 | `goveo:migrate:billing-plan-stripe-ids` | Recupera `billing_plans.stripe_price_id` desde los ids de Firestore. |
 
@@ -51,7 +51,7 @@ Se puede fijar lo que haga falta: `GOVEO_SSH`, `GOVEO_PHP_CONTAINER`,
 ```bash
 goveo:billing:seed-plans-2026 --retire-legacy   # 1 · crea las tarifas
 goveo:stripe:sync                               # 2 · las lleva a Stripe
-goveo:billing:assign-free-plan                  # 3 · pone a todos en FREE
+goveo:billing:assign-free-plan                  # 3 · pone en FREE a los activos
 ```
 
 `seed` antes que `sync` porque el sync sólo sube lo que ya existe en la base. Y
@@ -78,6 +78,7 @@ misma base, la solución es una columna por entorno, no el flag.
 | `goveo:business:verify` | Sin argumentos lista los pendientes; con un slug o id, valida. `--revoke` retira la validación, `--all` valida todos. |
 | `goveo:business:purge-abandoned` | Borra altas web que nunca se pagaron y sus usuarios huérfanos. **No borra sin `--force`**; `--days` fija la antigüedad mínima (7 por defecto). |
 | `goveo:account:resend-welcome` | Sin argumentos lista a quién no puede entrar; con un slug o id, reenvía el correo de bienvenida. `--all` a todos los pendientes. |
+| `goveo:business:backfill-cities` | Rellena `business.city` por geocodificación inversa contra Google. Idempotente (sólo los que no la tienen); `--dry-run`, `--force`, `--limit`. |
 
 El listado de `resend-welcome` distingue dos motivos, que son problemas distintos:
 **sin entregar** (el correo nunca salió) y **sin contraseña** (salió, pero el dueño
@@ -90,6 +91,13 @@ de Firebase con su contraseña y nunca pasaron por este flujo.
 
 `business.verified_at` es lo único que decide si un negocio se publica: con fecha
 sale en feed, mapa y búsqueda; sin ella sólo lo ve su dueño, como pendiente.
+
+**La ciudad va a mano y no en el despliegue**: son cuatrocientas y pico llamadas a
+una API de pago, y dentro de una migración se pagarían otra vez en cada entorno y
+un despliegue se caería porque Google no contesta. Necesita `GOOGLE_MAPS_API_KEY`
+—la misma que goveo-astro—; sin ella no escribe nada y no falla. Los que no tienen
+coordenadas se cuentan aparte: ésos tampoco salen en el mapa, y su arreglo es
+`goveo:business:backfill-location`.
 
 Un alta abandonada se reconoce sin ambigüedad: suscripción en `pending_payment`,
 sin `stripe_subscription_id` y con antigüedad. El usuario sólo se elimina si ese

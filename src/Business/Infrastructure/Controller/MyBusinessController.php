@@ -7,6 +7,7 @@ namespace App\Business\Infrastructure\Controller;
 use App\Business\Application\ManagedBusinessFinder;
 use App\Business\Domain\Business;
 use App\Business\Domain\BusinessRepository;
+use App\Business\Domain\CityLookup;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -32,6 +33,7 @@ class MyBusinessController
     public function __construct(
         private readonly BusinessRepository $businesses,
         private readonly ManagedBusinessFinder $managed,
+        private readonly CityLookup $cities,
         private readonly LoggerInterface $logger,
     ) {}
 
@@ -85,10 +87,20 @@ class MyBusinessController
         }
 
         if (isset($payload['address']) && is_array($payload['address'])) {
-            $business->setLocation(
-                (float) $payload['address']['lat'],
-                (float) $payload['address']['lng'],
-            );
+            $latitude  = (float) $payload['address']['lat'];
+            $longitude = (float) $payload['address']['lng'];
+
+            $business->setLocation($latitude, $longitude);
+
+            // Al mudarse cambia de ciudad, y la ciudad es un filtro del panel:
+            // dejarla como estaba pondría la tienda nueva en el pueblo viejo.
+            //
+            // Se pregunta aquí y no en un proceso aparte porque cambiar de
+            // dirección pasa una vez en la vida de una ficha. `cityAt` no lanza
+            // y tiene cinco segundos de tope: si Google no contesta, la ciudad
+            // se queda nula y la recupera `goveo:business:backfill-cities`, que
+            // es justo a quien busca.
+            $business->setCity($this->cities->cityAt($latitude, $longitude));
         }
 
         $this->applyMeta($business, $payload);
