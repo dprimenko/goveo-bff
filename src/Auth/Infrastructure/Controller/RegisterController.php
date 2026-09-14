@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Auth\Infrastructure\Controller;
 
+use App\Auth\Domain\EmailAlreadyRegistered;
+
 use App\Auth\Infrastructure\Service\KeycloakService;
 use App\Users\Domain\User;
 use App\Users\Domain\UserRepository;
@@ -58,6 +60,13 @@ class RegisterController
             // 3. Immediately obtain tokens so the client is logged in
             $tokens = $this->keycloak->loginWithPassword($email, $password);
 
+        } catch (EmailAlreadyRegistered $e) {
+            // 409 y no 503: la app lo enseña como «ese correo ya tiene cuenta»,
+            // que es lo único que quien está delante puede hacer algo con ello.
+            return new JsonResponse(
+                ['error' => 'account_exists', 'email' => $e->email],
+                Response::HTTP_CONFLICT,
+            );
         } catch (ClientExceptionInterface $e) {
             $body = json_decode($e->getResponse()->getContent(throw: false), true) ?? [];
             $msg  = $body['errorMessage'] ?? $body['error_description'] ?? 'Registration failed.';

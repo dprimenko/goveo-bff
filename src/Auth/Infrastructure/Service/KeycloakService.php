@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Auth\Infrastructure\Service;
 
+use App\Auth\Domain\EmailAlreadyRegistered;
+
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Contracts\HttpClient\Exception\ClientExceptionInterface;
 
@@ -109,6 +111,12 @@ class KeycloakService
                 ]],
             ],
         ]);
+
+        // El 409 es el correo repetido, y se distingue del resto: no es una
+        // avería, es la respuesta a lo que se ha pedido. Ver EmailAlreadyRegistered.
+        if ($response->getStatusCode() === 409) {
+            throw new EmailAlreadyRegistered($email);
+        }
 
         if ($response->getStatusCode() !== 201) {
             $body = $response->toArray(throw: false);

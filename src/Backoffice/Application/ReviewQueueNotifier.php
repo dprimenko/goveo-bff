@@ -18,9 +18,14 @@ use Symfony\Component\Mailer\MailerInterface;
  * lo que espera ahí no es cualquier cosa: un negocio recién dado de alta —que ha
  * pagado— no sale en la app hasta que se valida.
  *
- * **Es un correo interno**, así que va en texto plano y sin adornos: un resumen
- * de qué ha llegado y el enlace para abrirlo. No lleva botones de aprobar ni
- * rechazar; decidir se hace mirando la ficha, no desde la bandeja de entrada.
+ * **Es un correo interno**, así que va sin adornos: un resumen de qué ha llegado
+ * y el enlace para abrirlo. No lleva botones de aprobar ni rechazar; decidir se
+ * hace mirando la ficha, no desde la bandeja de entrada.
+ *
+ * Va en las dos versiones —texto y un HTML mínimo— por una sola razón: **que el
+ * enlace se pueda pulsar**. En texto plano hay clientes que lo autoenlazan y
+ * otros que lo dejan como texto muerto, y entonces revisar un vídeo empieza por
+ * copiar una URL a mano.
  *
  * **No lanza nunca.** Que falle el aviso no puede tumbar un alta ya cobrada ni
  * el webhook de Bunny; se registra y se sigue.
@@ -121,7 +126,8 @@ final class ReviewQueueNotifier
         try {
             $this->mailer->send(
                 GoveoMessage::create($this->fromAddress, $this->reviewAddress, $subject)
-                    ->text(implode("\n", $lines) . "\n"),
+                    ->text(implode("\n", $lines) . "\n")
+                    ->html(self::clickable($lines)),
             );
         } catch (\Throwable $e) {
             $this->logger->error('No se pudo avisar de la cola de revisión: {message}', [
@@ -129,5 +135,33 @@ final class ReviewQueueNotifier
                 'subject' => $subject,
             ]);
         }
+    }
+
+    /**
+     * El mismo texto, con los enlaces pulsables.
+     *
+     * Monoespaciado y en un `<pre>` para que las columnas del resumen (`Negocio:`,
+     * `Dirección:`…) sigan cuadrando: es lo que hace que se lea de un vistazo.
+     *
+     * @param string[] $lines
+     */
+    private static function clickable(array $lines): string
+    {
+        $html = array_map(static function (string $line): string {
+            $escaped = htmlspecialchars($line, ENT_QUOTES, 'UTF-8');
+
+            // Sólo el propio enlace se convierte, no la etiqueta que lo precede.
+            return preg_replace(
+                '~(https?://\S+)~',
+                '<a href="$1">$1</a>',
+                $escaped,
+            ) ?? $escaped;
+        }, $lines);
+
+        return sprintf(
+            '<pre style="font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;'
+            . 'white-space:pre-wrap;color:#111319;">%s</pre>',
+            implode("\n", $html),
+        );
     }
 }
