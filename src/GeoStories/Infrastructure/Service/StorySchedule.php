@@ -91,10 +91,34 @@ final class StorySchedule
         ?string $rawStart,
         ?string $rawEnd,
         bool $categoryChanged = false,
+        /**
+         * Quien revisa puede **fijar la fecha a mano**, también en noticias.
+         *
+         * Para su dueño la regla es la de abajo —reeditar no regala otra semana
+         * de vida—, pero desde el panel hace falta lo contrario: volver a
+         * publicar una noticia que ya caducó, poniéndole fecha de hoy, sin
+         * tener que resubir el vídeo ni tocar la base a mano.
+         */
+        bool $allowManualDates = false,
     ): ?string {
         $slug = $this->slugOf($categoryId);
 
         if ($slug === self::NEWS) {
+            // Con permiso de revisión y una fecha explícita, manda la fecha: es
+            // justo lo que significa «volver a publicar esto».
+            if ($allowManualDates && $rawStart !== null && $rawStart !== '') {
+                $start = $this->parse($rawStart);
+                if ($start === false) {
+                    return self::ERROR_INVALID_DATE;
+                }
+
+                // La ventana de una noticia la fija su regla, no quien edita:
+                // se recoloca entera desde la fecha nueva.
+                $story->scheduleNews($start);
+
+                return null;
+            }
+
             // Se respeta la que ya tenga: reeditar una noticia no le regala otra
             // semana de vida, que sería la forma de que no caducara nunca. Pero
             // si acaba de llegar a Noticias, la fecha que traía es de su vida

@@ -120,6 +120,9 @@ class UpdateGeoStoryController
             $request->request->has('started_at') ? (string) $request->request->get('started_at') : null,
             $request->request->has('ended_at')   ? (string) $request->request->get('ended_at')   : null,
             categoryChanged: $previousCategoryId !== $story->getCategoryId(),
+            // Sólo quien modera puede fijar la fecha de una noticia a mano; su
+            // dueño se queda con la regla de siempre.
+            allowManualDates: $this->security->isGranted('ROLE_GEOSTORY_MODERATE'),
         );
         if ($scheduleError !== null) {
             return new JsonResponse(['error' => $scheduleError], Response::HTTP_UNPROCESSABLE_ENTITY);
