@@ -186,18 +186,32 @@ final class GoveoEmailLayout
     /**
      * El botón. **Uno por correo**: competir con otro enlace sólo baja la
      * probabilidad de que se pulse el que importa.
+     *
+     * El `$aclaracion` es una segunda línea pequeña dentro del propio botón,
+     * para cuando el destino necesita una advertencia —«Abrir en el móvil»— que
+     * fuera del botón se leería como un párrafo más y se saltaría.
      */
-    public static function button(string $label, string $url): string
+    public static function button(string $label, string $url, ?string $aclaracion = null): string
     {
         $label  = self::esc($label);
         $href   = self::esc($url);
         $accent = self::ACCENT;
 
+        // Sin segunda línea, el relleno de siempre; con ella, algo menos arriba
+        // y abajo para que el botón no crezca de más.
+        $padding = $aclaracion === null ? '14px 36px' : '12px 36px';
+        $segunda = $aclaracion === null
+            ? ''
+            : sprintf(
+                '<br><span style="font-size:12px; font-weight:normal; opacity:0.9;">%s</span>',
+                self::esc($aclaracion),
+            );
+
         return <<<HTML
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:8px auto 24px;">
           <tr>
             <td align="center" style="border-radius:8px; background-color:{$accent};">
-              <a href="{$href}" target="_blank" style="display:inline-block; padding:14px 36px; font-size:15px; font-weight:bold; color:#FFFFFF; text-decoration:none; border-radius:8px;">{$label}</a>
+              <a href="{$href}" target="_blank" style="display:inline-block; padding:{$padding}; font-size:15px; font-weight:bold; color:#FFFFFF; text-decoration:none; border-radius:8px; text-align:center; line-height:1.4;">{$label}{$segunda}</a>
             </td>
           </tr>
         </table>

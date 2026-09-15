@@ -41,15 +41,22 @@ final class ReviewDecisionMessages
                 . 'que hayas elegido:', '0 0 8px')
             . L::card([
                 '🎬&nbsp; <strong>Sube tu primer vídeo (GeoClip)</strong> para aparecer en el mapa de tu '
-                    . 'zona. Lo revisamos y te avisamos en cuanto esté visible.',
+                    . 'zona. Lo revisamos y te avisamos de su aprobación en cuanto esté visible en el mapa.',
                 '🛍️&nbsp; <strong>Añade tus productos o servicios</strong> a tu perfil.',
                 '📋&nbsp; <strong>Completa los datos de tu negocio:</strong> horario, dirección, contacto y fotos.',
             ])
-            . L::button('Entrar en mi cuenta', $accountUrl)
+            // La aclaración va **dentro** del botón: el enlace abre la app, y
+            // quien lea el correo en el ordenador tiene que saberlo antes de
+            // pulsar, no después de que no pase nada.
+            . L::button('Ir a mi cuenta', $accountUrl, '(Abrir en el móvil)')
             . L::paragraph('Otra cosa que te recomendamos hacer ahora:', '0 0 8px')
+            . L::paragraph('📣&nbsp; <strong>Impulsa tu visibilidad consiguiendo seguidores.</strong> Cada '
+                . 'seguidor es un cliente muy potencial: verá tus vídeos y novedades antes que nadie. '
+                . 'Además, cuantos más seguidores tenga tu perfil, mucha más visibilidad ganas dentro de '
+                . 'la plataforma.')
             . L::paragraph('📲&nbsp; <strong>Comparte el enlace de tu perfil</strong> en tus redes y en tu '
-                . 'WhatsApp de clientes. Cuanta más gente lo vea, antes empiezas a notar el efecto, y '
-                . 'cuantos más seguidores, más visibilidad tendrás.')
+                . 'WhatsApp de clientes. Es la forma más rápida de sumar seguidores y empezar a notar el '
+                . 'efecto.')
             . L::paragraph('💬&nbsp; <strong>Guarda nuestro contacto (' . L::SUPPORT_PHONE . ')</strong> '
                 . 'para cualquier cambio o duda. Respondemos en el día.')
             . L::signoff();
@@ -64,16 +71,23 @@ final class ReviewDecisionMessages
         Tu cuenta ya está activa y puedes empezar ahora mismo:
 
         - Sube tu primer vídeo (GeoClip) para aparecer en el mapa de tu zona.
-          Lo revisamos y te avisamos en cuanto esté visible.
+          Lo revisamos y te avisamos de su aprobación en cuanto esté visible en
+          el mapa.
         - Añade tus productos o servicios a tu perfil.
         - Completa los datos de tu negocio: horario, dirección, contacto y fotos.
 
-        Entrar en mi cuenta:
+        Ir a mi cuenta (abrir en el móvil):
         {$accountUrl}
 
-        Te recomendamos también compartir el enlace de tu perfil en tus redes y
-        en tu WhatsApp de clientes, y guardar nuestro contacto ({$phone}) para
-        cualquier cambio o duda.
+        Otra cosa que te recomendamos hacer ahora:
+
+        - Impulsa tu visibilidad consiguiendo seguidores. Cada seguidor es un
+          cliente muy potencial: verá tus vídeos y novedades antes que nadie, y
+          cuantos más tenga tu perfil, más visibilidad ganas en la plataforma.
+        - Comparte el enlace de tu perfil en tus redes y en tu WhatsApp de
+          clientes: es la forma más rápida de sumar seguidores.
+        - Guarda nuestro contacto ({$phone}) para cualquier cambio o duda.
+          Respondemos en el día.
 
         Un saludo,
         Equipo GOVEO

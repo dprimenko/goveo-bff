@@ -57,8 +57,11 @@ final class ReviewDecisionMessagesTest extends TestCase
     {
         $business = ReviewDecisionMessages::businessApproved('Bar Manolo', self::APP);
 
-        self::assertSame(1, substr_count($business->html, 'Entrar en mi cuenta'));
+        self::assertSame(1, substr_count($business->html, 'Ir a mi cuenta'));
         self::assertStringContainsString('href="' . self::APP . '"', $business->html);
+        // El enlace abre la app: quien lo lea en el ordenador tiene que saberlo
+        // antes de pulsar, y por eso el aviso va dentro del propio botón.
+        self::assertStringContainsString('(Abrir en el móvil)', $business->html);
 
         // El del vídeo lleva al vídeo publicado, no al perfil: es lo que se
         // quiere comprobar y lo que se va a compartir después.
