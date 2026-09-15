@@ -123,6 +123,18 @@ services:
             $webhookSecret: '%env(STRIPE_WEBHOOK_SECRET)%'
         tags: ['controller.service_arguments']
 
+    # «Termina el pago cuando puedas», con el enlace que sobrevive a cerrar la
+    # pestaña. Ver PendingPaymentMailer.
+    App\Billing\Application\PendingPaymentMailer:
+        arguments:
+            $fromAddress: '%env(EMAIL_FROM)%'
+            $webUrl: '%env(WEB_URL)%'
+
+    # El alta pública: necesita saber a dónde devolver desde Stripe.
+    App\Business\Application\PublicBusinessRegistration:
+        arguments:
+            $webUrl: '%env(WEB_URL)%'
+
     # Correo de bienvenida del alta de negocio
     App\Account\Application\WelcomeMailer:
         arguments:

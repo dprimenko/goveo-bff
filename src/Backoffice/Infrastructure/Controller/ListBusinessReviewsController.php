@@ -93,7 +93,25 @@ class ListBusinessReviewsController
         $condition = match ($status) {
             'rejected' => 'b.deleted_at IS NULL AND b.rejected_at IS NOT NULL',
             'verified' => 'b.deleted_at IS NULL AND b.verified_at IS NOT NULL',
-            'pending'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL',
+            // **Lo que no está cobrado no se revisa.** Un alta web crea la ficha
+            // antes de pagar, así que sin esta condición la cola se llenaba de
+            // negocios que quizá abandonaron en la pasarela, y validarlos
+            // significaba publicar a alguien que no ha pagado.
+            //
+            // Se excluye sólo lo que tiene un cobro **pendiente y ninguno
+            // resuelto**: los importados no tienen suscripción y siguen
+            // apareciendo, y las tarifas gratuitas nacen activas.
+            'pending'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL
+                           AND NOT EXISTS (
+                               SELECT 1 FROM business_subscriptions pend
+                                WHERE pend.business_id = b.id
+                                  AND pend.status = \'pending_payment\'
+                                  AND NOT EXISTS (
+                                      SELECT 1 FROM business_subscriptions ok
+                                       WHERE ok.business_id = b.id
+                                         AND ok.status <> \'pending_payment\'
+                                  )
+                           )',
             'removed'  => 'b.deleted_at IS NOT NULL',
             default    => null,
         };

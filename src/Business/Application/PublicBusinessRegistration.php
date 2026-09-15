@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Business\Application;
 
+use App\Billing\Application\PendingPaymentMailer;
+
 use App\Account\Application\WelcomeMailer;
 use App\Backoffice\Application\ReviewQueueNotifier;
 use App\Auth\Infrastructure\Service\KeycloakService;
@@ -51,7 +53,10 @@ final class PublicBusinessRegistration
         private readonly StripeClientFactory $stripeFactory,
         private readonly WelcomeMailer $welcome,
         private readonly ReviewQueueNotifier $reviewQueue,
+        private readonly PendingPaymentMailer $pendingPayment,
         private readonly EntityManagerInterface $em,
+        /** A dónde vuelve quien termina de pagar (goveo-astro). */
+        private readonly string $webUrl,
     ) {}
 
     /**
@@ -178,6 +183,17 @@ final class PublicBusinessRegistration
                 (string) $user->getEmail(),
                 trim(sprintf('%s %s', $data['owner_first_name'] ?? '', $data['owner_last_name'] ?? '')) ?: null,
             );
+        } else {
+            // Con pago por delante, lo que se manda es el enlace para
+            // terminarlo. El de Stripe vivía sólo en la pantalla que se acababa
+            // de abrir: cerrar la pestaña dejaba el negocio creado y el cobro
+            // sin forma de retomarse. Ver PendingPaymentMailer.
+            $this->pendingPayment->send(
+                (string) $user->getEmail(),
+                (string) $business->getName(),
+                $business->getId(),
+                $plan->getAmountCents(),
+            );
         }
 
         return [
@@ -215,11 +231,15 @@ final class PublicBusinessRegistration
                     'goveo_business_name' => (string) $data['name'],
                 ],
             ],
+            // **Se vuelve a nuestra web**, no a la página de confirmación de
+            // Stripe. Ahí se quedaba el usuario sin más camino que cerrar la
+            // pestaña, y la web no tenía forma de saber si había pagado: al
+            // volver atrás le seguía ofreciendo «Ir al pago» a alguien que ya
+            // había pagado. Con la vuelta, quien llega con la marca ha pagado y
+            // quien llega sin ella, no.
             'after_completion' => [
-                'type' => 'hosted_confirmation',
-                'hosted_confirmation' => [
-                    'custom_message' => 'Gracias. Te enviaremos un correo para crear tu contraseña y entrar en Goveo.',
-                ],
+                'type'     => 'redirect',
+                'redirect' => ['url' => sprintf('%s/alta?pagado=1', rtrim($this->webUrl, '/'))],
             ],
         ]);
 
