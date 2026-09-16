@@ -1137,6 +1137,27 @@ Patrón **proxy** (como anyclazz): el cliente NO habla con Bunny; sube el ficher
 BFF y el BFF lo sube a Bunny. Las URLs (`play_720p.mp4`, `thumbnail.jpg`) son deterministas desde
 el GUID → se fijan al crear; el estado lo lleva `geostories.status` (`processing→ready→failed`).
 
+⚠️ **La calidad no es determinista, aunque la URL lo parezca** (16-09-2026). Bunny sólo codifica
+hacia abajo: un vídeo grabado a 854 de lado largo no tiene 720p, y `play_720p.mp4` —que era lo que
+se guardaba siempre— devuelve **404**. Se vio en el aviso interno de vídeo nuevo, donde el enlace no
+abría nada.
+
+Qué calidades existen se lee del **máster HLS** (`playlist.m3u8`), que es público —no hace falta la
+clave de la librería— y nombra cada variante como `<calidad>/video.m3u8`, que es literalmente el
+nombre del MP4. La API daría lo mismo a cambio de otra llamada autenticada.
+
+- Se corrige **al terminar de codificar**, que es cuando se sabe: en el webhook y en la
+  reconciliación de `ListGeoStoriesController`, los dos caminos por los que un vídeo llega a «listo».
+  Al subir se sigue guardando el 720p a ciegas, porque todavía no hay nada codificado.
+- **Se prefiere 720p y sólo se baja**: con 1080p disponible se enlaza igualmente el 720p. Servir la
+  calidad máxima es otra decisión —más ancho de banda para todos— y no era lo que estaba roto.
+- Si el máster no se puede leer se deja el 720p de siempre: mejor el enlace que había que un vídeo
+  sin URL. Ojo en local, donde la librería de pruebas responde **403 a todo** (token de la pull
+  zone), así que ahí siempre se cae al valor por defecto.
+- Lo ya guardado se repasa con `goveo:geostories:fix-video-urls` (en seco; `--apply` guarda). Sólo
+  toca los rotos y saca el servidor de la propia URL, porque los importados viven en otra librería
+  distinta de la del entorno. En la copia de producción salieron **3 de 509**.
+
 - **`GeoStory`**: columnas nuevas `status` (default `ready`) y `provider_video_id` (GUID Bunny).
   Métodos `markProcessing/markReady/markFailed`. `findFeed` muestra `processing` solo en consultas
   con filtro de owner (perfil); los feeds de descubrimiento exigen `status='ready'`.

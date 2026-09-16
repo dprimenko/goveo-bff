@@ -108,6 +108,9 @@ class ListGeoStoriesController
                 continue;
             }
             if ($bunnyStatus === self::BUNNY_FINISHED) {
+                // Igual que en el webhook: la calidad real no se sabe hasta que
+                // termina de codificar. Ver BunnyVideoService::getBestVideoUrl.
+                $entity->setUrl($this->bunny->getBestVideoUrl($s->providerVideoId));
                 $entity->markReady();
                 $this->repository->save($entity);
                 $changed = true;

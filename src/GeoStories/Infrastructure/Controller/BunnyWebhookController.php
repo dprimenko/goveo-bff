@@ -7,6 +7,7 @@ namespace App\GeoStories\Infrastructure\Controller;
 use App\Backoffice\Application\ReviewQueueNotifier;
 use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
+use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -31,6 +32,7 @@ class BunnyWebhookController
     public function __construct(
         private readonly GeoStoryRepository $geoStories,
         private readonly ReviewQueueNotifier $reviewQueue,
+        private readonly BunnyVideoService $bunny,
         private readonly LoggerInterface $logger,
         private readonly string $webhookSecret,
     ) {}
@@ -70,6 +72,10 @@ class BunnyWebhookController
             // sin esto cada reintento sería otro correo.
             $wasReady = $geoStory->getStatus() === GeoStory::STATUS_READY;
 
+            // La URL definitiva no se sabe hasta aquí: al subir se guarda la de
+            // 720p a ciegas y Bunny no genera esa calidad si el original no da
+            // para tanto. Ver BunnyVideoService::getBestVideoUrl.
+            $geoStory->setUrl($this->bunny->getBestVideoUrl($videoGuid));
             $geoStory->markReady();
         } elseif ($failed) {
             $geoStory->markFailed();

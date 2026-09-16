@@ -20,6 +20,9 @@ final class BunnyVideoService
 {
     private const API_URL = 'https://video.bunnycdn.com';
 
+    /** Lo que se asume mientras no se sepa qué calidades hay. */
+    private const DEFAULT_RESOLUTION = '720p';
+
     public function __construct(
         private readonly HttpClientInterface $http,
         private readonly LoggerInterface $logger,
@@ -94,9 +97,84 @@ final class BunnyVideoService
     }
 
     /** Direct MP4 playback URL (available once transcoded). */
-    public function getVideoUrl(string $videoId): string
+    public function getVideoUrl(string $videoId, string $resolution = self::DEFAULT_RESOLUTION): string
     {
-        return sprintf('https://%s/%s/play_720p.mp4', $this->bunnyCdnHostname, $videoId);
+        return sprintf('https://%s/%s/play_%s.mp4', $this->bunnyCdnHostname, $videoId, $resolution);
+    }
+
+    /**
+     * La URL de reproducción que **de verdad existe**.
+     *
+     * Bunny sólo codifica hacia abajo: de un vídeo grabado a 854 de lado largo
+     * no sale un 720p, y pedirlo devuelve **404**. Como la URL se guardaba fija
+     * en `play_720p.mp4`, esos vídeos quedaban con un enlace muerto —se notó en
+     * el aviso interno de vídeo nuevo, donde el enlace no abría nada—.
+     *
+     * Se sigue prefiriendo 720p, que es lo que se venía sirviendo; lo único que
+     * cambia es que, si no está, se baja a la mejor que haya en vez de enlazar
+     * a un fichero inexistente. Subir a 1080p sería otra decisión —más ancho de
+     * banda para todo el mundo— y no es lo que había que arreglar.
+     *
+     * Si el máster no se puede leer se devuelve el 720p de siempre: es mejor
+     * dejar el enlace que había que dejar el vídeo sin URL.
+     */
+    public function getBestVideoUrl(string $videoId): string
+    {
+        return $this->getVideoUrl($videoId, $this->bestResolution($videoId) ?? self::DEFAULT_RESOLUTION);
+    }
+
+    /**
+     * La mejor calidad disponible sin pasar de la preferida.
+     *
+     * @param ?string $hostname el CDN donde vive **ese** vídeo. Los importados
+     *        están en otra librería que la configurada, así que para repasarlos
+     *        hay que ir al servidor que diga su URL y no al del entorno.
+     *
+     * @return ?string p. ej. `480p`, o `null` si no se pudo leer el máster.
+     */
+    public function bestResolution(string $videoId, ?string $hostname = null): ?string
+    {
+        $disponibles = $this->availableResolutions($videoId, $hostname);
+        if ($disponibles === []) {
+            return null;
+        }
+
+        $tope   = (int) self::DEFAULT_RESOLUTION;
+        $cabidas = array_filter($disponibles, static fn (int $r) => $r <= $tope);
+
+        // Sin ninguna por debajo del tope se coge la más pequeña que haya: el
+        // objetivo es que el enlace abra, no servir lo más grande posible.
+        return (empty($cabidas) ? min($disponibles) : max($cabidas)) . 'p';
+    }
+
+    /**
+     * Las calidades que Bunny generó, leídas del **máster HLS**: es público y no
+     * necesita clave, y cada variante vive en `<calidad>/video.m3u8`, que es
+     * literalmente el nombre que lleva el MP4. Preguntar por la API sería otra
+     * llamada autenticada para la misma respuesta.
+     *
+     * @return int[] p. ej. `[1080, 720, 480]`
+     */
+    public function availableResolutions(string $videoId, ?string $hostname = null): array
+    {
+        try {
+            $master = $this->http->request('GET', sprintf('https://%s/%s/playlist.m3u8', $hostname ?? $this->bunnyCdnHostname, $videoId), [
+                'timeout' => 5,
+            ])->getContent(false);
+        } catch (\Throwable $e) {
+            $this->logger->warning('Bunny: no se pudo leer el máster HLS', ['videoId' => $videoId, 'error' => $e->getMessage()]);
+
+            return [];
+        }
+
+        if (!preg_match_all('~^\s*(\d+)p/~m', $master, $matches)) {
+            return [];
+        }
+
+        $resoluciones = array_map('intval', $matches[1]);
+        rsort($resoluciones);
+
+        return $resoluciones;
     }
 
     /** Auto-generated thumbnail URL. */
