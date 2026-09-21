@@ -70,6 +70,15 @@ interface GeoStoryRepository
         bool $includeUnverified = false,
     ): array;
 
+    /**
+     * Los que siguen en `processing` y tienen vídeo en el proveedor, del más
+     * antiguo al más nuevo: son los candidatos a haberse quedado atascados
+     * porque su aviso se perdió. Ver `ReconcileProcessingGeoStoriesCommand`.
+     *
+     * @return GeoStory[]
+     */
+    public function findStuckProcessing(int $limit = 200): array;
+
     public function save(GeoStory $geoStory): void;
     public function delete(GeoStory $geoStory): void;
 }

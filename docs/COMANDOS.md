@@ -71,6 +71,22 @@ misma base, la solución es una columna por entorno, no el flag.
 
 ---
 
+## Vídeos
+
+| Comando | Qué hace |
+|---|---|
+| `goveo:geostories:reconcile` | Desatasca los vídeos en «procesando» preguntando a Bunny por su estado real. En seco salvo `--apply`; `--no-notify` evita un correo por vídeo al repasar un atasco viejo. |
+| `goveo:geostories:fix-video-urls` | Apunta cada vídeo a la mejor calidad que Bunny generó (las URLs se guardaban en 720p a ciegas). |
+
+El estado lo pone el webhook de Bunny; esto es el repaso para cuando un aviso se
+pierde. Si se quiere automático, va bien en el crontab del servidor cada hora:
+
+```
+0 * * * * docker exec goveo-bff-php-1 sh -lc 'php bin/console goveo:geostories:reconcile --apply --no-notify'
+```
+
+---
+
 ## Negocios y usuarios
 
 | Comando | Qué hace |

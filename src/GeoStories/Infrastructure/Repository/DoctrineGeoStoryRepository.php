@@ -38,6 +38,23 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ]);
     }
 
+    public function findStuckProcessing(int $limit = 200): array
+    {
+        return $this->em->createQueryBuilder()
+            ->select('g')
+            ->from(GeoStory::class, 'g')
+            ->where('g.status = :processing')
+            ->andWhere('g.deletedAt IS NULL')
+            ->andWhere('g.providerVideoId IS NOT NULL')
+            ->setParameter('processing', GeoStory::STATUS_PROCESSING)
+            // Del más viejo al más nuevo: el que lleva días esperando es el que
+            // hay que mirar, no el que acaba de subirse y está bien.
+            ->orderBy('g.createdAt', 'ASC')
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findByInfluencerId(string $influencerId): array
     {
         return $this->em->getRepository(GeoStory::class)->findBy(
