@@ -31,9 +31,15 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * vídeo no ha pasado la selección.
  *
  * **Las dos decisiones avisan a su dueño**: aprobar, con el enlace al vídeo ya
- * publicado; retirar, con los tres factores que hacen que un vídeo entre —lo que
+ * publicado; rechazar, con los tres factores que hacen que un vídeo entre —lo que
  * se rechaza aquí casi siempre se arregla volviendo a grabar—. Sólo la primera
  * vez: la llamada se puede repetir, el correo no.
+ *
+ * **Salvo retirar algo ya publicado**, que usa esta misma llamada y no manda
+ * nada. El correo dice que el vídeo «no ha pasado la selección», y eso no es lo
+ * que ha pasado: el vídeo se aprobó, se publicó y se quita después —muchas veces
+ * porque lo pide su propio dueño, o porque ya no toca—. Decirle que le han
+ * rechazado algo que llevaba semanas publicado confunde a quien lo recibe.
  */
 #[IsGranted('ROLE_GEOSTORY_MODERATE')]
 class ReviewGeoStoryController
@@ -118,6 +124,10 @@ class ReviewGeoStoryController
         // ya rechazado volvería a mandar el mismo «necesita un ajuste».
         $told = $approve ? $story->isVerified() : $story->rejectionNoticeSent();
 
+        // Retirar ≠ rechazar: si el vídeo estaba publicado, esto no es una
+        // decisión sobre si entra, es quitar algo que ya entró. Sin correo.
+        $retirada = !$approve && $story->isVerified();
+
         if ($approve) {
             // Se borra el rastro para que un rechazo posterior vuelva a avisar.
             $story->verify()->clearRejectionNotice();
@@ -128,14 +138,17 @@ class ReviewGeoStoryController
         } else {
             $story->unverify()->softDelete();
 
-            if (!$told) {
+            // No se apunta nada en una retirada: el aviso no se ha mandado, así
+            // que si el vídeo vuelve y esta vez se rechaza de verdad, su dueño
+            // tiene que enterarse.
+            if (!$told && !$retirada) {
                 $story->markRejectionNoticeSent();
             }
         }
 
         $this->geoStories->save($story);
 
-        if (!$told) {
+        if (!$told && !$retirada) {
             $approve
                 ? $this->mails->videoApproved($story)
                 : $this->mails->videoRejected($story);
