@@ -39,6 +39,7 @@ KEYCLOAK_ADMIN_PASSWORD
 ```
 STRIPE_SECRET_KEY       # sk_test_… en demo, sk_live_… en producción
 STRIPE_WEBHOOK_SECRET   # whsec_… propio de cada endpoint, no se comparte
+STRIPE_DEFAULT_PROMO_CODE  # opcional: Promotion Code que el alta aplica sola (vacío = precio de lista)
 ```
 
 ### Bunny

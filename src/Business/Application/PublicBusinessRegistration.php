@@ -57,6 +57,11 @@ final class PublicBusinessRegistration
         private readonly EntityManagerInterface $em,
         /** A dónde vuelve quien termina de pagar (goveo-astro). */
         private readonly string $webUrl,
+        /**
+         * Código de promoción que se aplica solo, sin que nadie lo teclee. Vacío
+         * = tarifas a precio de lista. Ver `createCheckout`.
+         */
+        private readonly string $defaultPromoCode = '',
     ) {}
 
     /**
@@ -222,9 +227,15 @@ final class PublicBusinessRegistration
             ));
         }
 
+        $promoCode = trim($this->defaultPromoCode);
+
         $link = $this->stripeFactory->create()->paymentLinks->create([
             'line_items' => [['price' => $priceId, 'quantity' => 1]],
             'metadata'   => ['goveo_business_id' => $businessId],
+            // La caja de código, sólo si hay uno que meter en ella: sin
+            // descuento en marcha, enseñarla vacía invita a buscar por ahí un
+            // código que no existe.
+            'allow_promotion_codes' => $promoCode !== '',
             'subscription_data' => [
                 'metadata' => [
                     'goveo_business_id'   => $businessId,
@@ -243,7 +254,18 @@ final class PublicBusinessRegistration
             ],
         ]);
 
-        return ['price_id' => $priceId, 'link_id' => $link->id, 'url' => $link->url];
+        // El descuento va en la URL y no en el enlace: la API de Payment Links
+        // **no acepta `discounts`** —eso es de Checkout Session, que caduca a
+        // las 24 h y aquí el enlace tiene que sobrevivir en un correo—. Así que
+        // el código viaja como parámetro y Stripe lo aplica al abrir la página.
+        // Se guarda ya con él, que es la URL que se manda por correo y la que
+        // devuelve `/pago/{negocio}`: sin el parámetro se pagaría precio
+        // completo.
+        $url = $promoCode !== ''
+            ? sprintf('%s?prefilled_promo_code=%s', $link->url, rawurlencode($promoCode))
+            : $link->url;
+
+        return ['price_id' => $priceId, 'link_id' => $link->id, 'url' => $url];
     }
 
     /** Mismas claves que usan los negocios importados: el perfil lee de ahí. */

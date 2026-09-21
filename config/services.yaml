@@ -22,6 +22,10 @@ parameters:
     env(GOOGLE_ALLOWED_AUDIENCES): ''
     env(APPLE_ALLOWED_AUDIENCES): ''
 
+    # Descuento por defecto del alta: vacío = tarifas a precio de lista, que es
+    # lo que tiene que pasar si nadie decide lo contrario.
+    env(STRIPE_DEFAULT_PROMO_CODE): ''
+
 services:
     _defaults:
         autowire: true
@@ -130,10 +134,12 @@ services:
             $fromAddress: '%env(EMAIL_FROM)%'
             $webUrl: '%env(WEB_URL)%'
 
-    # El alta pública: necesita saber a dónde devolver desde Stripe.
+    # El alta pública: necesita saber a dónde devolver desde Stripe y qué
+    # descuento lleva puesto el enlace de pago.
     App\Business\Application\PublicBusinessRegistration:
         arguments:
             $webUrl: '%env(WEB_URL)%'
+            $defaultPromoCode: '%env(STRIPE_DEFAULT_PROMO_CODE)%'
 
     # Correo de bienvenida del alta de negocio
     App\Account\Application\WelcomeMailer:
