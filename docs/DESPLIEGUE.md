@@ -207,6 +207,52 @@ basta con apuntar `MAILER_DSN` de demo al SMTP real.
 
 ---
 
+## Subir un vídeo tarda más de 60 s, y Traefik cortaba a los 60
+
+Traefik trae un `respondingTimeouts.readTimeout` de **60 segundos por defecto**, y ese
+tiempo cuenta **la petición entera, cuerpo incluido**. Subir un vídeo de 20 MB desde una
+conexión doméstica lenta pasa de ahí sin despeinarse, así que la subida moría con un
+**502** que no venía de nginx ni de PHP: los saltaba el proxy antes de que llegaran a
+verla. En el log de nginx aparecía como un `400` con cero bytes —el cliente que se
+esfuma— y en la app como «no se pudo subir el vídeo».
+
+Cuesta de ver porque **no hay ningún límite configurado en ninguna parte**: el valor es
+el de fábrica, y desde el propio servidor no se reproduce (ahí 20 MB tardan 0,25 s). Se
+reproduce a mano limitando la velocidad, y el corte sale clavado en 60 s:
+
+```bash
+# 15 MB a 300 KB/s → 48 s → 401 (llega entero)
+# 20 MB a 300 KB/s → 60 s → 502 (cortado a media subida)
+curl -sk --limit-rate 300k --resolve api.goveo.app:443:127.0.0.1 \
+  -X POST https://api.goveo.app/api/geostories -F "video=@/tmp/blob20.bin"
+```
+
+Está puesto a `600s` en los dos entrypoints de `/etc/dokploy/traefik/traefik.yml`. El
+precio de subirlo es la exposición a clientes que mantienen conexiones abiertas a
+propósito (slowloris); con 600 s y esta máquina, asumible.
+
+**Ese fichero lo genera Dokploy** y una actualización suya puede reescribirlo, dejando
+las subidas rotas otra vez sin que nadie toque nada. Dejarlo inmutable con `chattr +i`
+haría fallar al actualizador, así que en vez de impedir el cambio se vigila:
+[`bin/goveo-traefik-timeout`](../bin/goveo-traefik-timeout) comprueba el ajuste, lo
+repone si falta y reinicia Traefik (es configuración **estática**: los ficheros de
+`dynamic/` se recargan solos, éste no). No hace nada si ya está.
+
+Se instala una vez, en el servidor:
+
+```bash
+scp bin/goveo-traefik-timeout root@76.13.63.176:/usr/local/bin/
+ssh root@76.13.63.176 'chmod +x /usr/local/bin/goveo-traefik-timeout && \
+  (crontab -l 2>/dev/null; echo "*/5 * * * * /usr/local/bin/goveo-traefik-timeout >> /var/log/goveo-traefik-timeout.log 2>&1") | crontab -'
+```
+
+Lo de fondo, que esto no arregla: el vídeo va a Bunny **a través del BFF, en una sola
+petición síncrona**. Una conexión que se corta a la mitad no reanuda, empieza de cero.
+Subiendo directo a Bunny con URL firmada y subida reanudable, el timeout del proxy
+dejaría de importar.
+
+---
+
 ## Adminer sin exponerlo
 
 Adminer está en las dos pilas, pero **sin dominio público**: su puerto se ata al

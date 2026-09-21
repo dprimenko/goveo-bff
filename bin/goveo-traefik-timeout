@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+"""Repone el `readTimeout` de Traefik si una actualización de Dokploy se lo lleva.
+
+Traefik corta a los 60 s **la petición entera, cuerpo incluido**, y ese es su
+valor por defecto: subir un vídeo desde una conexión lenta tarda más que eso, así
+que la subida moría con un 502 sin que nadie hubiera configurado ningún límite.
+La cura es `respondingTimeouts.readTimeout` en los dos entrypoints.
+
+El problema es dónde vive: `traefik.yml` es configuración **estática**, la genera
+Dokploy y una actualización suya puede reescribirla. Dejarlo inmutable
+(`chattr +i`) haría fallar al actualizador; así que en vez de impedir el cambio,
+se comprueba cada pocos minutos y se repone si falta. Como es estático, reponerlo
+obliga a reiniciar Traefik —los ficheros de `dynamic/` sí se recargan solos, éste
+no—.
+
+No toca nada si el ajuste ya está, así que es seguro ejecutarlo tantas veces como
+haga falta. Si no reconoce el fichero, avisa y se va sin escribir: es preferible
+un aviso a dejar una configuración inventada en el proxy de producción.
+
+Se instala con cron; ver `docs/DESPLIEGUE.md`.
+"""
+
+import pathlib
+import subprocess
+import sys
+from datetime import datetime, timezone
+
+CONF = pathlib.Path("/etc/dokploy/traefik/traefik.yml")
+CONTAINER = "dokploy-traefik"
+READ_TIMEOUT = "600s"
+ENTRYPOINTS = ("web", "websecure")
+
+BANNER = """# OJO: este fichero lo genera Dokploy y una actualización suya puede
+# reescribirlo. Si eso pasa, `goveo-traefik-timeout` repone los
+# `respondingTimeouts` de abajo: sin ellos Traefik corta a los 60 s CUALQUIER
+# petición —cuerpo incluido—, y la subida de vídeo de la app muere con un 502 en
+# cuanto la conexión de quien sube es lenta. Ver goveo-bff/docs/DESPLIEGUE.md.
+"""
+
+
+def log(message: str) -> None:
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    print(f"{stamp} {message}", flush=True)
+
+
+def patched(lines: list[str]) -> list[str] | None:
+    """Devuelve las líneas con el timeout puesto, o `None` si no encaja el fichero."""
+    out: list[str] = []
+    pending: str | None = None
+    done: set[str] = set()
+
+    for line in lines:
+        out.append(line)
+
+        name = line.rstrip("\n").strip().rstrip(":")
+        if line.startswith("  ") and not line.startswith("   ") and name in ENTRYPOINTS:
+            pending = name
+            continue
+
+        # El `transport` va justo después del `address` del entrypoint, que es la
+        # primera clave que Dokploy escribe dentro de él.
+        if pending and line.startswith("    address:"):
+            out.append("    transport:\n")
+            out.append("      respondingTimeouts:\n")
+            out.append(f"        readTimeout: {READ_TIMEOUT}\n")
+            done.add(pending)
+            pending = None
+
+    if done != set(ENTRYPOINTS):
+        return None
+    return out
+
+
+def main() -> int:
+    if not CONF.exists():
+        log(f"no existe {CONF}; nada que hacer")
+        return 0
+
+    text = CONF.read_text()
+    if "respondingTimeouts" in text:
+        return 0
+
+    log("falta respondingTimeouts: lo repone tras una actualización de Dokploy")
+
+    lines = patched(text.splitlines(keepends=True))
+    if lines is None:
+        log(
+            "ERROR: no encuentro los entrypoints web/websecure en el fichero; "
+            "no lo toco. Revisarlo a mano."
+        )
+        return 1
+
+    backup = CONF.with_name(
+        f"{CONF.name}.bak-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
+    )
+    backup.write_text(text)
+
+    CONF.write_text(BANNER + "".join(lines))
+    log(f"escrito (copia previa en {backup.name}); reiniciando {CONTAINER}")
+
+    result = subprocess.run(
+        ["docker", "restart", CONTAINER],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        log(f"ERROR al reiniciar: {result.stderr.strip()}")
+        return 1
+
+    log("Traefik reiniciado")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
