@@ -10,6 +10,8 @@ use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use App\GeoStories\Infrastructure\Service\StorySchedule;
+use App\Shared\Infrastructure\Storage\BunnyStorageService;
+use App\Shared\Infrastructure\Storage\StorageException;
 use App\Influencers\Domain\InfluencerRepository;
 use App\Security\GoveoUser;
 use App\Users\Domain\UserRepository;
@@ -27,11 +29,23 @@ use Symfony\Component\Uid\Uuid;
  * `ready`. The uploader is resolved from the JWT: an influencer posts to their
  * own feed (location comes from the request); a business manager posts on
  * behalf of a store (location comes from the store).
+ *
+ * **También se puede publicar una foto** (`image` en vez de `video`). Es el
+ * mismo contenido con el mismo formulario: lo único que cambia es que no hay
+ * nada que codificar, así que no pasa por Bunny Stream sino por el
+ * almacenamiento de imágenes y **nace `ready`** — esperar un aviso que nunca
+ * llegaría la dejaría «procesando» para siempre.
+ *
+ * La miniatura de una foto es la propia foto: no hay fotograma que extraer, y
+ * dejarla vacía obligaría a cada pantalla a inventarse un hueco.
  */
 #[Route('/api/geostories', name: 'geostories_create', methods: ['POST'])]
 class CreateGeoStoryController
 {
     private const VIDEO_MIME = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
+
+    /** Lo que se acepta como foto. El almacenamiento vuelve a mirarlo por dentro. */
+    private const IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp'];
 
     public function __construct(
         private readonly Security $security,
@@ -42,6 +56,7 @@ class CreateGeoStoryController
         private readonly BusinessRepository $businesses,
         private readonly UserRepository $users,
         private readonly StorySchedule $schedule,
+        private readonly BunnyStorageService $storage,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -57,17 +72,33 @@ class CreateGeoStoryController
 
         /** @var UploadedFile|null $video */
         $video = $request->files->get('video');
-        if ($video === null) {
+        /** @var UploadedFile|null $image */
+        $image = $request->files->get('image');
+
+        if ($video === null && $image === null) {
             return new JsonResponse(['error' => 'Missing video file'], Response::HTTP_BAD_REQUEST);
         }
-        if (!in_array($video->getMimeType(), self::VIDEO_MIME, true)) {
-            return new JsonResponse(['error' => 'Unsupported video type'], Response::HTTP_UNSUPPORTED_MEDIA_TYPE);
+        // Las dos cosas a la vez no: publicar es publicar una, y elegir por
+        // quien sube sería adivinar cuál quería.
+        if ($video !== null && $image !== null) {
+            return new JsonResponse(['error' => 'Send either a video or an image'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $file    = $video ?? $image;
+        $isImage = $image !== null;
+        $allowed = $isImage ? self::IMAGE_MIME : self::VIDEO_MIME;
+
+        if (!in_array($file->getMimeType(), $allowed, true)) {
+            return new JsonResponse(
+                ['error' => $isImage ? 'Unsupported image type' : 'Unsupported video type'],
+                Response::HTTP_UNSUPPORTED_MEDIA_TYPE,
+            );
         }
         // Un fichero vacío llegaba hasta Bunny: se creaba el objeto, se subían
         // cero bytes y el vídeo se quedaba «procesando» para siempre, con una
         // fila en la base apuntando a algo que no existe y basura en la
         // librería que nadie limpia. Aquí se corta antes de tocar nada.
-        if ($video->getSize() === 0) {
+        if ($file->getSize() === 0) {
             return new JsonResponse(['error' => 'empty_video'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -138,15 +169,30 @@ class CreateGeoStoryController
             return new JsonResponse(['error' => $scheduleError], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
-        // ── Upload to Bunny + persist ───────────────────────────────────────
+        // ── Enlace externo ──────────────────────────────────────────────────
+        //
+        // Antes de subir nada, como las fechas: con el enlace mal escrito, subir
+        // primero dejaría el fichero colgado sin fila que lo apunte.
+        $link = $this->readLink($request);
+        if ($link instanceof Response) {
+            return $link;
+        }
+
+        $storyId = Uuid::v4()->toRfc4122();
+
+        // ── Upload + persist ────────────────────────────────────────────────
         try {
-            $uploaded = $this->bunny->uploadVideo($video, $title ?? 'GeoStory');
+            $uploaded = $isImage
+                ? $this->uploadImage($file, $storyId)
+                : $this->bunny->uploadVideo($file, $title ?? 'GeoStory');
+        } catch (StorageException $e) {
+            return new JsonResponse(['error' => 'invalid_image', 'detail' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (\Throwable $e) {
             return new JsonResponse(['error' => 'Video upload failed', 'detail' => $e->getMessage()], Response::HTTP_BAD_GATEWAY);
         }
 
         $geoStory = new GeoStory(
-            id: Uuid::v4()->toRfc4122(),
+            id: $storyId,
             thumbnail: $uploaded['thumbnail'],
             url: $uploaded['url'],
             title: $title,
@@ -157,9 +203,13 @@ class CreateGeoStoryController
             location: $location,
             isMain: false,
             meta: null,
-            status: GeoStory::STATUS_PROCESSING,
+            // Una foto no se codifica: dejarla en «procesando» sería esperar un
+            // aviso de Bunny Stream que nadie va a mandar.
+            status: $isImage ? GeoStory::STATUS_READY : GeoStory::STATUS_PROCESSING,
             providerVideoId: $uploaded['videoId'],
+            mediaType: $isImage ? GeoStory::MEDIA_IMAGE : GeoStory::MEDIA_VIDEO,
         );
+        $geoStory->linkTo($link['url'], $link['action']);
         $this->schedule->apply($geoStory, $categoryId, $rawStart, $rawEnd);
 
         // Published so it shows in the owner's profile immediately (as processing);
@@ -180,11 +230,61 @@ class CreateGeoStoryController
             'url'           => $geoStory->getUrl(),
             'thumbnail'     => $geoStory->getThumbnail(),
             'status'        => $geoStory->getStatus(),
+            'media_type'    => $geoStory->getMediaType(),
+            'link_url'      => $geoStory->getLinkUrl(),
+            'link_action'   => $geoStory->getLinkAction(),
             'influencer_id' => $geoStory->getInfluencerId(),
             'business_id'   => $geoStory->getBusinessId(),
             'category_id'   => $geoStory->getCategoryId(),
             'started_at'    => $geoStory->getStartedAt()?->format(\DateTimeInterface::ATOM),
             'ended_at'      => $geoStory->getEndedAt()?->format(\DateTimeInterface::ATOM),
         ], Response::HTTP_CREATED);
+    }
+
+    /**
+     * La foto, a su sitio del almacenamiento.
+     *
+     * La ruta lleva el id de la geostory igual que las de producto llevan el
+     * suyo: así se sabe de quién es un fichero mirándolo, y borrar la geostory
+     * deja claro qué hay que borrar con ella.
+     *
+     * @return array{videoId: ?string, url: string, thumbnail: string}
+     */
+    private function uploadImage(UploadedFile $file, string $storyId): array
+    {
+        $url = $this->storage->upload(
+            fn (string $ext): string => sprintf('geostories/%s/%d.%s', $storyId, time(), $ext),
+            (string) file_get_contents($file->getPathname()),
+        );
+
+        // La miniatura es la propia foto: no hay fotograma que sacar.
+        return ['videoId' => null, 'url' => $url, 'thumbnail' => $url];
+    }
+
+    /**
+     * El enlace externo que acompaña a la publicación.
+     *
+     * Mismas reglas que en el producto: sólo `http`/`https`, porque esto acaba
+     * en un botón que la app abre a ciegas, y se guarda la **intención**
+     * (comprar / reservar / informarse) y no el rótulo, para que el botón salga
+     * en el idioma de quien mira.
+     *
+     * @return array{url: ?string, action: ?string}|Response
+     */
+    private function readLink(Request $request): array|Response
+    {
+        $url = trim((string) $request->request->get('link_url', ''));
+        if ($url === '') {
+            return ['url' => null, 'action' => null];
+        }
+
+        if (mb_strlen($url) > 2048
+            || !filter_var($url, FILTER_VALIDATE_URL)
+            || !in_array(parse_url($url, PHP_URL_SCHEME), ['http', 'https'], true)
+        ) {
+            return new JsonResponse(['error' => 'invalid_link'], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
+        return ['url' => $url, 'action' => (string) $request->request->get('link_action', '')];
     }
 }

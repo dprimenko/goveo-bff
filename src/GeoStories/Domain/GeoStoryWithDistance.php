@@ -18,6 +18,8 @@ final class GeoStoryWithDistance
         public readonly ?string $url,
         public readonly string $status,
         public readonly ?string $providerVideoId,
+        /** `video` o `image`: qué se pinta en la tarjeta. */
+        public readonly string $mediaType,
         public readonly mixed $meta,
         public readonly int $likes,
         public readonly float $lat,
@@ -51,6 +53,9 @@ final class GeoStoryWithDistance
             url: $row['url'] ?? null,
             status: $row['status'] ?? 'ready',
             providerVideoId: $row['provider_video_id'] ?? null,
+            // Lo heredado es vídeo: la columna nació con ese valor por defecto,
+            // y las consultas que no la piden tampoco están mirando fotos.
+            mediaType: $row['media_type'] ?? GeoStory::MEDIA_VIDEO,
             meta: isset($row['meta']) ? json_decode($row['meta'], true) : null,
             likes: (int) ($row['likes'] ?? 0),
             lat: (float) $row['lat'],

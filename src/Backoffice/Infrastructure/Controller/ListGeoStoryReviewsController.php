@@ -137,7 +137,7 @@ class ListGeoStoryReviewsController
 
         $rows = $this->db->fetchAllAssociative(
             "SELECT g.id, g.title, g.description, g.category_id, g.thumbnail, g.url,
-                    g.status, g.likes, g.views,
+                    g.status, g.media_type, g.meta, g.likes, g.views,
                     g.created_at, g.verified_at, g.deleted_at, g.started_at, g.ended_at,
                     c.slug AS category_slug, c.name AS category_name,
                     b.id AS business_id, b.name AS business_name, b.avatar AS business_avatar,
@@ -155,6 +155,31 @@ class ListGeoStoryReviewsController
             'page'  => $page,
             'size'  => $size,
         ]);
+    }
+
+    private static function meta(?string $raw): array
+    {
+        $meta = $raw !== null ? json_decode($raw, true) : null;
+
+        return is_array($meta) ? $meta : [];
+    }
+
+    private static function linkUrl(?string $raw): ?string
+    {
+        $url = self::meta($raw)['link_url'] ?? null;
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    private static function linkAction(?string $raw): ?string
+    {
+        if (self::linkUrl($raw) === null) {
+            return null;
+        }
+
+        $action = self::meta($raw)['link_action'] ?? null;
+
+        return in_array($action, ['buy', 'book', 'info'], true) ? $action : 'info';
     }
 
     private function toItem(array $row): array
@@ -179,6 +204,13 @@ class ListGeoStoryReviewsController
             // Cómo va la codificación en Bunny: en `processing` no hay nada que
             // mirar todavía, y aprobarlo a ciegas es aprobar cualquier cosa.
             'encoding'  => $row['status'],
+            // Vídeo o foto: el panel monta un reproductor o una imagen, y
+            // montar un reproductor sobre un JPEG no enseña nada.
+            'media_type' => $row['media_type'] ?? 'video',
+            // El enlace externo que acompaña a la publicación, plano como en el
+            // producto. Vive en `meta` porque no es de nuestro dominio.
+            'link_url'   => self::linkUrl($row['meta'] ?? null),
+            'link_action' => self::linkAction($row['meta'] ?? null),
             'likes'     => (int) $row['likes'],
             'views'     => (int) $row['views'],
             'category'  => $row['category_slug'] === null ? null : [

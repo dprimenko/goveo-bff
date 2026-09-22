@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\GeoStories\Infrastructure\Controller;
 
 use App\Backoffice\Application\ReviewQueueNotifier;
+use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
@@ -129,6 +130,28 @@ class ListGeoStoriesController
         return $changed;
     }
 
+    /** @param mixed $meta */
+    private static function linkUrl($meta): ?string
+    {
+        $url = is_array($meta) ? ($meta['link_url'] ?? null) : null;
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    /** @param mixed $meta */
+    private static function linkAction($meta): ?string
+    {
+        if (self::linkUrl($meta) === null) {
+            return null;
+        }
+
+        $action = is_array($meta) ? ($meta['link_action'] ?? null) : null;
+
+        // Sin acción guardada el botón sigue teniendo que decir algo, y de un
+        // vídeo lo que casi siempre se quiere es ampliar información.
+        return in_array($action, GeoStory::LINK_ACTIONS, true) ? $action : 'info';
+    }
+
     private function serialize(GeoStoryWithDistance $s): array
     {
         return [
@@ -138,6 +161,13 @@ class ListGeoStoriesController
             'thumbnail'        => $s->thumbnail,
             'url'              => $s->url,
             'status'           => $s->status,
+            // Qué es esto: un vídeo con reproductor o una foto. La tarjeta lo
+            // necesita antes de montar nada.
+            'media_type'       => $s->mediaType,
+            // Enlace externo, plano como en el producto: vive en `meta` porque
+            // no es de nuestro dominio, pero el cliente no tiene que bucear.
+            'link_url'         => self::linkUrl($s->meta),
+            'link_action'      => self::linkAction($s->meta),
             'meta'             => $s->meta,
             'likes'            => $s->likes,
             'lat'              => $s->lat,

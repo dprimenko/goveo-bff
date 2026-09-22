@@ -20,6 +20,19 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_geostories_influencer_id', columns: ['influencer_id'], options: ['where' => 'deleted_at IS NULL'])]
 class GeoStory
 {
+    /**
+     * Qué se publicó: un vídeo o una foto.
+     *
+     * Una foto no se codifica ni tiene reproductor, así que no pasa por Bunny
+     * Stream ni espera a ningún aviso: nace lista. Va en columna y no en `meta`
+     * porque decide qué pinta la app en la tarjeta, y eso es del dominio.
+     */
+    public const MEDIA_VIDEO = 'video';
+    public const MEDIA_IMAGE = 'image';
+
+    /** A dónde puede llevar el botón de un vídeo o una foto. */
+    public const LINK_ACTIONS = ['buy', 'book', 'info'];
+
     // Transcoding lifecycle (Bunny Stream).
     public const STATUS_PROCESSING = 'processing';
     public const STATUS_READY       = 'ready';
@@ -75,6 +88,9 @@ class GeoStory
     private string $status;
 
     /** Bunny Stream video GUID (provider-neutral name). */
+    #[ORM\Column(name: 'media_type', type: 'string', length: 10, options: ['default' => self::MEDIA_VIDEO])]
+    private string $mediaType;
+
     #[ORM\Column(name: 'provider_video_id', type: 'string', length: 255, nullable: true)]
     private ?string $providerVideoId;
 
@@ -114,6 +130,7 @@ class GeoStory
         ?array $meta = null,
         string $status = self::STATUS_READY,
         ?string $providerVideoId = null,
+        string $mediaType = self::MEDIA_VIDEO,
         ?\DateTimeImmutable $createdAt = null,
         ?\DateTimeImmutable $updatedAt = null,
     ) {
@@ -130,6 +147,7 @@ class GeoStory
         $this->meta = $meta;
         $this->status = $status;
         $this->providerVideoId = $providerVideoId;
+        $this->mediaType = $mediaType === self::MEDIA_IMAGE ? self::MEDIA_IMAGE : self::MEDIA_VIDEO;
         $this->likes = 0;
         $this->views = 0;
         $this->createdAt = $createdAt ?? new \DateTimeImmutable();
@@ -154,7 +172,53 @@ class GeoStory
     public function isMain(): bool { return $this->isMain; }
     public function getStatus(): string { return $this->status; }
     public function getProviderVideoId(): ?string { return $this->providerVideoId; }
+    public function getMediaType(): string { return $this->mediaType; }
+    public function isImage(): bool { return $this->mediaType === self::MEDIA_IMAGE; }
     public function getMeta(): ?array { return $this->meta; }
+
+    /** URL externa a la que lleva el botón de la tarjeta, si la hay. */
+    public function getLinkUrl(): ?string
+    {
+        $url = $this->meta['link_url'] ?? null;
+
+        return is_string($url) && $url !== '' ? $url : null;
+    }
+
+    /** Qué se va a hacer allí: comprar, reservar o informarse. */
+    public function getLinkAction(): ?string
+    {
+        if ($this->getLinkUrl() === null) {
+            return null;
+        }
+
+        $action = $this->meta['link_action'] ?? null;
+
+        // Se guarda la intención y no el rótulo, igual que en el producto: así
+        // el botón sale en el idioma de quien mira.
+        return in_array($action, self::LINK_ACTIONS, true) ? $action : 'info';
+    }
+
+    /**
+     * Pone o quita el enlace externo.
+     *
+     * Quitar la URL se lleva por delante la acción: una acción sin destino no
+     * pinta nada y quedaría ahí esperando a confundir al siguiente que mire.
+     */
+    public function linkTo(?string $url, ?string $action): self
+    {
+        $meta = $this->meta ?? [];
+        unset($meta['link_url'], $meta['link_action']);
+
+        if ($url !== null && $url !== '') {
+            $meta['link_url']    = $url;
+            $meta['link_action'] = in_array($action, self::LINK_ACTIONS, true) ? $action : 'info';
+        }
+
+        $this->meta      = $meta ?: null;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
     public function getCreatedAt(): \DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
     public function getDeletedAt(): ?\DateTimeImmutable { return $this->deletedAt; }
