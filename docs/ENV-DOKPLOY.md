@@ -42,6 +42,18 @@ STRIPE_WEBHOOK_SECRET   # whsec_… propio de cada endpoint, no se comparte
 STRIPE_DEFAULT_PROMO_CODE  # opcional: Promotion Code que el alta aplica sola (vacío = precio de lista)
 ```
 
+### App móvil
+```
+APP_REQUIRED_BUILD_IOS      # build mínima aceptada; 0 = no se bloquea a nadie
+APP_REQUIRED_BUILD_ANDROID
+APP_STORE_URL_IOS           # opcional: por defecto, la ficha de Goveo en cada tienda
+APP_STORE_URL_ANDROID
+```
+
+Es lo que en la app de Flutter eran `requiredBuildNumberIOS` y
+`requiredBuildNumberAndroid` en Remote Config. **Sólo lo respetan las apps que
+llevan la comprobación**: subirlo no alcanza a lo publicado antes.
+
 ### Bunny
 ```
 BUNNY_STORAGE_ZONE            # imágenes

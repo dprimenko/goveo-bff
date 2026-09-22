@@ -22,6 +22,14 @@ parameters:
     env(GOOGLE_ALLOWED_AUDIENCES): ''
     env(APPLE_ALLOWED_AUDIENCES): ''
 
+    # La build mínima de la app, por plataforma. `0` = no se bloquea a nadie, que
+    # es lo que tiene que pasar mientras nadie decida lo contrario. Se sube a
+    # mano el día que un cambio deja de ser compatible con lo instalado.
+    env(APP_REQUIRED_BUILD_IOS): '0'
+    env(APP_REQUIRED_BUILD_ANDROID): '0'
+    env(APP_STORE_URL_IOS): 'https://apps.apple.com/es/app/goveo/id1480569862'
+    env(APP_STORE_URL_ANDROID): 'https://play.google.com/store/apps/details?id=app.goveo.android'
+
     # Descuento por defecto del alta: vacío = tarifas a precio de lista, que es
     # lo que tiene que pasar si nadie decide lo contrario.
     env(STRIPE_DEFAULT_PROMO_CODE): ''
@@ -116,6 +124,15 @@ services:
     App\Billing\Application\PriceCalculator:
         arguments:
             $taxPercent: '%env(int:BILLING_TAX_PERCENT)%'
+
+    # La puerta de versión: sustituye al Remote Config de la app de Flutter.
+    App\Shared\Infrastructure\Controller\AppVersionController:
+        arguments:
+            $requiredBuildIos: '%env(int:APP_REQUIRED_BUILD_IOS)%'
+            $requiredBuildAndroid: '%env(int:APP_REQUIRED_BUILD_ANDROID)%'
+            $storeUrlIos: '%env(APP_STORE_URL_IOS)%'
+            $storeUrlAndroid: '%env(APP_STORE_URL_ANDROID)%'
+        tags: ['controller.service_arguments']
 
     # Stripe — suscripciones de negocio
     App\Billing\Infrastructure\Stripe\StripeClientFactory:
