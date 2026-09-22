@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\GeoStories\Infrastructure\Controller;
 
+use App\Backoffice\Application\ReviewQueueNotifier;
 use App\Business\Domain\BusinessManagerRepository;
 use App\Business\Domain\BusinessRepository;
 use App\GeoStories\Domain\GeoStory;
@@ -57,6 +58,7 @@ class CreateGeoStoryController
         private readonly UserRepository $users,
         private readonly StorySchedule $schedule,
         private readonly BunnyStorageService $storage,
+        private readonly ReviewQueueNotifier $reviewQueue,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -227,6 +229,20 @@ class CreateGeoStoryController
         }
 
         $this->geoStories->save($geoStory);
+
+        // Una foto no pasa por Bunny, así que nadie avisaba de ella.
+        //
+        // El aviso de «hay algo nuevo por validar» lo manda quien ve el cambio
+        // de «procesando» a «listo»: el webhook de Bunny, el repaso del perfil
+        // o el comando de reconciliación. Una foto nace lista y no pasa por
+        // ninguno de los tres, así que entraba en la cola en silencio y allí se
+        // quedaba hasta que alguien mirara por su cuenta.
+        //
+        // El notificador decide solo si toca —lo validado no se anuncia—, así
+        // que aquí basta con contárselo.
+        if ($geoStory->getStatus() === GeoStory::STATUS_READY) {
+            $this->reviewQueue->geoStoryPendingReview($geoStory);
+        }
 
         return new JsonResponse([
             'id'            => $geoStory->getId(),

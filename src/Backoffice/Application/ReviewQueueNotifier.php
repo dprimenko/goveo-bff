@@ -83,14 +83,29 @@ final class ReviewQueueNotifier
             return;
         }
 
+        // Sin dirección de revisión no se avisa a nadie, y eso hay que poder
+        // saberlo: el síntoma es «no me llega el correo» y desde fuera no se
+        // distingue de un fallo del servidor de correo.
+        if ($this->reviewAddress === '') {
+            $this->logger->warning(
+                'Contenido por validar sin avisar: BACKOFFICE_REVIEW_EMAIL está vacío. {id}',
+                ['id' => $story->getId()],
+            );
+        }
+
+        // Vídeo o foto: se publican por el mismo sitio y se revisan en la misma
+        // cola, pero llamar «vídeo» a una foto hace dudar de si el aviso es el
+        // que toca.
+        $que = $story->isImage() ? 'foto' : 'vídeo';
+
         $this->send(
-            sprintf('Nuevo vídeo por validar: %s', $story->getTitle() ?? '(sin título)'),
+            sprintf('Nueva %s por validar: %s', $que, $story->getTitle() ?? '(sin título)'),
             [
-                'Hay un vídeo nuevo esperando en la cola.',
+                sprintf('Hay una %s nueva esperando en la cola.', $que),
                 '',
                 sprintf('Título: %s', $story->getTitle() ?? '(sin título)'),
                 sprintf('De:     %s', $this->ownerName($story) ?? '—'),
-                sprintf('Vídeo:  %s', $story->getUrl()),
+                sprintf('%s: %s', ucfirst($que), $story->getUrl()),
                 '',
                 sprintf('Revisar: %s/videos', rtrim($this->backofficeUrl, '/')),
             ],
