@@ -68,6 +68,15 @@ interface GeoStoryRepository
         ?string $businessId = null,
         ?string $influencerId = null,
         bool $includeUnverified = false,
+        /**
+         * Si quien pregunta sabe pintar una foto.
+         *
+         * Por defecto **no**: las apps publicadas antes de que existieran las
+         * fotos montan un reproductor sobre lo que llegue, así que una foto se
+         * les ve como un rectángulo negro. Quien sepa, lo dice (ver
+         * `ListGeoStoriesController`).
+         */
+        bool $supportsImages = false,
     ): array;
 
     /**

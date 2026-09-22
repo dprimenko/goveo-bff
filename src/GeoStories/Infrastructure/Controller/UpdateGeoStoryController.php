@@ -142,7 +142,13 @@ class UpdateGeoStoryController
         //
         // Sólo si viene: lo que no se manda se queda como estaba, y una cadena
         // vacía es cómo se quita el enlace. Igual que en el producto.
-        if ($request->request->has('link_url')) {
+        // Sólo los eventos llevan enlace, así que dejar de serlo se lo lleva por
+        // delante aunque nadie lo haya tocado: un botón de «comprar entradas»
+        // en algo que ya no es un evento lleva a una página que no viene a
+        // cuento, y quien cambió la categoría no tiene por qué acordarse.
+        if (!$this->schedule->isEvent($story->getCategoryId())) {
+            $story->linkTo(null, null);
+        } elseif ($request->request->has('link_url')) {
             $link = $this->readLink($request);
             if ($link instanceof Response) {
                 return $link;

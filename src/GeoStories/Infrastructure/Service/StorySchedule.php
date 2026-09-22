@@ -167,6 +167,19 @@ final class StorySchedule
         return null;
     }
 
+    /**
+     * Si esa categoría es Eventos.
+     *
+     * Lo pregunta quien necesita saberlo sin tener que repetir la consulta del
+     * slug —el enlace externo, por ejemplo, que sólo llevan los eventos— y por
+     * el mismo motivo que el resto de este servicio: se mira el **slug** y no el
+     * nombre, que es la clave de traducción y cambia de idioma.
+     */
+    public function isEvent(?string $categoryId): bool
+    {
+        return $this->slugOf($categoryId) === self::EVENTS;
+    }
+
     private function slugOf(?string $categoryId): ?string
     {
         if ($categoryId === null || $categoryId === '') {

@@ -249,6 +249,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?string $businessId = null,
         ?string $influencerId = null,
         bool $includeUnverified = false,
+        bool $supportsImages = false,
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
@@ -293,6 +294,14 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         // pregunta tiene que haberse identificado como tal.
         if (!$includeUnverified) {
             $conditions[] = 'geo.verified_at IS NOT NULL';
+        }
+
+        // A quien no sabe pintar una foto no se le manda: las apps publicadas
+        // antes de que existieran montan su reproductor sobre lo que llegue, y
+        // una foto se ve ahí como un rectángulo negro. Mejor no enseñarla que
+        // enseñarla rota — y así no hace falta obligar a nadie a actualizar.
+        if (!$supportsImages) {
+            $conditions[] = "geo.media_type = 'video'";
         }
 
         // Feed-type category filters use cat.slug via the categories JOIN.

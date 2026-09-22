@@ -173,7 +173,12 @@ class CreateGeoStoryController
         //
         // Antes de subir nada, como las fechas: con el enlace mal escrito, subir
         // primero dejaría el fichero colgado sin fila que lo apunte.
-        $link = $this->readLink($request);
+        // Y **sólo en eventos**: es donde tiene sentido mandar fuera a comprar
+        // una entrada o reservar mesa. En una geostory cualquiera, un botón que
+        // saca de la app compite con el vídeo, que es lo que se ha venido a ver.
+        $link = $this->schedule->isEvent($categoryId)
+            ? $this->readLink($request)
+            : ['url' => null, 'action' => null];
         if ($link instanceof Response) {
             return $link;
         }
