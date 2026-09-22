@@ -45,6 +45,22 @@ final class DoctrineProductRepository implements ProductRepository
         return $qb->getQuery()->getResult();
     }
 
+    public function subcategoryIdsWithProducts(string $businessId): array
+    {
+        $rows = $this->em->createQueryBuilder()
+            ->select('DISTINCT p.subcategoryId')
+            ->from(Product::class, 'p')
+            ->where('p.businessId = :businessId')
+            ->andWhere('p.deletedAt IS NULL')
+            ->andWhere('p.publishedAt IS NOT NULL')
+            ->andWhere('p.subcategoryId IS NOT NULL')
+            ->setParameter('businessId', $businessId)
+            ->getQuery()
+            ->getScalarResult();
+
+        return array_map(static fn (array $row) => (string) $row['subcategoryId'], $rows);
+    }
+
     public function findByBusinessPaginated(
         string $businessId,
         ?string $subcategoryId,

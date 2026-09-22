@@ -7,6 +7,7 @@ namespace App\Products\Infrastructure\Controller;
 use App\Business\Application\ManagedBusinessFinder;
 use App\Categories\Domain\DefaultSubcategory;
 use App\Categories\Domain\DefaultSubcategoryRepository;
+use App\Products\Application\PromosSubcategory;
 use App\Products\Domain\ProductRepository;
 use App\Products\Domain\ProductSubcategory;
 use App\Products\Domain\ProductSubcategoryRepository;
@@ -46,6 +47,7 @@ class ManageBusinessSubcategoriesController
         private readonly DefaultSubcategoryRepository $defaults,
         private readonly ProductRepository $products,
         private readonly ManagedBusinessFinder $managed,
+        private readonly PromosSubcategory $promos,
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -55,6 +57,11 @@ class ManageBusinessSubcategoriesController
         if ($business instanceof Response) {
             return $business;
         }
+
+        // Aquí se crea la de promociones si todavía no existe: es la pantalla
+        // desde la que se organiza el catálogo, así que es donde tiene sentido
+        // que aparezca por primera vez. Ver PromosSubcategory.
+        $this->promos->ensureFor($business->getId());
 
         $own = $this->subcategories->findByBusinessId($business->getId());
 
@@ -127,6 +134,13 @@ class ManageBusinessSubcategoriesController
             return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
         }
 
+        // La de promociones no se toca: el sistema de ofertas la busca por su
+        // marca, pero el gestor la reconoce por el nombre, y una «Promos»
+        // renombrada a «Varios» deja a todos mirando a sitios distintos.
+        if ($subcategory->isPromos()) {
+            return $this->invalid('promos_is_fixed');
+        }
+
         $data = json_decode($request->getContent(), true) ?? [];
 
         if (array_key_exists('name', $data)) {
@@ -166,6 +180,12 @@ class ManageBusinessSubcategoriesController
         $subcategory = $this->locate($business->getId(), $subcategoryId);
         if ($subcategory === null) {
             return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
+        }
+
+        // Borrarla sólo la haría volver: la crea de nuevo la siguiente vez que
+        // se abra esta pantalla. Mejor decirlo que fingir que se ha hecho.
+        if ($subcategory->isPromos()) {
+            return $this->invalid('promos_is_fixed');
         }
 
         // Primero se sacan los productos y luego se borra la fila: al revés, un
@@ -233,6 +253,9 @@ class ManageBusinessSubcategoriesController
             'id'         => $subcategory->getId(),
             'name'       => $subcategory->getName(),
             'sort_order' => $subcategory->getSortOrder(),
+            // Para que la app sepa cuál no se puede borrar ni renombrar sin
+            // tener que compararla por el nombre.
+            'kind'       => $subcategory->getKind(),
         ];
     }
 }

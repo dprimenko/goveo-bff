@@ -25,6 +25,17 @@ interface ProductRepository
      *                            gestiona la tienda sí se le enseñan, que para
      *                            eso tiene que poder ponerles la foto.
      */
+    /**
+     * Los ids de subcategoría que tienen al menos un producto publicado.
+     *
+     * Lo usa la ficha pública para no enseñar un chip que no lleva a nada. Se
+     * pregunta por el conjunto y no producto a producto: son dos consultas por
+     * ficha y no una por chip.
+     *
+     * @return string[]
+     */
+    public function subcategoryIdsWithProducts(string $businessId): array;
+
     public function findByBusinessPaginated(
         string $businessId,
         ?string $subcategoryId,
