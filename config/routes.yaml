@@ -52,6 +52,15 @@ account_controllers:
         namespace: App\Account\Infrastructure\Controller
     type: attribute
 
+# Lo que no es de ningún módulo: hoy, la puerta de versión de la app. Sin este
+# bloque el controlador existe y su ruta no, que es un fallo silencioso —la API
+# contesta 404 y nada apunta a que falte declararlo aquí.
+shared_controllers:
+    resource:
+        path: ../src/Shared/Infrastructure/Controller/
+        namespace: App\Shared\Infrastructure\Controller
+    type: attribute
+
 backoffice_controllers:
     resource:
         path: ../src/Backoffice/Infrastructure/Controller/

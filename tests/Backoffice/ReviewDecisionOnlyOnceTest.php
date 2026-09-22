@@ -87,7 +87,15 @@ final class ReviewDecisionOnlyOnceTest extends TestCase
         self::assertTrue($story->rejectionNoticeSent());
     }
 
-    public function testApprovingItLaterClearsTheNoticeSoALaterRejectionSpeaksUp(): void
+    /**
+     * Retirar lo ya publicado **no avisa de nada**.
+     *
+     * Es la misma llamada que rechazar —quita la validación y aparta el vídeo—
+     * pero no es la misma decisión: el vídeo se aprobó, se publicó y se quita
+     * después, muchas veces a petición de su propio dueño. Mandarle entonces
+     * «tu vídeo no ha pasado la selección» le cuenta algo que no ha ocurrido.
+     */
+    public function testRetiringAPublishedVideoSaysNothing(): void
     {
         $mails      = new RecordingMailer();
         $story      = $this->story();
@@ -100,6 +108,30 @@ final class ReviewDecisionOnlyOnceTest extends TestCase
         self::assertSame(
             [
                 'Tu vídeo en GOVEO necesita un ajuste',
+                '🎬 Tu vídeo ha sido aprobado en GOVEO',
+            ],
+            $mails->subjects(),
+        );
+    }
+
+    /**
+     * Y la retirada tampoco gasta el aviso: si el vídeo vuelve y **esa** vez se
+     * rechaza de verdad —sin haber llegado a publicarse—, su dueño se entera.
+     */
+    public function testAfterARetirementARealRejectionStillSpeaksUp(): void
+    {
+        $mails      = new RecordingMailer();
+        $story      = $this->story();
+        $controller = new ReviewGeoStoryController($this->stories($story), $this->mailer($mails));
+
+        $controller->approve('video-1');
+        // Retirada: estaba publicado, así que calla.
+        $controller->reject('video-1');
+        // Y ahora sí es una decisión sobre si entra.
+        $controller->reject('video-1');
+
+        self::assertSame(
+            [
                 '🎬 Tu vídeo ha sido aprobado en GOVEO',
                 'Tu vídeo en GOVEO necesita un ajuste',
             ],
