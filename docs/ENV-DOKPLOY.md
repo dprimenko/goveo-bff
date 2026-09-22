@@ -104,11 +104,20 @@ KEYCLOAK_PUBLIC_URL
 ```
 GOOGLE_SOCIAL_CLIENT_ID
 GOOGLE_SOCIAL_CLIENT_SECRET
-APPLE_CLIENT_ID
+APPLE_CLIENT_ID             # Services ID (app.goveo.signin): el que usa Keycloak
 APPLE_TEAM_ID
 APPLE_KEY_ID
 APPLE_PRIVATE_KEY           # multilínea (.p8)
+APPLE_ALLOWED_AUDIENCES     # app.goveo.ios — el bundle id de la app nativa
+GOOGLE_ALLOWED_AUDIENCES    # opcional: sólo para apretar el cerco
 ```
+
+⚠️ **Sin `APPLE_ALLOWED_AUDIENCES` no se puede entrar con Apple desde la app.**
+El token de Apple viene firmado para el identificador de **quien lo pidió**: en
+la app nativa, su `bundleIdentifier` (`app.goveo.ios`); en la web, el Services
+ID. `APPLE_CLIENT_ID` sólo puede llevar uno —lo usa Keycloak— así que el otro se
+añade aquí. El fallo se ve como «no se puede entrar con Apple» y en el log del
+BFF como `Token de Apple con audiencia ajena`.
 URI de retorno a registrar en Google y Apple:
 `https://auth-demo.goveo.app/realms/goveo/broker/{google|apple}/endpoint`
 

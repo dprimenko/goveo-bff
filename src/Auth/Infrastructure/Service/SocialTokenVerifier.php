@@ -144,8 +144,16 @@ final readonly class SocialTokenVerifier
     /**
      * ¿La audiencia del token es una de las nuestras?
      *
-     * Si hay lista explícita, manda ella. Si no, vale cualquier cliente del
-     * mismo proyecto: los identificadores de Google comparten el número de
+     * **Apple y Google no firman con el mismo identificador según dónde entres.**
+     * En la app nativa, el `aud` del token de Apple es el **bundle id**
+     * (`app.goveo.ios`); en la web es el *Services ID* (`app.goveo.signin`), que
+     * es el que va en `APPLE_CLIENT_ID` porque es el que usa Keycloak. Con sólo
+     * ése configurado, entrar con Apple desde el iPhone se rechazaba como
+     * audiencia ajena — y el usuario sólo veía «no se puede entrar con Apple».
+     * Por eso el bundle id se añade en `APPLE_ALLOWED_AUDIENCES`.
+     *
+     * Si hay lista explícita, vale ella **más** el cliente propio. Si no, vale
+     * cualquier cliente del mismo proyecto: los identificadores de Google comparten el número de
      * proyecto como prefijo (`940550817024-…`), y la app usa uno distinto en
      * iOS, en Android y en la web. Enumerarlos los tres en el entorno es fácil
      * de olvidar, y olvidarlo dejaría de vincular sin decir por qué.
@@ -157,6 +165,15 @@ final readonly class SocialTokenVerifier
         $allowed = array_filter(array_map('trim', explode(',', $allowedList)));
 
         if ($allowed !== []) {
+            // El cliente propio cuenta siempre, esté o no en la lista: la lista
+            // se pone para **añadir** audiencias —el bundle id de la app nativa,
+            // sin ir más lejos—, y hasta ahora ponerla desactivaba en silencio
+            // la que ya funcionaba. Quien la escribiera para arreglar iOS habría
+            // roto la web sin enterarse hasta que alguien se quejara.
+            if ($ownClientId !== '') {
+                $allowed[] = $ownClientId;
+            }
+
             return array_intersect($audiences, $allowed) !== [];
         }
 
