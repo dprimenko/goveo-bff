@@ -1184,6 +1184,21 @@ Añadir una sala es añadir una clase que implemente `EventSource`: se registra 
   influencer `agenda-goveo-{ciudad}`, que se crea solo con un usuario sin correo. El panel lo cambia
   después (`PUT /api/admin/geostories/{id}/owner`, sirve para cualquier publicación).
 - **Sin correos**: aprobar o descartar algo importado no avisa a su dueño —no lo subió él—.
+- **Salas como negocio** (`VenueRegistry`): si la sala del evento no está en Goveo y la fuente sabe
+  de ella (`EventSource::venueFor`), se crea su ficha **sin validar**, con `business.external_ref`
+  (único, sin excluir lo borrado) y `meta.origin` como los eventos, creada por el usuario de
+  sistema «Goveo Scraping» (UUID v5). Nunca se duplica una sala que ya existe en su ciudad, y una
+  descartada no se vuelve a crear: sus eventos van a la Agenda.
+  - Las salas **con web** (Berlín, Clamores, Calderón) salen completas: avatar = el icono grande
+    de la web, escaparate = su `og:image` (o el cartel del evento si no tiene), descripción y
+    teléfono (`WebsiteProfile`). Categoría fija por fuente (`nightlife` / `culture-business`).
+  - Las **del Ayuntamiento**, sólo las que tienen 5 eventos o más en la agenda (~40-60 de 173),
+    como `culture-business`, **sin avatar** —el fichero no trae web ni logo, y la ficha de la
+    entidad da 404— y con el cartel de su primer evento como escaparate.
+  - **Sus eventos no se ven hasta validar la sala** (`findFeed`), porque llevarían a una ficha que
+    no es pública. Sólo en las del scraping: el resto de negocios sin validar siguen como estaban.
+  - En el panel, pestaña «Sin validar (Scraping)» de Negocios (`status=scraped`). «Descartar»
+    archiva la sala con sus eventos, sin correo.
 - **Tope** de 150 nuevos por fuente y pasada (`--limit`), los más próximos primero.
 - `--city=Madrid` lanza sólo las fuentes de esa ciudad (cada `EventSource` declara la suya en
   `city()`; da igual tildes y mayúsculas). Si no coincide ninguna, el comando **falla**: una ciudad
@@ -1195,7 +1210,8 @@ para no parecer un ataque); las salas, segundos. Una web caída no corta las dem
 termina con código de error.
 
 **Deshacer una pasada**: `goveo:events:purge --origin=scraping_AAAA-MM-DD` enseña lo que borraría
-y con `--apply` lo borra **del todo** (fila, likes e imagen del almacenamiento). `--source` para una
+y con `--apply` lo borra **del todo** (fila, likes e imagen del almacenamiento), y también las
+salas que creó esa pasada si ya no les quedan eventos de otras. `--source` para una
 fuente sola. Lo validado no se toca sin `--include-verified`. Al irse la fila se va su
 `external_ref`, así que **la siguiente pasada lo vuelve a importar**: es para rehacer una pasada
 que salió mal; para que un evento no vuelva, se descarta en el panel.

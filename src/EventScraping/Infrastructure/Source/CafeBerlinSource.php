@@ -6,6 +6,7 @@ namespace App\EventScraping\Infrastructure\Source;
 
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
+use App\EventScraping\Domain\ScrapedVenue;
 use App\EventScraping\Infrastructure\Html;
 use App\EventScraping\Infrastructure\WebPage;
 
@@ -99,6 +100,25 @@ final class CafeBerlinSource implements EventSource
         return $event->withDetails(
             Html::attr($xp, '//*[' . Html::hasClass('project-gallery') . ']//img', 'src'),
             Html::clean(Html::text($xp, '//*[' . Html::hasClass('entry-description') . ']//p')),
+        );
+    }
+
+    /**
+     * Todo lo de esta fuente es de la misma sala. El avatar, el escaparate, la
+     * descripción y el teléfono los saca `WebsiteProfile` de su web.
+     */
+    public function venueFor(ScrapedEvent $event): ScrapedVenue
+    {
+        return new ScrapedVenue(
+            source: $this->name(),
+            externalId: 'venue',
+            name: 'Café Berlín',
+            city: $this->city(),
+            categorySlug: 'nightlife',
+            latitude: 40.4195885,
+            longitude: -3.707943,
+            address: 'Costanilla de los Ángeles, 20, 28013 Madrid',
+            website: 'https://berlincafe.es/',
         );
     }
 }

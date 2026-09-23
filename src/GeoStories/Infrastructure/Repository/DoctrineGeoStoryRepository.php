@@ -294,6 +294,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         // pregunta tiene que haberse identificado como tal.
         if (!$includeUnverified) {
             $conditions[] = 'geo.verified_at IS NOT NULL';
+
+            // Los eventos de una sala que creó el scraping no se ven hasta que
+            // se valida la sala: llevarían a una ficha que todavía no es
+            // pública. Sólo en esas —con `external_ref`—: el resto de negocios
+            // sin validar siguen como estaban, y cambiarlos escondería vídeos ya
+            // aprobados de negocios reales que esperan revisión.
+            $conditions[] = 'NOT (buss.external_ref IS NOT NULL AND buss.verified_at IS NULL)';
         }
 
         // A quien no sabe pintar una foto no se le manda: las apps publicadas

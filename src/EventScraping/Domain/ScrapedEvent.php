@@ -35,6 +35,8 @@ final class ScrapedEvent
         public readonly ?string $imageUrl = null,
         public readonly ?string $detailUrl = null,
         public readonly ?array $weekdays = null,
+        /** Calle y número, cuando la fuente los da (el Ayuntamiento). */
+        public readonly ?string $venueAddress = null,
     ) {}
 
     public function withDetails(?string $imageUrl, ?string $description, ?string $link = null, ?string $linkAction = null): self
@@ -55,6 +57,7 @@ final class ScrapedEvent
             imageUrl: $imageUrl ?? $this->imageUrl,
             detailUrl: $this->detailUrl,
             weekdays: $this->weekdays,
+            venueAddress: $this->venueAddress,
         );
     }
 }

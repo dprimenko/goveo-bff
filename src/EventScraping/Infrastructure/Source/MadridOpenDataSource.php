@@ -6,6 +6,7 @@ namespace App\EventScraping\Infrastructure\Source;
 
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
+use App\EventScraping\Domain\ScrapedVenue;
 use App\EventScraping\Infrastructure\Html;
 use App\EventScraping\Infrastructure\WebPage;
 
@@ -37,6 +38,16 @@ final class MadridOpenDataSource implements EventSource
 
     private const DAYS = ['MO' => 1, 'TU' => 2, 'WE' => 3, 'TH' => 4, 'FR' => 5, 'SA' => 6, 'SU' => 7];
 
+    /**
+     * Cuántos eventos tiene cada sala en la agenda entera. Una sala con menos de
+     * `MIN_VENUE_EVENTS` no merece ficha propia —una biblioteca con un acto al
+     * trimestre—: sus eventos van a la Agenda.
+     */
+    private const MIN_VENUE_EVENTS = 5;
+
+    /** @var array<string, int> */
+    private array $venueCounts = [];
+
     public function __construct(private readonly WebPage $web) {}
 
     public function name(): string
@@ -62,6 +73,16 @@ final class MadridOpenDataSource implements EventSource
         }
 
         $tz = new \DateTimeZone('Europe/Madrid');
+
+        // Antes de nada, para que `venueFor` sepa el total de cada sala y no
+        // sólo lo contado hasta el evento por el que se pregunta.
+        $this->venueCounts = [];
+        foreach ($data['@graph'] as $e) {
+            $venue = trim((string) ($e['event-location'] ?? ''));
+            if ($venue !== '') {
+                $this->venueCounts[$venue] = ($this->venueCounts[$venue] ?? 0) + 1;
+            }
+        }
 
         foreach ($data['@graph'] as $e) {
             $id    = (string) ($e['id'] ?? '');
@@ -112,6 +133,7 @@ final class MadridOpenDataSource implements EventSource
                 description: Html::clean($e['description'] ?? null),
                 detailUrl: $this->https($e['link'] ?? null),
                 weekdays: $weekdays ?: null,
+                venueAddress: $this->address($e['address']['area'] ?? null),
             );
         }
     }
@@ -126,6 +148,52 @@ final class MadridOpenDataSource implements EventSource
         $src = Html::attr($xp, '//div[' . Html::hasClass('image-content') . ']//img', 'src');
 
         return $event->withDetails(Html::absolute($src, 'https://www.madrid.es'), null);
+    }
+
+    /**
+     * Las salas municipales con programación de verdad salen como negocio de
+     * «Cultura»: nombre, dirección y coordenadas, sin avatar ni escaparate —el
+     * fichero no los trae y la ficha de la entidad da 404—. Se completan en el
+     * panel.
+     */
+    public function venueFor(ScrapedEvent $event): ?ScrapedVenue
+    {
+        if ($event->venueName === '' || ($this->venueCounts[$event->venueName] ?? 0) < self::MIN_VENUE_EVENTS) {
+            return null;
+        }
+
+        return new ScrapedVenue(
+            source: $this->name(),
+            externalId: 'sala-' . $this->slug($event->venueName),
+            name: $event->venueName,
+            city: $this->city(),
+            categorySlug: 'culture-business',
+            latitude: $event->latitude,
+            longitude: $event->longitude,
+            address: $event->venueAddress,
+        );
+    }
+
+    /** «CALLE CONDE DUQUE 9», «28015» → «Calle Conde Duque 9, 28015 Madrid». */
+    private function address(mixed $area): ?string
+    {
+        if (!is_array($area) || trim((string) ($area['street-address'] ?? '')) === '') {
+            return null;
+        }
+
+        $street = mb_convert_case(mb_strtolower(trim((string) $area['street-address'])), \MB_CASE_TITLE);
+        // Las partículas, en minúscula: «Calle De La Princesa» no lo escribe nadie.
+        $street = preg_replace_callback('/(?<=\s)(De|Del|La|Las|Los|El|Y)(?=\s)/u', fn ($m) => mb_strtolower($m[1]), $street) ?? $street;
+        $postal = trim((string) ($area['postal-code'] ?? ''));
+
+        return trim(sprintf('%s, %s %s', $street, $postal, $this->city()), ' ,');
+    }
+
+    private function slug(string $name): string
+    {
+        $name = strtr(mb_strtolower($name), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+
+        return trim(preg_replace('/[^a-z0-9]+/', '-', $name) ?? '', '-');
     }
 
     private function date(mixed $raw, \DateTimeZone $tz): ?\DateTimeImmutable

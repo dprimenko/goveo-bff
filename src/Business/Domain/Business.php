@@ -13,6 +13,7 @@ use Doctrine\ORM\Mapping as ORM;
 // esquema no proponga borrarlo — perderlo dejaría el mapa y el feed haciendo
 // scan completo, lento pero sin error visible.
 #[ORM\Index(name: 'idx_business_location_gist', columns: ['location'])]
+#[ORM\UniqueConstraint(name: 'uniq_business_external_ref', columns: ['external_ref'])]
 class Business
 {
     #[ORM\Id]
@@ -92,6 +93,16 @@ class Business
      */
     #[ORM\Column(name: 'rejected_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $rejectedAt;
+
+    /**
+     * De dónde lo creó el scraping de eventos, como `fuente:id`
+     * (`berlin:venue`, `madrid-datos:sala-…`). Nulo en todo lo demás.
+     *
+     * Único **sin** excluir lo borrado, como en las geostories: una sala
+     * descartada en el panel sigue descartada en la siguiente pasada.
+     */
+    #[ORM\Column(name: 'external_ref', type: 'string', length: 255, nullable: true)]
+    private ?string $externalRef = null;
 
     /** Cuándo salió la bienvenida. Nulo = no le ha llegado a su dueño. */
     #[ORM\Column(name: 'welcome_email_sent_at', type: 'datetimetz_immutable', nullable: true)]
@@ -257,6 +268,24 @@ class Business
     }
 
     public function getWelcomeEmailSentAt(): ?\DateTimeImmutable { return $this->welcomeEmailSentAt; }
+    public function getExternalRef(): ?string { return $this->externalRef; }
+
+    /**
+     * Marca el negocio como creado por el scraping de eventos. `origin` lleva el
+     * día de la pasada (`scraping_2026-09-23`), igual que en los eventos.
+     */
+    public function importedFrom(string $source, string $externalId, \DateTimeImmutable $runAt): self
+    {
+        $this->externalRef = mb_substr($source . ':' . $externalId, 0, 255);
+
+        $meta                  = $this->meta ?? [];
+        $meta['origin']        = 'scraping_' . $runAt->format('Y-m-d');
+        $meta['origin_source'] = $source;
+        $this->meta            = $meta;
+        $this->updatedAt       = new \DateTimeImmutable();
+
+        return $this;
+    }
 
     public function markWelcomeEmailSent(): self
     {

@@ -6,6 +6,7 @@ namespace App\EventScraping\Infrastructure\Source;
 
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
+use App\EventScraping\Domain\ScrapedVenue;
 use App\EventScraping\Infrastructure\Html;
 use App\EventScraping\Infrastructure\WebPage;
 
@@ -105,6 +106,25 @@ final class ClamoresSource implements EventSource
         return $event->withDetails(
             null,
             Html::clean(Html::attr($xp, '//meta[@name="description"]', 'content')),
+        );
+    }
+
+    /**
+     * Todo lo de esta fuente es de la misma sala. El avatar, el escaparate, la
+     * descripción y el teléfono los saca `WebsiteProfile` de su web.
+     */
+    public function venueFor(ScrapedEvent $event): ScrapedVenue
+    {
+        return new ScrapedVenue(
+            source: $this->name(),
+            externalId: 'venue',
+            name: 'Clamores',
+            city: $this->city(),
+            categorySlug: 'nightlife',
+            latitude: 40.4310342,
+            longitude: -3.7008764,
+            address: 'Calle de Alburquerque, 14, 28010 Madrid',
+            website: 'https://salaclamores.es/',
         );
     }
 }

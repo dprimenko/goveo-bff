@@ -85,6 +85,7 @@ final class ScrapeEventsCommand extends Command
                     $line = sprintf('%s  %s  %s', $e->start->format('D d/m H:i'), $e->title, $detail !== null ? "→ {$detail}" : '');
                     match (true) {
                         $outcome === 'created', $outcome === 'would-create' => $io->writeln("  <info>+</info> {$line}"),
+                        $outcome === 'venue-created'                       => $io->writeln("  <info>★</info> sala: {$detail}"),
                         $details                                           => $io->writeln("  <comment>·</comment> [{$outcome}] {$line}"),
                         default                                            => null,
                     };

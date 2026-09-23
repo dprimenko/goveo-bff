@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\EventScraping\Infrastructure\Command;
 
+use App\Business\Application\BusinessPurger;
+use App\Business\Domain\BusinessRepository;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,8 +17,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Borra **del todo** lo que importó una pasada del scraping, por su
- * `meta.origin` (`scraping_2026-09-23`): la fila, sus likes y la imagen del
- * almacenamiento.
+ * `meta.origin` (`scraping_2026-09-23`): los eventos —fila, likes e imagen— y
+ * las salas que creó —con su carpeta de imágenes—.
+ *
+ * Una sala sólo se borra si ya no le queda ningún evento: los de pasadas
+ * posteriores también cuelgan de ella, y llevárselos por borrar otra pasada no
+ * es lo que se ha pedido. Se dice cuáles se dejan.
  *
  *     php bin/console goveo:events:purge --origin=scraping_2026-09-23           # enseña qué borraría
  *     php bin/console goveo:events:purge --origin=scraping_2026-09-23 --apply   # borra
@@ -40,6 +46,8 @@ final class PurgeScrapedEventsCommand extends Command
     public function __construct(
         private readonly Connection $db,
         private readonly BunnyStorageService $storage,
+        private readonly BusinessRepository $businesses,
+        private readonly BusinessPurger $purger,
     ) {
         parent::__construct();
     }
@@ -88,10 +96,32 @@ final class PurgeScrapedEventsCommand extends Command
             $params,
         );
 
-        if ($rows === []) {
+        // Las salas que creó esa pasada. Con la misma regla que los eventos:
+        // lo validado, sólo si se pide.
+        $venueWhere  = "external_ref IS NOT NULL AND meta->>'origin' = ?";
+        $venueParams = [$origin];
+        if ($sources !== []) {
+            $venueWhere .= ' AND (' . implode(' OR ', array_fill(0, count($sources), 'external_ref LIKE ?')) . ')';
+            foreach ($sources as $source) {
+                $venueParams[] = addcslashes($source, '%_') . ':%';
+            }
+        }
+        if (!$input->getOption('include-verified')) {
+            $venueWhere .= ' AND verified_at IS NULL';
+        }
+        $venues = $this->db->fetchAllAssociative(
+            "SELECT id, name, external_ref FROM business WHERE {$venueWhere} ORDER BY name",
+            $venueParams,
+        );
+
+        if ($rows === [] && $venues === []) {
             $io->success(sprintf('Nada que borrar de %s.', $origin));
 
             return Command::SUCCESS;
+        }
+
+        foreach ($venues as $venue) {
+            $io->writeln(sprintf('  ★ sala: %s  <comment>%s</comment>', $venue['name'], $venue['external_ref']));
         }
 
         foreach ($rows as $row) {
@@ -108,7 +138,7 @@ final class PurgeScrapedEventsCommand extends Command
         }
 
         if (!$apply) {
-            $io->warning(sprintf('%d por borrar. No se ha tocado nada: repite con --apply.', count($rows)));
+            $io->warning(sprintf('%d eventos y %d salas por borrar. No se ha tocado nada: repite con --apply.', count($rows), count($venues)));
 
             return Command::SUCCESS;
         }
@@ -126,7 +156,28 @@ final class PurgeScrapedEventsCommand extends Command
             });
         }
 
-        $io->success(sprintf('%d borrados de %s. La próxima pasada los volverá a importar.', count($rows), $origin));
+        // Después de los eventos: así se sabe qué salas se han quedado vacías.
+        $purgedVenues = 0;
+        foreach ($venues as $venue) {
+            $left = (int) $this->db->fetchOne('SELECT COUNT(*) FROM geostories WHERE business_id = ?', [$venue['id']]);
+            if ($left > 0) {
+                $io->note(sprintf('Se deja la sala «%s»: le quedan %d eventos de otras pasadas.', $venue['name'], $left));
+                continue;
+            }
+
+            $business = $this->businesses->findById($venue['id']);
+            if ($business !== null) {
+                $this->purger->purge($business);
+                ++$purgedVenues;
+            }
+        }
+
+        $io->success(sprintf(
+            '%d eventos y %d salas borrados de %s. La próxima pasada los volverá a importar.',
+            count($rows),
+            $purgedVenues,
+            $origin,
+        ));
 
         return Command::SUCCESS;
     }

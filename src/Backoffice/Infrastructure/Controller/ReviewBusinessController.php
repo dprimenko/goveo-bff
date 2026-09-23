@@ -139,7 +139,9 @@ class ReviewBusinessController
 
         // Después de guardar: si el correo falla, la decisión ya está tomada
         // (y el mailer no lanza, ver ReviewDecisionMailer).
-        if (!$decided) {
+        // Una sala que creó el scraping no la dio de alta nadie: no hay dueño al
+        // que contarle que se ha aprobado o descartado.
+        if (!$decided && $business->getExternalRef() === null) {
             $approve
                 ? $this->mails->businessApproved($business)
                 : $this->mails->businessRejected($business);

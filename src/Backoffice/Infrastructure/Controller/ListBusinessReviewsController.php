@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * GET /api/admin/businesses?status=pending|rejected|verified|removed|all
+ * GET /api/admin/businesses?status=pending|scraped|rejected|verified|removed|all
  *                          &q=&city=&category=&plan=&sort=&dir=&page=&size=
  *
  * La cola de revisión del panel. Tres estados que se excluyen entre sí:
@@ -101,7 +101,11 @@ class ListBusinessReviewsController
             // Se excluye sólo lo que tiene un cobro **pendiente y ninguno
             // resuelto**: los importados no tienen suscripción y siguen
             // apareciendo, y las tarifas gratuitas nacen activas.
-            'pending'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL
+            // Lo que creó el scraping va en su pestaña, como sus eventos: entra
+            // de golpe y enterraría las altas de verdad, que tienen a alguien
+            // esperando.
+            'scraped'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL AND b.external_ref IS NOT NULL',
+            'pending'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL AND b.external_ref IS NULL
                            AND NOT EXISTS (
                                SELECT 1 FROM business_subscriptions pend
                                 WHERE pend.business_id = b.id
@@ -121,7 +125,7 @@ class ListBusinessReviewsController
 
         if ($condition === null) {
             return new JsonResponse(
-                ['error' => 'Unknown status. Use pending, rejected, verified, removed or all.'],
+                ['error' => 'Unknown status. Use pending, scraped, rejected, verified, removed or all.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         }
@@ -292,6 +296,9 @@ class ListBusinessReviewsController
                 'name' => $row['category_name'],
             ],
             'address'    => $meta['address'] ?? null,
+            // De qué pasada del scraping salió (`scraping_2026-09-23`); nulo en
+            // las altas de verdad.
+            'origin'     => $meta['origin'] ?? null,
             // La ciudad no sale de ese texto: la pone la geocodificación inversa
             // sobre las coordenadas. Nula es «aún no se ha mirado».
             'city'       => $row['city'],

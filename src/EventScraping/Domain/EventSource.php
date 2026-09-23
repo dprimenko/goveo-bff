@@ -32,4 +32,11 @@ interface EventSource
      * del evento. Se llama sólo con lo que ya pasó el filtro de fechas.
      */
     public function enrich(ScrapedEvent $event): ScrapedEvent;
+
+    /**
+     * La sala del evento, para darla de alta como negocio si no está en Goveo.
+     * Nulo si esta fuente no sabe de ella lo bastante como para crear una ficha
+     * —entonces el evento va a la Agenda de su ciudad—.
+     */
+    public function venueFor(ScrapedEvent $event): ?ScrapedVenue;
 }

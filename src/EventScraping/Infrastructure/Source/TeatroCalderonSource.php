@@ -6,6 +6,7 @@ namespace App\EventScraping\Infrastructure\Source;
 
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
+use App\EventScraping\Domain\ScrapedVenue;
 use App\EventScraping\Infrastructure\Html;
 use App\EventScraping\Infrastructure\WebPage;
 
@@ -91,5 +92,24 @@ final class TeatroCalderonSource implements EventSource
     public function enrich(ScrapedEvent $event): ScrapedEvent
     {
         return $event;
+    }
+
+    /**
+     * Todo lo de esta fuente es de la misma sala. El avatar, el escaparate, la
+     * descripción y el teléfono los saca `WebsiteProfile` de su web.
+     */
+    public function venueFor(ScrapedEvent $event): ScrapedVenue
+    {
+        return new ScrapedVenue(
+            source: $this->name(),
+            externalId: 'venue',
+            name: 'Teatro Calderón',
+            city: $this->city(),
+            categorySlug: 'culture-business',
+            latitude: 40.4140434,
+            longitude: -3.7035111,
+            address: 'Calle de Atocha, 18, 28012 Madrid',
+            website: 'https://teatrocalderonmadrid.com/es',
+        );
     }
 }

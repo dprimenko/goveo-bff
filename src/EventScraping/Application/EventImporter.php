@@ -43,7 +43,7 @@ final class EventImporter
         private readonly WebPage $web,
         private readonly BunnyStorageService $storage,
         private readonly GeoStoryRepository $geoStories,
-        private readonly VenueOwnerResolver $venues,
+        private readonly VenueRegistry $venues,
         private readonly AgendaPublisher $agenda,
         private readonly PosterFrame $frame,
         private readonly EntityManagerInterface $em,
@@ -92,10 +92,16 @@ final class EventImporter
                 continue;
             }
 
-            $owner = $this->venues->businessFor($event);
+            // La sala: la que ya hay en Goveo, o una nueva sin validar. En seco
+            // no se crea nada, sólo se dice qué pasaría.
+            $venue = $this->venues->ownerFor($source, $event, $runAt, $dryRun);
+            $owner = $venue['id'];
+            if ($venue['created']) {
+                $report('venue-created', $event, $venue['label']);
+            }
 
             if ($dryRun) {
-                $report('would-create', $event, $owner !== null ? 'negocio ' . $owner : 'Agenda Goveo · ' . $event->city);
+                $report('would-create', $event, $venue['label']);
                 ++$created;
                 continue;
             }
