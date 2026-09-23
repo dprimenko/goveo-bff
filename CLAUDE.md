@@ -231,8 +231,32 @@ los importes que recibe y **no hace aritmética**. Ojo con los tres importes, qu
 factura real, que en un trial llega después y **sí lleva el descuento**) y `recurring_cents` (el
 precio completo cuando se acaban descuento y trial).
 
-El IVA sale de `BILLING_TAX_PERCENT` (21). En el backend antiguo era un `tax_percent: 21.0`
-hardcodeado, además de un parámetro que Stripe ya deprecó en favor de `tax_rates`.
+### IVA
+
+**Las tarifas son sin impuestos y el IVA se suma encima.** Vendemos a negocios, que lo descuentan:
+para ellos el precio es el de antes de impuestos, y anunciar 35 € con el IVA dentro deja 28,93 € de
+servicio. Además el tipo depende de dónde esté el cliente, así que un precio con el 21 % español
+metido dentro sólo es correcto en España.
+
+El presupuesto siempre lo calculó así (`PriceCalculator`: `due_now_cents` es subtotal + impuesto,
+con `BILLING_TAX_PERCENT`, 21). Quien no lo sumaba era **Stripe**: el enlace de pago cobraba el
+importe pelado, así que la pantalla decía 42,35 € y la tarjeta se llevaba 35. Ahora el enlace va con
+`automatic_tax`, pide dirección de facturación —sin ella no hay tipo que aplicar— y ofrece meter el
+CIF, que es lo que pone el número en la factura y aplica la inversión del sujeto pasivo a un negocio
+de otro país de la UE.
+
+⚠️ **La otra mitad está en el panel de Stripe, y hay que hacerla en los dos modos** (test para local
+y demo, live para producción), o el enlace falla al crearse:
+
+1. *Tax* → activar **Stripe Tax** y registrar España.
+2. *Tax settings* → **Default tax behavior: exclusive**. Es lo que convierte las tarifas que ya
+   existen en «sin IVA» sin tener que recrearlas: `tax_behavior` de un Price **no se puede cambiar**
+   una vez puesto a `inclusive` o `exclusive`, sólo se archiva y se crea otro; el valor por defecto
+   de la cuenta, en cambio, se aplica a los que están en `unspecified`.
+3. Asignar el **código de impuesto** del producto (servicio digital / SaaS).
+
+Afecta sólo a los pagos nuevos: las suscripciones ya cobrando siguen como estaban hasta que se
+toquen.
 
 `POST /api/registration/promo-codes/validate` `{code}` → `{valid, code:{unlocks_plans, has_discount,
 partner_id}, discount, plans:[PriceQuote]}`. Devuelve **una lista** de tarifas: un código puede

@@ -232,6 +232,23 @@ final class PublicBusinessRegistration
         $link = $this->stripeFactory->create()->paymentLinks->create([
             'line_items' => [['price' => $priceId, 'quantity' => 1]],
             'metadata'   => ['goveo_business_id' => $businessId],
+            // **Las tarifas son sin IVA y Stripe lo suma encima.** Vendemos a
+            // negocios, que descuentan el impuesto: para ellos el precio es el
+            // de antes de impuestos, y anunciarlo con el IVA dentro hace que
+            // 35 € parezcan 35 y cuesten 28,93 de servicio. Además el tipo
+            // depende de dónde esté el cliente, así que un precio con el IVA
+            // español metido dentro sólo es correcto en España.
+            //
+            // Requiere Stripe Tax activo en la cuenta y el comportamiento por
+            // defecto de los precios en «exclusive» —ver «IVA» en CLAUDE.md—.
+            'automatic_tax' => ['enabled' => true],
+            // Sin dirección no hay tipo que aplicar: Stripe necesita saber
+            // dónde está el cliente para calcularlo.
+            'billing_address_collection' => 'required',
+            // El CIF en la factura, y la inversión del sujeto pasivo para un
+            // negocio de otro país de la UE, que si no pagaría un IVA que aquí
+            // no le toca.
+            'tax_id_collection' => ['enabled' => true],
             // La caja de código, sólo si hay uno que meter en ella: sin
             // descuento en marcha, enseñarla vacía invita a buscar por ahí un
             // código que no existe.
