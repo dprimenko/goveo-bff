@@ -1172,6 +1172,10 @@ Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 30 días
 Añadir una sala es añadir una clase que implemente `EventSource`: se registra sola por la etiqueta.
 
 - **Sin imagen no entra.** Una tarjeta vacía en el feed no la abre nadie.
+- **El cartel se encaja en vertical** (9:16, [`PosterFrame`](src/EventScraping/Infrastructure/PosterFrame.php)):
+  entero y centrado, con bandas negras arriba y abajo si es horizontal o a los lados si es muy alto.
+  No se amplía —un cartel de 630 px estirado sale borroso— y se reduce lo que pase de 1080×1920.
+  Usa la extensión `gd` (JPEG, PNG, WebP, AVIF), instalada en `Dockerfile` y `Dockerfile.prod`.
 - **No se duplica**: `geostories.external_ref` (`fuente:id`) con índice único que **no excluye lo
   borrado**, así que lo descartado en el panel sigue descartado en la siguiente pasada.
   `meta.origin` = `scraping_AAAA-MM-DD` (día de la pasada) y `meta.origin_source`.

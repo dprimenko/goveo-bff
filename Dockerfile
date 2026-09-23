@@ -3,9 +3,13 @@ FROM php:8.2-fpm
 ENV COMPOSER_ALLOW_SUPERUSER=1 \
     PATH="/root/.composer/vendor/bin:/root/.symfony/bin:${PATH}"
 
+# `gd` encaja los carteles del scraping de eventos en vertical (9:16) con bandas
+# negras; lee JPEG, PNG, WebP y AVIF, que es lo que publican las salas.
 RUN apt-get update && apt-get install -y \
     git unzip curl libpq-dev libonig-dev zlib1g-dev \
-    && docker-php-ext-install pdo pdo_pgsql mbstring opcache bcmath \
+    libjpeg62-turbo-dev libpng-dev libwebp-dev libavif-dev libfreetype6-dev \
+    && docker-php-ext-configure gd --with-jpeg --with-webp --with-avif --with-freetype \
+    && docker-php-ext-install pdo pdo_pgsql mbstring opcache bcmath gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/uploads.ini

@@ -6,6 +6,7 @@ namespace App\EventScraping\Application;
 
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
+use App\EventScraping\Infrastructure\PosterFrame;
 use App\EventScraping\Infrastructure\WebPage;
 use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
@@ -23,7 +24,8 @@ use Symfony\Component\Uid\Uuid;
  * validar (Scraping)» del panel, y de ahí sale quien lo apruebe.
  *
  * **Sin imagen no entra.** Una tarjeta vacía en el feed no la abre nadie, y el
- * cartel es lo que decide si un plan apetece.
+ * cartel es lo que decide si un plan apetece. Y entra **en vertical** (9:16, con
+ * bandas negras; ver `PosterFrame`), que es como la pinta la app.
  */
 final class EventImporter
 {
@@ -42,6 +44,7 @@ final class EventImporter
         private readonly GeoStoryRepository $geoStories,
         private readonly VenueOwnerResolver $venues,
         private readonly AgendaPublisher $agenda,
+        private readonly PosterFrame $frame,
     ) {}
 
     /**
@@ -96,7 +99,9 @@ final class EventImporter
             }
 
             $storyId = Uuid::v4()->toRfc4122();
-            $image   = $this->web->get($event->imageUrl, BunnyStorageService::MAX_BYTES);
+            // Se descarga con margen: el límite de 8 MB es para lo que se sube, y
+            // lo que se sube es el cartel ya reducido, no el original.
+            $image   = $this->web->get($event->imageUrl, 4 * BunnyStorageService::MAX_BYTES);
 
             try {
                 if ($image === null) {
@@ -104,9 +109,9 @@ final class EventImporter
                 }
                 $url = $this->storage->upload(
                     fn (string $ext): string => sprintf('geostories/%s/%d.%s', $storyId, time(), $ext),
-                    $image,
+                    $this->frame->fit($image),
                 );
-            } catch (StorageException $e) {
+            } catch (StorageException|\RuntimeException $e) {
                 $report(self::SKIP_BAD_IMAGE, $event, $e->getMessage());
                 continue;
             }
