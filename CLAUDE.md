@@ -1204,10 +1204,17 @@ que salió mal; para que un evento no vuelva, se descarta en el panel.
 lanza el comando en el contenedor de producción por SSH ([`bin/goveo-events`](bin/goveo-events));
 `make events-local CITY=Madrid` hace lo mismo contra el docker local.
 
-**Cron en Dokploy** (⚠️ **sin activar todavía**, 23-09-2026) — en la aplicación del BFF, *Schedules* → nueva tarea de tipo *Application*:
-comando `php bin/console goveo:events:scrape --city=Madrid`, expresión `0 6 * * *` (a diario a las
-6). Una tarea por ciudad, para que una web lenta de una no retrase las otras y cada una se pueda
-parar sola. Corre dentro del contenedor, con su mismo entorno (base, Bunny Storage).
+**Cron en Dokploy** (⚠️ **sin activar todavía**, 23-09-2026) — el BFF es un servicio **Compose**
+(`docker-compose.prod.yml`), así que la tarea va en *Schedules* de ese Compose, eligiendo el
+servicio `php`. El comando es sólo lo de dentro, sin `docker compose`: Dokploy ya lo ejecuta en el
+contenedor (dentro no hay Docker, y con `docker compose …` fallaría):
+`php bin/console goveo:events:scrape --city=Madrid`, expresión `0 6 * * *` (a diario a las 6). Una
+tarea por ciudad, para que una web lenta de una no retrase las otras y cada una se pueda parar sola.
+
+Como cron **del servidor** (*Server → Schedules* o `crontab`) sí haría falta compose, desde la carpeta
+del proyecto: `docker compose -f docker-compose.prod.yml exec -T php php bin/console …`. El `-T` es
+obligatorio: un cron no tiene terminal y `exec` sin él falla. Se prefiere la del Compose: no depende
+de dónde deje Dokploy la carpeta y los logs de cada ejecución se ven en el propio panel.
 
 ## Subida de vídeos a Bunny Stream (GeoStories)
 
