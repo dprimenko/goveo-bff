@@ -1155,6 +1155,50 @@ la app origen). Para publicar los **ya importados** antes de este cambio, un one
 Ejemplo de tienda con datos completos: **Jamonería López Pascual** — Firestore `2vyvumaqnCCVqE5xBoaE`,
 business `c91efd77-dc56-5c54-8c52-38b9aaed3f1a` (251 productos, 9 subcategorías).
 
+## Scraping de eventos (`App\EventScraping`)
+
+`php bin/console goveo:events:scrape` importa la cartelera de salas y agendas como **geostories de
+foto** en la categoría `events`, **sin validar**, y el panel las enseña en su propia pestaña
+(«Sin validar (Scraping)», `status=scraped`). Nace de la cartelera que el socio preparaba a mano en
+Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 30 días**.
+
+| Fuente (`--source`) | Qué lee | Trampa |
+|---|---|---|
+| `madrid-datos` | JSON de datos abiertos del Ayuntamiento (próximos 100 días) | Trae caracteres de control sin escapar y `json_decode` lo rechaza entero. **Su `og:image` es siempre el escudo**: la foto está en `div.image-content` de la ficha. Se quitan cursos, conferencias y clubes de lectura (`EXCLUDED_TYPES`). |
+| `berlin` | berlincafe.es/programas, toda la temporada en una página | La ficha no tiene `og:image`: la foto es la de `.project-gallery`. Cada evento sale dos veces en el HTML. |
+| `clamores` | salaclamores.es/calendario (Webflow, paginado) | `?e5273e04_page=N` es el id de la colección: si rehacen la web, sólo se leerá la primera página. |
+| `calderon` | teatrocalderonmadrid.com/es/cartelera | Sin hora: cada evento dura su día entero. |
+
+Añadir una sala es añadir una clase que implemente `EventSource`: se registra sola por la etiqueta.
+
+- **Sin imagen no entra.** Una tarjeta vacía en el feed no la abre nadie.
+- **No se duplica**: `geostories.external_ref` (`fuente:id`) con índice único que **no excluye lo
+  borrado**, así que lo descartado en el panel sigue descartado en la siguiente pasada.
+  `meta.origin` = `scraping_AAAA-MM-DD` (día de la pasada) y `meta.origin_source`.
+- **Dueño**: el negocio de la sala **buscado en la ciudad del evento** (hay nombres repetidos por
+  España), por palabras enteras y, si hay dos, el más cercano (máx. 1 km). Si no hay uno claro, el
+  influencer `agenda-goveo-{ciudad}`, que se crea solo con un usuario sin correo. El panel lo cambia
+  después (`PUT /api/admin/geostories/{id}/owner`, sirve para cualquier publicación).
+- **Sin correos**: aprobar o descartar algo importado no avisa a su dueño —no lo subió él—.
+- **Tope** de 150 nuevos por fuente y pasada (`--limit`), los más próximos primero.
+- `--city=Madrid` lanza sólo las fuentes de esa ciudad (cada `EventSource` declara la suya en
+  `city()`; da igual tildes y mayúsculas). Si no coincide ninguna, el comando **falla**: una ciudad
+  mal escrita en el cron no puede pasar por «hoy no había nada».
+- `--dry-run` enseña lo que haría sin subir ni guardar; `--details` lista también los descartes.
+
+La pasada del Ayuntamiento tarda (abre cientos de fichas de madrid.es, con pausa entre peticiones
+para no parecer un ataque); las salas, segundos. Una web caída no corta las demás: el comando sigue y
+termina con código de error.
+
+**A mano** (mientras no haya cron): `make events CITY=Madrid ARGS=--dry-run` y luego sin `ARGS`
+lanza el comando en el contenedor de producción por SSH ([`bin/goveo-events`](bin/goveo-events));
+`make events-local CITY=Madrid` hace lo mismo contra el docker local.
+
+**Cron en Dokploy** (⚠️ **sin activar todavía**, 23-09-2026) — en la aplicación del BFF, *Schedules* → nueva tarea de tipo *Application*:
+comando `php bin/console goveo:events:scrape --city=Madrid`, expresión `0 6 * * *` (a diario a las
+6). Una tarea por ciudad, para que una web lenta de una no retrase las otras y cada una se pueda
+parar sola. Corre dentro del contenedor, con su mismo entorno (base, Bunny Storage).
+
 ## Subida de vídeos a Bunny Stream (GeoStories)
 
 Patrón **proxy** (como anyclazz): el cliente NO habla con Bunny; sube el fichero por multipart al

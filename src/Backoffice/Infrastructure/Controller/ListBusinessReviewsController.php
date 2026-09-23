@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * GET /api/admin/businesses?status=pending|rejected|verified|removed
+ * GET /api/admin/businesses?status=pending|rejected|verified|removed|all
  *                          &q=&city=&category=&plan=&sort=&dir=&page=&size=
  *
  * La cola de revisión del panel. Tres estados que se excluyen entre sí:
@@ -113,12 +113,15 @@ class ListBusinessReviewsController
                                   )
                            )',
             'removed'  => 'b.deleted_at IS NOT NULL',
+            // Cualquiera que no esté borrado: lo usa el selector de dueño de un
+            // vídeo, donde da igual si el negocio ya está validado.
+            'all'      => 'b.deleted_at IS NULL',
             default    => null,
         };
 
         if ($condition === null) {
             return new JsonResponse(
-                ['error' => 'Unknown status. Use pending, rejected, verified or removed.'],
+                ['error' => 'Unknown status. Use pending, rejected, verified, removed or all.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         }

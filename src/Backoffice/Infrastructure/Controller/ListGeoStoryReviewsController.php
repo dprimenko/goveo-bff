@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
- * GET /api/admin/geostories?status=pending|verified|removed
+ * GET /api/admin/geostories?status=pending|scraped|verified|removed
  *                          &business=&q=&city=&category=&sort=&dir=&page=&size=
  *
  * La cola de vídeos. **`verified_at` ya decidía la visibilidad** —el repositorio
@@ -27,6 +27,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * | Estado   | Condición                 | Qué significa                |
  * |----------|---------------------------|------------------------------|
  * | pending  | `verified_at IS NULL`     | subido y esperando; no se ve |
+ * | scraped  | ídem, con `external_ref`  | importado por el scraping    |
  * | verified | `verified_at IS NOT NULL` | validado, y por eso se ve    |
  * | removed  | `deleted_at IS NOT NULL`  | borrado por su dueño         |
  *
@@ -73,8 +74,12 @@ class ListGeoStoryReviewsController
         // Los de un negocio concreto: es como se llega desde su ficha.
         $business = trim((string) $request->query->get('business', ''));
 
+        // Lo importado por el scraping tiene su propia pestaña: entra de cien en
+        // cien, y en la misma cola enterraría lo que sube la gente, que es lo
+        // que tiene a alguien esperando respuesta.
         $condition = match ($status) {
-            'pending'  => 'g.deleted_at IS NULL AND g.verified_at IS NULL',
+            'pending'  => 'g.deleted_at IS NULL AND g.verified_at IS NULL AND g.external_ref IS NULL',
+            'scraped'  => 'g.deleted_at IS NULL AND g.verified_at IS NULL AND g.external_ref IS NOT NULL',
             'verified' => 'g.deleted_at IS NULL AND g.verified_at IS NOT NULL',
             'removed'  => 'g.deleted_at IS NOT NULL',
             default    => null,
@@ -82,7 +87,7 @@ class ListGeoStoryReviewsController
 
         if ($condition === null) {
             return new JsonResponse(
-                ['error' => 'Unknown status. Use pending, verified or removed.'],
+                ['error' => 'Unknown status. Use pending, scraped, verified or removed.'],
                 Response::HTTP_UNPROCESSABLE_ENTITY,
             );
         }
@@ -137,7 +142,7 @@ class ListGeoStoryReviewsController
 
         $rows = $this->db->fetchAllAssociative(
             "SELECT g.id, g.title, g.description, g.category_id, g.thumbnail, g.url,
-                    g.status, g.media_type, g.meta, g.likes, g.views,
+                    g.status, g.media_type, g.meta, g.likes, g.views, g.external_ref,
                     g.created_at, g.verified_at, g.deleted_at, g.started_at, g.ended_at,
                     c.slug AS category_slug, c.name AS category_name,
                     b.id AS business_id, b.name AS business_name, b.avatar AS business_avatar,
@@ -211,6 +216,10 @@ class ListGeoStoryReviewsController
             // producto. Vive en `meta` porque no es de nuestro dominio.
             'link_url'   => self::linkUrl($row['meta'] ?? null),
             'link_action' => self::linkAction($row['meta'] ?? null),
+            // De qué pasada del scraping vino (`scraping_2026-09-23`); nulo en lo
+            // que sube la gente.
+            'origin'       => self::meta($row['meta'] ?? null)['origin'] ?? null,
+            'external_ref' => $row['external_ref'] ?? null,
             'likes'     => (int) $row['likes'],
             'views'     => (int) $row['views'],
             'category'  => $row['category_slug'] === null ? null : [

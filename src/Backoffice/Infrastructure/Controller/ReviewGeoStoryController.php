@@ -148,7 +148,12 @@ class ReviewGeoStoryController
 
         $this->geoStories->save($story);
 
-        if (!$told && !$retirada) {
+        // Lo importado por el scraping no lo subió su dueño: la Agenda no tiene
+        // correo, y a una sala le llegaría «tu vídeo ha sido aprobado» por algo
+        // que no ha subido. Decidir sobre ello no avisa a nadie.
+        $importado = $story->getExternalRef() !== null;
+
+        if (!$told && !$retirada && !$importado) {
             $approve
                 ? $this->mails->videoApproved($story)
                 : $this->mails->videoRejected($story);

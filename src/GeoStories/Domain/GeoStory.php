@@ -18,6 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_geostories_business_id', columns: ['business_id'], options: ['where' => 'deleted_at IS NULL'])]
 #[ORM\Index(name: 'idx_geostories_category_id', columns: ['category_id'], options: ['where' => 'deleted_at IS NULL'])]
 #[ORM\Index(name: 'idx_geostories_influencer_id', columns: ['influencer_id'], options: ['where' => 'deleted_at IS NULL'])]
+#[ORM\UniqueConstraint(name: 'uniq_geostories_external_ref', columns: ['external_ref'])]
 class GeoStory
 {
     /**
@@ -109,6 +110,16 @@ class GeoStory
     #[ORM\Column(name: 'verified_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $verifiedAt;
 
+    /**
+     * De dónde se importó, como `fuente:id` (`berlin:sr-chinarro`). Nulo en lo
+     * que sube la gente.
+     *
+     * Es lo que impide que el scraping cree dos veces el mismo evento, y por eso
+     * el índice único **no** excluye lo borrado: un evento que alguien descartó
+     * tiene que seguir descartado en la siguiente pasada, no volver a la cola.
+     */
+    #[ORM\Column(name: 'external_ref', type: 'string', length: 255, nullable: true)]
+    private ?string $externalRef = null;
 
     #[ORM\Column(name: 'started_at', type: 'datetimetz_immutable', nullable: true)]
     private ?\DateTimeImmutable $startedAt;
@@ -225,6 +236,46 @@ class GeoStory
     public function getVerifiedAt(): ?\DateTimeImmutable { return $this->verifiedAt; }
     public function getStartedAt(): ?\DateTimeImmutable { return $this->startedAt; }
     public function getEndedAt(): ?\DateTimeImmutable { return $this->endedAt; }
+    public function getExternalRef(): ?string { return $this->externalRef; }
+
+    /**
+     * Marca la publicación como importada por el scraping de eventos.
+     *
+     * `origin` lleva el día de la pasada (`scraping_2026-09-23`): cuando algo
+     * sale raro en la cola, lo primero que se pregunta es de qué ejecución vino.
+     */
+    public function importedFrom(string $source, string $externalId, \DateTimeImmutable $runAt): self
+    {
+        $this->externalRef = mb_substr($source . ':' . $externalId, 0, 255);
+
+        $meta                  = $this->meta ?? [];
+        $meta['origin']        = 'scraping_' . $runAt->format('Y-m-d');
+        $meta['origin_source'] = $source;
+        $this->meta            = $meta;
+        $this->updatedAt       = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    /**
+     * Pasa la publicación a otro dueño: un negocio **o** un influencer.
+     *
+     * Lo usa el panel cuando lo importado se colgó de «Agenda Goveo» y después
+     * se dio de alta la sala, o cuando el scraping acertó el nombre pero no el
+     * sitio.
+     */
+    public function reassignTo(?string $businessId, ?string $influencerId): self
+    {
+        if (($businessId === null) === ($influencerId === null)) {
+            throw new \InvalidArgumentException('A geostory belongs to a business or to an influencer, never both.');
+        }
+
+        $this->businessId   = $businessId;
+        $this->influencerId = $influencerId;
+        $this->updatedAt    = new \DateTimeImmutable();
+
+        return $this;
+    }
 
     /**
      * Set location from latitude/longitude. Stored as an EWKT string — the

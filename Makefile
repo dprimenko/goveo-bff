@@ -115,6 +115,14 @@ backup:
 firestore:
 	@./bin/goveo-firestore $(CMD)
 
+## events: scraping de eventos en producción, a mano. Uso: make events CITY=Madrid [ARGS=--dry-run]
+events:
+	@./bin/goveo-events $(or $(CITY),Madrid) $(ARGS)
+
+## events-local: lo mismo contra el docker local. Uso: make events-local CITY=Madrid [ARGS=--dry-run]
+events-local:
+	docker compose exec php php bin/console goveo:events:scrape --city=$(or $(CITY),Madrid) $(ARGS)
+
 ## db-close: cierra los túneles abiertos
 db-close:
 	@./bin/goveo-db close prod || true
