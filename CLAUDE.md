@@ -1194,6 +1194,12 @@ La pasada del Ayuntamiento tarda (abre cientos de fichas de madrid.es, con pausa
 para no parecer un ataque); las salas, segundos. Una web caída no corta las demás: el comando sigue y
 termina con código de error.
 
+**Deshacer una pasada**: `goveo:events:purge --origin=scraping_AAAA-MM-DD` enseña lo que borraría
+y con `--apply` lo borra **del todo** (fila, likes e imagen del almacenamiento). `--source` para una
+fuente sola. Lo validado no se toca sin `--include-verified`. Al irse la fila se va su
+`external_ref`, así que **la siguiente pasada lo vuelve a importar**: es para rehacer una pasada
+que salió mal; para que un evento no vuelva, se descarta en el panel.
+
 **A mano** (mientras no haya cron): `make events CITY=Madrid ARGS=--dry-run` y luego sin `ARGS`
 lanza el comando en el contenedor de producción por SSH ([`bin/goveo-events`](bin/goveo-events));
 `make events-local CITY=Madrid` hace lo mismo contra el docker local.
