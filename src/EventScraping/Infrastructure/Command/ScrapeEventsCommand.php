@@ -98,6 +98,9 @@ final class ScrapeEventsCommand extends Command
 
             ksort($counts);
             $io->writeln('  ' . ($counts === [] ? 'nada' : implode(' · ', array_map(fn ($k, $v) => "{$k}: {$v}", array_keys($counts), $counts))));
+            // Para ver si la memoria sube de una fuente a otra: si lo hace, algo
+            // se está quedando en memoria entre inserciones.
+            $io->writeln(sprintf('  <comment>memoria: %d MB (pico %d MB)</comment>', intdiv(memory_get_usage(true), 1048576), intdiv(memory_get_peak_usage(true), 1048576)));
         }
 
         // Una ciudad mal escrita en el cron no puede pasar por «hoy no había

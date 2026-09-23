@@ -29,6 +29,8 @@ final class PosterFrame
      */
     public function fit(string $contents): string
     {
+        $this->assertFitsInMemory($contents);
+
         $source = @imagecreatefromstring($contents);
         if ($source === false) {
             throw new \RuntimeException('formato de imagen que no se puede leer');
@@ -71,5 +73,54 @@ final class PosterFrame
         imagedestroy($canvas);
 
         return $jpeg;
+    }
+
+    /**
+     * Mira si abrir la imagen cabe en la memoria que queda, **antes** de abrirla.
+     *
+     * GD descomprime el original entero —unos 5 bytes por píxel—, así que una
+     * foto de 6000×8000 son ~240 MB sólo para empezar: pasaba de los 256 MB de
+     * PHP y tumbaba la pasada entera con un fatal, que no se puede capturar.
+     * Leer las dimensiones no descomprime nada. Si no cabe, se lanza una
+     * excepción normal y el importador descarta ese evento y sigue.
+     */
+    private function assertFitsInMemory(string $contents): void
+    {
+        $size = @getimagesizefromstring($contents);
+        if ($size === false) {
+            throw new \RuntimeException('formato de imagen que no se puede leer');
+        }
+
+        [$w, $h] = $size;
+        // El original, el lienzo de salida y el JPEG en memoria, con margen.
+        $needed    = (int) (($w * $h * 5 + self::MAX_WIDTH * 1920 * 5) * 1.3);
+        $available = $this->memoryLimit() - memory_get_usage(true);
+
+        if ($needed > $available) {
+            throw new \RuntimeException(sprintf(
+                'imagen demasiado grande (%d×%d, necesita %d MB y quedan %d MB)',
+                $w,
+                $h,
+                intdiv($needed, 1024 * 1024),
+                intdiv(max(0, $available), 1024 * 1024),
+            ));
+        }
+    }
+
+    private function memoryLimit(): int
+    {
+        $raw = trim((string) ini_get('memory_limit'));
+        if ($raw === '' || $raw === '-1') {
+            return \PHP_INT_MAX;
+        }
+
+        $value = (int) $raw;
+
+        return match (strtolower(substr($raw, -1))) {
+            'g'     => $value * 1024 ** 3,
+            'm'     => $value * 1024 ** 2,
+            'k'     => $value * 1024,
+            default => $value,
+        };
     }
 }

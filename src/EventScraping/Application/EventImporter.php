@@ -13,6 +13,7 @@ use App\GeoStories\Domain\GeoStoryRepository;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use App\Shared\Infrastructure\Storage\StorageException;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Uid\Uuid;
 
 /**
@@ -45,6 +46,7 @@ final class EventImporter
         private readonly VenueOwnerResolver $venues,
         private readonly AgendaPublisher $agenda,
         private readonly PosterFrame $frame,
+        private readonly EntityManagerInterface $em,
     ) {}
 
     /**
@@ -114,6 +116,10 @@ final class EventImporter
             } catch (StorageException|\RuntimeException $e) {
                 $report(self::SKIP_BAD_IMAGE, $event, $e->getMessage());
                 continue;
+            } finally {
+                // El original puede pesar decenas de megas: fuera antes de ir a
+                // por el siguiente, no cuando acabe la vuelta.
+                unset($image);
             }
 
             $story = new GeoStory(
@@ -140,6 +146,14 @@ final class EventImporter
             ++$created;
 
             $report('created', $event, $story->getId());
+
+            // Doctrine se queda con cada entidad guardada mientras dure el
+            // proceso, y una pasada son cientos: se suelta tras cada una para
+            // que la memoria no crezca con la vuelta. Nada de lo que sigue usa
+            // entidades ya cargadas —la Agenda se recuerda por su id—.
+            $this->em->clear();
+            unset($story);
+            gc_collect_cycles();
         }
     }
 

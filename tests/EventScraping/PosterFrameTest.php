@@ -72,6 +72,19 @@ final class PosterFrameTest extends TestCase
         self::assertSame(1920, $h);
     }
 
+    public function testAnImageTooBigToOpenIsRefusedBeforeOpeningIt(): void
+    {
+        // Sólo la cabecera de un PNG de 20000×20000: abrirlo de verdad serían
+        // ~2 GB. Tiene que rechazarse leyendo las medidas, sin llegar a GD —si
+        // llegara, el test moriría por memoria en vez de fallar—.
+        $ihdr = pack('NNCCCCC', 20000, 20000, 8, 2, 0, 0, 0);
+        $png  = "\x89PNG\r\n\x1a\n" . pack('N', 13) . 'IHDR' . $ihdr . pack('N', crc32('IHDR' . $ihdr));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessageMatches('/demasiado grande \(20000×20000/');
+        (new PosterFrame())->fit($png);
+    }
+
     public function testSomethingThatIsNotAnImageIsRefused(): void
     {
         $this->expectException(\RuntimeException::class);
