@@ -21,10 +21,36 @@ class KeycloakAuthenticator extends AbstractAuthenticator
         private readonly string $keycloakClientId,
     ) {}
 
+    /**
+     * Rutas donde el token es **un extra, no un requisito**.
+     *
+     * En `/public/` la respuesta existe sin identificarse; el token sólo añade
+     * cosas (los vídeos sin validar de tu propio perfil, por ejemplo). Aun así,
+     * un token caducado hacía fallar **toda** la petición con un 401, y eso en
+     * la app se veía como una pantalla sin datos: ni feed, ni negocios, ni nada
+     * en ninguna pestaña. Quien ni siquiera había entrado lo veía todo; quien
+     * tenía una sesión vieja, nada.
+     *
+     * Así que aquí el token malo se ignora y la petición sigue como anónima.
+     */
+    private const OPTIONAL_TOKEN_PATHS = ['/public/'];
+
     public function supports(Request $request): ?bool
     {
         return $request->headers->has('Authorization')
             && str_starts_with((string) $request->headers->get('Authorization'), 'Bearer ');
+    }
+
+    /** Si en esta ruta un token inválido debe tumbar la petición o ignorarse. */
+    private function tokenIsOptional(Request $request): bool
+    {
+        foreach (self::OPTIONAL_TOKEN_PATHS as $prefix) {
+            if (str_starts_with($request->getPathInfo(), $prefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function authenticate(Request $request): Passport
@@ -61,6 +87,12 @@ class KeycloakAuthenticator extends AbstractAuthenticator
 
     public function onAuthenticationFailure(Request $request, AuthenticationException $exception): ?Response
     {
+        // `null` = sigue la petición sin usuario. En una ruta pública eso es
+        // exactamente lo que se quiere: lo que se pueda ver sin sesión, se ve.
+        if ($this->tokenIsOptional($request)) {
+            return null;
+        }
+
         return new JsonResponse(['error' => 'Unauthorized'], Response::HTTP_UNAUTHORIZED);
     }
 
