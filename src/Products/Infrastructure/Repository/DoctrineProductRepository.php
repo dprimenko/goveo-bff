@@ -19,6 +19,16 @@ final class DoctrineProductRepository implements ProductRepository
         return $this->em->find(Product::class, $id);
     }
 
+    public function slugTaken(string $businessId, string $slug): bool
+    {
+        // Sin `deletedAt`: lo que decide es el índice de la tabla, y a ése los
+        // borrados le cuentan.
+        return $this->em->getRepository(Product::class)->findOneBy([
+            'businessId' => $businessId,
+            'slug'       => $slug,
+        ]) !== null;
+    }
+
     public function findBySlug(string $businessId, string $slug): ?Product
     {
         return $this->em->getRepository(Product::class)->findOneBy([

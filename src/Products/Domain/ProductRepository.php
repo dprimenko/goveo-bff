@@ -10,6 +10,16 @@ interface ProductRepository
 
     public function findBySlug(string $businessId, string $slug): ?Product;
 
+    /**
+     * Si ese slug ya está cogido en el negocio, **incluidos los borrados**.
+     *
+     * El índice único de la tabla no distingue: un producto borrado sigue
+     * ocupando su slug. Y así debe ser, porque el slug es parte de una URL
+     * pública que puede estar compartida, y reutilizarlo llevaría a quien
+     * abriera el enlace viejo a un producto distinto.
+     */
+    public function slugTaken(string $businessId, string $slug): bool;
+
     /** @return Product[] */
     public function findByBusinessId(string $businessId, bool $publishedOnly = true): array;
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Products\Infrastructure\Controller;
 
 use App\Business\Application\ManagedBusinessFinder;
+use App\Products\Application\ProductSlugger;
 use App\Products\Domain\ContentFormat;
 use App\Products\Domain\Product;
 use App\Products\Domain\ProductRepository;
@@ -40,6 +41,7 @@ class ManageProductController
         private readonly ProductRepository $products,
         private readonly ProductSubcategoryRepository $subcategories,
         private readonly ManagedBusinessFinder $managed,
+        private readonly ProductSlugger $slugger,
     ) {}
 
     #[Route('', name: 'create', methods: ['POST'])]
@@ -71,7 +73,7 @@ class ManageProductController
             id:            UuidGenerator::generate(),
             businessId:    $business->getId(),
             title:         $title,
-            slug:          $this->uniqueSlug($business->getId(), $title),
+            slug:          $this->slugger->forTitle($business->getId(), $title),
             subcategoryId: $subcategory,
             description:   $this->readDescription($data),
             descriptionFormat: $this->readFormat($data),
@@ -318,25 +320,6 @@ class ManageProductController
         return ['amount' => (int) $amount, 'currency' => $currency];
     }
 
-    /**
-     * Slug único dentro del negocio: la tabla lo exige (`uq_products_business_slug`)
-     * y dos productos con el mismo nombre en una tienda no es raro —«Vino tinto»
-     * en dos formatos—, así que se numera en vez de fallar.
-     */
-    private function uniqueSlug(string $businessId, string $title): string
-    {
-        $base = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(
-            iconv('UTF-8', 'ASCII//TRANSLIT', $title) ?: $title
-        )) ?? '', '-') ?: 'producto';
-
-        $slug = $base;
-        $n    = 1;
-        while ($this->products->findBySlug($businessId, $slug) !== null) {
-            $slug = $base . '-' . (++$n);
-        }
-
-        return $slug;
-    }
 
     private function serialize(Product $product): array
     {
