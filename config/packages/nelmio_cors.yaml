@@ -1,9 +1,13 @@
+# `X-Goveo-Supports` es la cabecera con la que un cliente dice qué sabe pintar
+# (`image`): sin ella el BFF sólo manda vídeos. La web la manda desde el
+# navegador, y una cabecera propia fuerza la comprobación previa de CORS: si no
+# está aquí, el navegador corta la petición y el feed de la web sale vacío.
 nelmio_cors:
     defaults:
         origin_regex: true
         allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
         allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
-        allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With']
+        allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Goveo-Supports']
         expose_headers: ['Link']
         allow_credentials: true
         max_age: 3600
@@ -12,6 +16,6 @@ nelmio_cors:
             origin_regex: true
             allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
             allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
-            allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With']
+            allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Goveo-Supports']
             allow_credentials: true
             max_age: 3600
