@@ -52,6 +52,12 @@ account_controllers:
         namespace: App\Account\Infrastructure\Controller
     type: attribute
 
+loyalty_controllers:
+    resource:
+        path: ../src/Loyalty/Infrastructure/Controller/
+        namespace: App\Loyalty\Infrastructure\Controller
+    type: attribute
+
 # Lo que no es de ningún módulo: hoy, la puerta de versión de la app. Sin este
 # bloque el controlador existe y su ruta no, que es un fallo silencioso —la API
 # contesta 404 y nada apunta a que falte declararlo aquí.

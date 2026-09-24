@@ -42,7 +42,7 @@ final class BusinessPurger
     /**
      * @return array{
      *     products: int, videos: int, subcategories: int, managers: int,
-     *     subscriptions: int, follows: int, likes: int,
+     *     subscriptions: int, follows: int, likes: int, loyalty_cards: int,
      *     storage_deleted: bool, subscription: string
      * }
      */
@@ -104,7 +104,18 @@ final class BusinessPurger
                 "DELETE FROM user_follows WHERE target_type = 'business' AND target_id = ?",
                 [$id],
             ),
+            // La tarjeta de fidelización: los sellos de sus clientes, su
+            // historial, los QR que generó y los premios. Sin clave ajena, como
+            // los likes: si no se borran, quedan tarjetas de un negocio que ya
+            // no se puede pintar.
+            'loyalty_cards' => $this->db->executeStatement(
+                'DELETE FROM loyalty_cards WHERE business_id = ?',
+                [$id],
+            ),
         ];
+        $this->db->executeStatement('DELETE FROM loyalty_events WHERE business_id = ?', [$id]);
+        $this->db->executeStatement('DELETE FROM loyalty_tokens WHERE business_id = ?', [$id]);
+        $this->db->executeStatement('DELETE FROM loyalty_programs WHERE business_id = ?', [$id]);
 
         $this->db->executeStatement('DELETE FROM business WHERE id = ?', [$id]);
 

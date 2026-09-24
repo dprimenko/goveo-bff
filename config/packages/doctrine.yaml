@@ -86,6 +86,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Follows/Domain'
                 prefix: 'App\Follows\Domain'
                 alias: Follows
+            Loyalty:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Loyalty/Domain'
+                prefix: 'App\Loyalty\Domain'
+                alias: Loyalty
         controller_resolver:
             auto_mapping: false
 

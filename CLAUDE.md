@@ -184,6 +184,54 @@ MeController, CreateGeoStoryController y GeoStoryOwnership — no se tocaron).
 `GET /public/businesses/{id}` ahora incluye `followers` de primer nivel (además de `meta`), y
 `GET /public/influencers/{id}` lo calcula con la misma regla.
 
+## Tarjeta de fidelización (`App\Loyalty`)
+
+Cinco sellos por negocio, con premio en el **3** y en el **5**. El negocio enseña un QR de un solo
+uso y el cliente lo escanea desde la app.
+
+**Quién la tiene** (`LoyaltyAvailability`): la tarifa **PLATINUM o TOP 3** con suscripción activa
+o en prueba (`BillingPlanEligibility`, por el prefijo del código del plan: `platinum-…`, `top3-…`),
+**o** la activación manual del panel. Y en los dos casos, **al menos un premio puesto**: una
+tarjeta sin premios no promete nada. La activación manual **sólo suma** — no le quita la tarjeta a
+quien la tiene por su tarifa.
+
+| Tabla | Qué guarda |
+|---|---|
+| `loyalty_programs` | Premios (`rewards`, json `{"3": {label, description}, "5": …}`) y `manually_enabled`. Sin fila, sin tarjeta. La descripción es opcional y se lee en la vista del premio. |
+| `loyalty_cards` | Sellos de cada usuario en cada negocio. Se crea con el primer sello. |
+| `loyalty_tokens` | Los QR: sello o canje (con su `reward_stage`). Sólo el hash, como `password_setup_tokens`. |
+| `loyalty_events` | Cada sello y cada canje, con el premio **copiado** tal como estaba al canjearlo. |
+
+Reglas (`ScanLoyaltyToken`, con tests en `tests/Loyalty/`):
+
+- **Canjear cualquier premio deja la tarjeta a 0**, también el del 3: el cliente elige entre el
+  pequeño ya o esperar al grande.
+- **El QR sólo se gasta si hace efecto.** Con la tarjeta llena (5 sellos) o sin sellos para el
+  premio, se devuelve `card_full` / `not_enough_stamps` y el negocio puede usar ese QR con otro.
+- **Sin límite diario de sellos**: el control es que el negocio decide cuándo genera un QR.
+- **Caduca a los 30 minutos**, no a los pocos segundos: quien no tiene la app escanea, instala, se
+  registra, y el sello se aplica al llegar (deep link diferido de Branch, ver la app).
+- **El mismo usuario escaneando otra vez el mismo QR no es un error** (`already_applied`): el
+  enlace puede llegarle dos veces, por el escáner y por Branch al abrir la app.
+- **Gastar el QR es un `UPDATE … WHERE used_at IS NULL`** (`claim`), no leer y luego guardar: con
+  dos móviles escaneando a la vez, los dos leerían «sin usar». Probado en local: uno suma, el otro
+  recibe `already_used`.
+
+Endpoints:
+
+| | |
+|---|---|
+| `GET /public/businesses/{id}/loyalty` | Si tiene tarjeta y qué premios. Lo que ve quien llega del QR sin sesión. |
+| `GET /api/loyalty/cards` · `/cards/{businessId}` | Las tarjetas del usuario / la de un negocio (0 sellos si no tiene). |
+| `POST /api/loyalty/scan` `{token}` | Escanea. Siempre devuelve `outcome` (ver `ScanOutcome`). |
+| `GET·PUT /api/businesses/{id}/loyalty` | Estado y premios, para el gestor **y el panel** (`business.edit`). |
+| `POST /api/businesses/{id}/loyalty/tokens` | Genera un QR (`{kind: stamp}` o `{kind: redeem, reward_stage}`). **Sólo el gestor**: generar QR es dar sellos. |
+| `GET /api/businesses/{id}/loyalty/tokens/{tokenId}` | `pending|used|expired`: la pantalla del negocio lo consulta mientras enseña el QR. |
+| `PUT /api/admin/businesses/{id}/loyalty` `{manually_enabled}` | La activación manual. Con `business.edit`, sin permiso propio. |
+
+El borrado definitivo de un negocio (`BusinessPurger`) limpia las cuatro tablas: no tienen clave
+ajena, como `user_follows`.
+
 ## Cuenta (`/api/account`)
 
 - `GET /api/account/businesses` — negocios que gestiona el usuario, con `name`, `avatar`,
