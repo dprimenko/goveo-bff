@@ -94,6 +94,11 @@ final class InMemoryLoyalty implements LoyaltyTokenRepository, LoyaltyCardReposi
         return array_intersect_key($this->programs, array_flip($businessIds));
     }
 
+    public function statsForBusiness(string $businessId): array
+    {
+        return ['customers' => 0, 'stamps' => 0, 'redemptions' => 0, 'last_activity_at' => null];
+    }
+
     public function includesLoyalty(string $businessId): bool
     {
         return in_array($businessId, $this->eligible, true);

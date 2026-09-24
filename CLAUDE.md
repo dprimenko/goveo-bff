@@ -197,7 +197,7 @@ quien la tiene por su tarifa.
 
 | Tabla | Qué guarda |
 |---|---|
-| `loyalty_programs` | Premios (`rewards`, json `{"3": {label, description}, "5": …}`) y `manually_enabled`. Sin fila, sin tarjeta. La descripción es opcional y se lee en la vista del premio. |
+| `loyalty_programs` | Premios (`rewards`, json `{"3": {label, description}, "5": …}`) y `manually_enabled_at` (la fecha de la activación manual, o nula). Sin fila, sin tarjeta. La descripción es opcional y se lee en la vista del premio. |
 | `loyalty_cards` | Sellos de cada usuario en cada negocio. Se crea con el primer sello. |
 | `loyalty_tokens` | Los QR: sello o canje (con su `reward_stage`). Sólo el hash, como `password_setup_tokens`. |
 | `loyalty_events` | Cada sello y cada canje, con el premio **copiado** tal como estaba al canjearlo. |
@@ -227,7 +227,7 @@ Endpoints:
 | `GET·PUT /api/businesses/{id}/loyalty` | Estado y premios, para el gestor **y el panel** (`business.edit`). |
 | `POST /api/businesses/{id}/loyalty/tokens` | Genera un QR (`{kind: stamp}` o `{kind: redeem, reward_stage}`). **Sólo el gestor**: generar QR es dar sellos. |
 | `GET /api/businesses/{id}/loyalty/tokens/{tokenId}` | `pending|used|expired`: la pantalla del negocio lo consulta mientras enseña el QR. |
-| `PUT /api/admin/businesses/{id}/loyalty` `{manually_enabled}` | La activación manual. Con `business.edit`, sin permiso propio. |
+| `GET·PUT /api/admin/businesses/{id}/loyalty` | Estado, premios y **cifras de uso** (clientes, sellos, canjes, último movimiento) / la activación manual (`{manually_enabled}`). Con `business.edit`, sin permiso propio. |
 
 El borrado definitivo de un negocio (`BusinessPurger`) limpia las cuatro tablas: no tienen clave
 ajena, como `user_follows`.

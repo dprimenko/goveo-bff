@@ -6,7 +6,6 @@ namespace App\Loyalty\Infrastructure\Controller;
 
 use App\Business\Domain\BusinessRepository;
 use App\Loyalty\Application\LoyaltyAvailability;
-use App\Loyalty\Domain\LoyaltyCard;
 use App\Loyalty\Domain\LoyaltyProgramRepository;
 use App\Loyalty\Infrastructure\Service\LoyaltyPresenter;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,7 +16,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * Si un negocio tiene tarjeta y qué premios da, para cualquiera.
  *
  * Es lo que la app enseña a quien llega desde un QR sin haber iniciado sesión:
- * la tarjeta del negocio, vacía, con el sello pendiente de aplicar.
+ * la tarjeta del negocio, vacía, con el sello pendiente de aplicar. Sin sesión
+ * no se sabe si llega a los premios, así que no llevan `redeemable`.
  */
 #[Route('/public/businesses/{id}/loyalty', name: 'public_business_loyalty', methods: ['GET'])]
 class GetBusinessLoyaltyController
@@ -39,10 +39,8 @@ class GetBusinessLoyaltyController
         $program = $this->programs->findByBusinessId($id);
         $status  = $this->availability->check($id, $program);
 
-        return new JsonResponse([
-            'available'  => $status->isAvailable(),
-            'max_stamps' => LoyaltyCard::MAX_STAMPS,
-            'rewards'    => $status->isAvailable() ? $this->presenter->rewards($program) : [],
-        ]);
+        // La misma forma que la tarjeta del usuario, con cero sellos: la app la
+        // pinta igual con sesión o sin ella.
+        return new JsonResponse($this->presenter->card($business, $program, $status, null, forUser: false));
     }
 }

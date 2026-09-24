@@ -12,9 +12,21 @@ use App\Loyalty\Domain\LoyaltyProgram;
 /** La forma en que la API devuelve una tarjeta, igual en todos los endpoints. */
 final class LoyaltyPresenter
 {
-    /** @return array<string, mixed> */
-    public function card(Business $business, ?LoyaltyProgram $program, LoyaltyStatus $status, ?LoyaltyCard $card): array
-    {
+    /**
+     * @param bool $forUser false en la vista pública: sin usuario no se sabe si
+     *                      llega a los premios, y `redeemable` no se manda
+     *
+     * @return array<string, mixed>
+     */
+    public function card(
+        Business $business,
+        ?LoyaltyProgram $program,
+        LoyaltyStatus $status,
+        ?LoyaltyCard $card,
+        bool $forUser = true,
+    ): array {
+        $stamps = $card?->getStamps() ?? 0;
+
         return [
             'business' => [
                 'id'     => $business->getId(),
@@ -24,8 +36,8 @@ final class LoyaltyPresenter
             ],
             'available'  => $status->isAvailable(),
             'max_stamps' => LoyaltyCard::MAX_STAMPS,
-            'stamps'     => $card?->getStamps() ?? 0,
-            'rewards'    => $status->isAvailable() ? $this->rewards($program, $card?->getStamps() ?? 0) : [],
+            'stamps'     => $stamps,
+            'rewards'    => $status->isAvailable() ? $this->rewards($program, $forUser ? $stamps : null) : [],
         ];
     }
 

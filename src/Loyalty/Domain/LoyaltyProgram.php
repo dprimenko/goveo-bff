@@ -8,13 +8,15 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * La tarjeta de fidelización tal y como la ofrece un negocio: qué regala en cada
- * premio y si un admin se la ha activado a mano.
+ * premio y si un admin se la ha dado a mano.
  *
  * Una fila por negocio, y sólo cuando alguien la ha configurado: un negocio sin
  * fila no tiene tarjeta, aunque su tarifa la incluya.
  *
- * La activación manual **sólo suma**. Sirve para dársela a un negocio cuya
- * tarifa no la incluye; no quita la que da la tarifa.
+ * La activación manual (`manually_enabled_at`) se guarda como **la fecha en que
+ * se activó**, o nula: así se sabe también desde cuándo. **Sólo suma**: sirve
+ * para dársela a un negocio cuya tarifa no la incluye, y no quita la que da la
+ * tarifa.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'loyalty_programs')]
@@ -38,8 +40,8 @@ class LoyaltyProgram
     #[ORM\Column(type: 'json', options: ['default' => '{}'])]
     private array $rewards;
 
-    #[ORM\Column(name: 'manually_enabled', type: 'boolean', options: ['default' => false])]
-    private bool $manuallyEnabled;
+    #[ORM\Column(name: 'manually_enabled_at', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $manuallyEnabledAt;
 
     #[ORM\Column(name: 'updated_at', type: 'datetimetz_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private \DateTimeImmutable $updatedAt;
@@ -48,12 +50,13 @@ class LoyaltyProgram
     {
         $this->businessId      = $businessId;
         $this->rewards         = [];
-        $this->manuallyEnabled = false;
-        $this->updatedAt       = new \DateTimeImmutable();
+        $this->manuallyEnabledAt = null;
+        $this->updatedAt         = new \DateTimeImmutable();
     }
 
     public function getBusinessId(): string          { return $this->businessId; }
-    public function isManuallyEnabled(): bool        { return $this->manuallyEnabled; }
+    public function isManuallyEnabled(): bool        { return $this->manuallyEnabledAt !== null; }
+    public function getManuallyEnabledAt(): ?\DateTimeImmutable { return $this->manuallyEnabledAt; }
     public function getUpdatedAt(): \DateTimeImmutable { return $this->updatedAt; }
 
     /** El nombre del premio de ese sello, o null si no da. */
@@ -121,9 +124,13 @@ class LoyaltyProgram
         $this->updatedAt = new \DateTimeImmutable();
     }
 
+    /** Encenderla otra vez conserva la fecha de la primera: no ha cambiado nada. */
     public function setManuallyEnabled(bool $enabled): void
     {
-        $this->manuallyEnabled = $enabled;
-        $this->updatedAt       = new \DateTimeImmutable();
+        if ($enabled === $this->isManuallyEnabled()) {
+            return;
+        }
+        $this->manuallyEnabledAt = $enabled ? new \DateTimeImmutable() : null;
+        $this->updatedAt         = new \DateTimeImmutable();
     }
 }
