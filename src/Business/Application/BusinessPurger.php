@@ -67,6 +67,20 @@ final class BusinessPurger
             $this->videos->deleteVideo((string) $videoId);
         }
 
+        // Las fotos de sus publicaciones no están en su carpeta sino en la de
+        // cada geostory (`geostories/{id}/`), y se quedaban en Bunny al borrar
+        // el negocio. De una en una, como los vídeos.
+        $images = $this->db->fetchAllAssociative(
+            "SELECT url, thumbnail FROM geostories WHERE business_id = ? AND media_type = 'image'",
+            [$id],
+        );
+        foreach ($images as $image) {
+            $this->storage->deleteByUrl($image['url']);
+            if ($image['thumbnail'] !== $image['url']) {
+                $this->storage->deleteByUrl($image['thumbnail']);
+            }
+        }
+
         $storageDeleted = $this->storage->deleteBusinessFolder($id);
 
         // --- La base, de las hojas al tronco ---

@@ -6,6 +6,7 @@ namespace App\Backoffice\Infrastructure\Controller;
 
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
+use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -39,6 +40,7 @@ class PurgeGeoStoryController
         private readonly BunnyVideoService $bunny,
         private readonly Connection $db,
         private readonly LoggerInterface $logger,
+        private readonly BunnyStorageService $storage,
     ) {}
 
     public function __invoke(string $id): Response
@@ -66,6 +68,16 @@ class PurgeGeoStoryController
             // `deleteVideo` se traga sus propios errores y los deja en el
             // registro: un fallo suyo no debe impedir limpiar la base.
             $this->bunny->deleteVideo($providerVideoId);
+        }
+
+        // Una foto no está en Bunny Stream sino en el almacenamiento de
+        // imágenes, y hasta ahora se quedaba allí: la fila desaparecía y el
+        // fichero seguía ocupando. `deleteByUrl` sólo toca lo que es nuestro.
+        if ($story->isImage()) {
+            $this->storage->deleteByUrl($story->getUrl());
+            if ($story->getThumbnail() !== $story->getUrl()) {
+                $this->storage->deleteByUrl($story->getThumbnail());
+            }
         }
 
         // Los likes no tienen clave ajena declarada, así que no se van solos.
