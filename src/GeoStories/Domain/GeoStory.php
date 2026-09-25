@@ -85,6 +85,14 @@ class GeoStory
     #[ORM\Column(name: 'subcategory_id', type: 'guid', nullable: true)]
     private ?string $subcategoryId = null;
 
+    /**
+     * El subnivel del tipo de evento (Noche y fiesta → Discotecas): hijo de
+     * `subcategoryId`. No se filtra por él —se guarda para que los datos estén
+     * completos—, y es opcional: sin él, el evento se queda con su tipo.
+     */
+    #[ORM\Column(name: 'subtype_id', type: 'guid', nullable: true)]
+    private ?string $subtypeId = null;
+
     #[ORM\Column(name: 'influencer_id', type: 'guid', nullable: true)]
     private ?string $influencerId;
 
@@ -195,6 +203,16 @@ class GeoStory
     {
         $this->subcategoryId = $subcategoryId;
         $this->updatedAt     = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    public function getSubtypeId(): ?string { return $this->subtypeId; }
+
+    public function setSubtypeId(?string $subtypeId): self
+    {
+        $this->subtypeId = $subtypeId;
+        $this->updatedAt = new \DateTimeImmutable();
 
         return $this;
     }

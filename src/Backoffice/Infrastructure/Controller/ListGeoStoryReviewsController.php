@@ -137,7 +137,8 @@ class ListGeoStoryReviewsController
             LEFT JOIN business b    ON b.id = g.business_id
             LEFT JOIN influencers i ON i.id = g.influencer_id
             LEFT JOIN categories c  ON c.id = g.category_id
-            LEFT JOIN categories sc ON sc.id = g.subcategory_id';
+            LEFT JOIN categories sc ON sc.id = g.subcategory_id
+            LEFT JOIN categories st ON st.id = g.subtype_id';
 
         $total = (int) $this->db->fetchOne("SELECT COUNT(*) {$from} WHERE {$where}", $params);
 
@@ -147,6 +148,7 @@ class ListGeoStoryReviewsController
                     g.created_at, g.verified_at, g.deleted_at, g.started_at, g.ended_at,
                     c.slug AS category_slug, c.name AS category_name,
                     sc.id AS subcategory_id, sc.slug AS subcategory_slug, sc.name AS subcategory_name,
+                    st.id AS subtype_id, st.slug AS subtype_slug, st.name AS subtype_name,
                     b.id AS business_id, b.name AS business_name, b.avatar AS business_avatar,
                     i.id AS influencer_id, i.name AS influencer_name, i.avatar AS influencer_avatar
                {$from}
@@ -233,6 +235,12 @@ class ListGeoStoryReviewsController
                 'id'   => $row['subcategory_id'],
                 'slug' => $row['subcategory_slug'],
                 'name' => $row['subcategory_name'],
+            ],
+            // El subnivel (Noche y fiesta → Discotecas), si lo tiene.
+            'subtype' => $row['subtype_id'] === null ? null : [
+                'id'   => $row['subtype_id'],
+                'slug' => $row['subtype_slug'],
+                'name' => $row['subtype_name'],
             ],
             'owner'       => $owner,
             'created_at'  => self::iso($row['created_at']),

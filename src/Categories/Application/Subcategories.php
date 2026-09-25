@@ -57,6 +57,30 @@ final class Subcategories
         return $children[0]['id'];
     }
 
+    /**
+     * El subnivel de un tipo (Noche y fiesta → Discotecas), o `null`.
+     *
+     * A diferencia del tipo, **no hay valor por defecto**: el subnivel es
+     * opcional, y uno que no es de ese tipo —o no existe— se queda en nada.
+     *
+     * @param string|null $requested id o slug del pedido
+     */
+    public function resolveSubtype(?string $subcategoryId, ?string $requested): ?string
+    {
+        $requested = trim((string) $requested);
+        if ($subcategoryId === null || $subcategoryId === '' || $requested === '') {
+            return null;
+        }
+
+        foreach ($this->childrenOf($subcategoryId) as $child) {
+            if ($child['id'] === $requested || $child['slug'] === $requested) {
+                return $child['id'];
+            }
+        }
+
+        return null;
+    }
+
     /** @return list<array{id: string, slug: string}> */
     private function childrenOf(string $categoryId): array
     {

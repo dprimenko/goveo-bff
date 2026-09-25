@@ -116,6 +116,15 @@ class UpdateGeoStoryController
                 : $story->getSubcategoryId(),
         ));
 
+        // El subnivel: el pedido si llega, y si no el que tenía, siempre que
+        // siga siendo del tipo —cambiar de tipo se lo lleva—.
+        $story->setSubtypeId($this->subcategories->resolveSubtype(
+            $story->getSubcategoryId(),
+            $request->request->has('subtypeId')
+                ? (string) $request->request->get('subtypeId')
+                : $story->getSubtypeId(),
+        ));
+
         if (!$isBusiness) {
             $lat = $request->request->get('lat');
             $lng = $request->request->get('lng');
@@ -246,6 +255,7 @@ class UpdateGeoStoryController
             'business_id'   => $story->getBusinessId(),
             'category_id'   => $story->getCategoryId(),
             'subcategory_id' => $story->getSubcategoryId(),
+            'subtype_id'     => $story->getSubtypeId(),
             'started_at'    => $story->getStartedAt()?->format(\DateTimeInterface::ATOM),
             'ended_at'      => $story->getEndedAt()?->format(\DateTimeInterface::ATOM),
         ]);

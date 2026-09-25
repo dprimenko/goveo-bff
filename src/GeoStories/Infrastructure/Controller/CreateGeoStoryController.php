@@ -225,6 +225,11 @@ class CreateGeoStoryController
             $categoryId,
             (string) $request->request->get('subcategoryId', ''),
         ));
+        // El subnivel, opcional y sólo si es de ese tipo.
+        $geoStory->setSubtypeId($this->subcategories->resolveSubtype(
+            $geoStory->getSubcategoryId(),
+            (string) $request->request->get('subtypeId', ''),
+        ));
         $this->schedule->apply($geoStory, $categoryId, $rawStart, $rawEnd);
 
         // Published so it shows in the owner's profile immediately (as processing);
@@ -266,6 +271,7 @@ class CreateGeoStoryController
             'business_id'   => $geoStory->getBusinessId(),
             'category_id'   => $geoStory->getCategoryId(),
             'subcategory_id' => $geoStory->getSubcategoryId(),
+            'subtype_id'     => $geoStory->getSubtypeId(),
             'started_at'    => $geoStory->getStartedAt()?->format(\DateTimeInterface::ATOM),
             'ended_at'      => $geoStory->getEndedAt()?->format(\DateTimeInterface::ATOM),
         ], Response::HTTP_CREATED);

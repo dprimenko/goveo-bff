@@ -1221,6 +1221,17 @@ y ferias · `events-festivities` Fiestas de Madrid · `events-experiences` Plane
   sólo lleva subcategoría lo que es de una categoría con hijas, y sólo una de *sus* hijas. Sin ella
   —apps anteriores, panel sin tocar el campo, scraping— va a **«Otros»** (`<padre>-other`) en vez de
   fallar. Al sacar algo de Eventos se le quita. Lo que existía antes se pasó a «Otros».
+- **Subnivel** (`geostories.subtype_id`, migración `Version20260926100000`): nietas de `events`
+  —Noche y fiesta → Discotecas, Sesiones DJ, Electrónica, Tardeo, Fiestas temáticas; Escena →
+  Teatro, Musicales, Humor, Danza, Magia, Microteatro; Flamenco → Tablao, Espectáculo, En sala;
+  Arte → Museos, Temporales, Inmersivas, Galerías, Fotografía; Mercados → Mercadillos, Vintage y
+  artesanía, Gastromercados, Ferias; Fiestas → De barrio, Navidad, San Isidro, Hispanidad,
+  Carnaval; Planes → Cine, Talleres, Visitas guiadas, Gastronomía, Deporte—. **No es un filtro**:
+  la app y la web filtran sólo por el tipo, para no abrumar; se guarda para tener los datos
+  completos cuando haga falta, y lo rellena sobre todo el scraping. Es **opcional y sin valor por
+  defecto** (`Subcategories::resolveSubtype`): uno que no sea del tipo se queda en nada, y cambiar
+  de tipo lo quita. Va en columna aparte para no tocar el filtro ni las apps publicadas.
+  `subtypeId` al subir y editar; `subtype {id, slug, name}` en la lista del panel.
 - **Subida y edición**: `subcategoryId` (id o slug) en `POST /api/geostories` y en
   `POST /api/geostories/{id}`.
 - **Feed**: `?subcategory=` (slug o id) en `/public/geostories`; cada elemento trae
