@@ -1257,12 +1257,20 @@ La pasada del Ayuntamiento tarda (abre cientos de fichas de madrid.es, con pausa
 para no parecer un ataque); las salas, segundos. Una web caída no corta las demás: el comando sigue y
 termina con código de error.
 
-**Deshacer una pasada**: `goveo:events:purge --origin=scraping_AAAA-MM-DD` enseña lo que borraría
-y con `--apply` lo borra **del todo** (fila, likes e imagen del almacenamiento), y también las
-salas que creó esa pasada si ya no les quedan eventos de otras. `--source` para una
-fuente sola. Lo validado no se toca sin `--include-verified`. Al irse la fila se va su
-`external_ref`, así que **la siguiente pasada lo vuelve a importar**: es para rehacer una pasada
-que salió mal; para que un evento no vuelva, se descarta en el panel.
+**Deshacer una pasada** — `goveo:events:purge --origin=scraping_AAAA-MM-DD` enseña lo que borraría,
+y con `--apply` lo borra **del todo**: filas, likes y ficheros de Bunny Storage (la imagen de cada
+evento y la carpeta entera de cada sala), para que lo que no se valida no se acumule allí.
+
+| Opción | Valores | |
+|---|---|---|
+| `--what` | `videos` · `businesses` · `all` (defecto) | qué borrar |
+| `--status` | `pending` (defecto) · `all` | sólo lo sin validar, o también lo validado |
+| `--source` | `berlin`, `clamores`… | sólo esas fuentes |
+
+Con `all`, primero se van los eventos y la sala sólo si ya no le quedan de otras pasadas. Con
+`businesses`, los eventos de la sala **pasan a la Agenda de su ciudad** en vez de irse con ella. Al
+irse la fila se va su `external_ref`, así que **la siguiente pasada lo vuelve a importar**: es para
+rehacer una pasada que salió mal; para que algo no vuelva, se descarta en el panel.
 
 **A mano** (mientras no haya cron): `make events CITY=Madrid ARGS=--dry-run` y luego sin `ARGS`
 lanza el comando en el contenedor de producción por SSH ([`bin/goveo-events`](bin/goveo-events));
