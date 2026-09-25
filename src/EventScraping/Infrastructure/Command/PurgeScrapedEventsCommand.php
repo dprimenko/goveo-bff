@@ -9,6 +9,7 @@ use App\Business\Domain\BusinessRepository;
 use App\EventScraping\Application\AgendaPublisher;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -65,6 +66,7 @@ final class PurgeScrapedEventsCommand extends Command
         private readonly BusinessRepository $businesses,
         private readonly BusinessPurger $purger,
         private readonly AgendaPublisher $agenda,
+        private readonly EntityManagerInterface $em,
     ) {
         parent::__construct();
     }
@@ -77,6 +79,7 @@ final class PurgeScrapedEventsCommand extends Command
             ->addOption('what', null, InputOption::VALUE_REQUIRED, 'Qué borrar: videos, businesses o all.', 'all')
             ->addOption('status', null, InputOption::VALUE_REQUIRED, 'pending (sólo lo sin validar) o all (también lo validado).', 'pending')
             ->addOption('source', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sólo estas fuentes (berlin, clamores…).')
+            ->addOption('pause', null, InputOption::VALUE_REQUIRED, 'Milisegundos de espera entre un elemento y el siguiente.', '500')
             ->addOption('apply', null, InputOption::VALUE_NONE, 'Borra de verdad (sin esto sólo lo enseña).');
     }
 
@@ -158,53 +161,113 @@ final class PurgeScrapedEventsCommand extends Command
             return Command::SUCCESS;
         }
 
-        foreach ($videos as $video) {
-            // Primero la imagen: si fallara el borrado de la fila, quedaría una
-            // ficha sin foto, que se ve y se arregla. Al revés quedaría una foto
-            // en el almacenamiento sin nada que la nombre.
-            $this->storage->deleteByUrl($video['url']);
+        // **De uno en uno**: cada elemento se termina entero —fichero en Bunny
+        // y fila en la base— antes de empezar el siguiente, con una pausa entre
+        // medias. En producción, borrar de corrido tumbaba el servidor un rato
+        // (500 en todo) y el comando moría sin decir en qué elemento; por eso
+        // también sale una línea por cada uno.
+        $pause   = max(0, (int) $input->getOption('pause')) * 1000;
+        $total   = count($videos) + count($venues);
+        $n       = 0;
+        $done    = 0;
+        $failed  = [];
 
-            $this->db->transactional(function (Connection $db) use ($video): void {
-                // Los likes no tienen clave ajena declarada, así que no se van solos.
-                $db->executeStatement('DELETE FROM geostory_likes WHERE geostory_id = ?', [$video['id']]);
-                $db->executeStatement('DELETE FROM geostories WHERE id = ?', [$video['id']]);
-            });
+        foreach ($videos as $video) {
+            ++$n;
+            try {
+                // Primero la imagen: si fallara el borrado de la fila, quedaría
+                // una ficha sin foto, que se ve y se arregla. Al revés quedaría
+                // una foto en Bunny sin nada que la nombre, que es justo lo que
+                // se quiere evitar.
+                $fileGone = $this->storage->deleteByUrl($video['url']);
+
+                $this->db->transactional(function (Connection $db) use ($video): void {
+                    // Los likes no tienen clave ajena declarada, así que no se
+                    // van solos.
+                    $db->executeStatement('DELETE FROM geostory_likes WHERE geostory_id = ?', [$video['id']]);
+                    $db->executeStatement('DELETE FROM geostories WHERE id = ?', [$video['id']]);
+                });
+
+                ++$done;
+                $io->writeln(sprintf(
+                    '  [%d/%d] vídeo borrado%s: %s',
+                    $n,
+                    $total,
+                    $fileGone ? '' : ' <comment>(la imagen no se pudo borrar de Bunny)</comment>',
+                    $video['title'] ?? $video['external_ref'],
+                ));
+                if (!$fileGone) {
+                    $failed[] = 'imagen de «' . ($video['title'] ?? $video['external_ref']) . '»: ' . $video['url'];
+                }
+            } catch (\Throwable $e) {
+                $failed[] = sprintf('vídeo «%s»: %s', $video['title'] ?? $video['external_ref'], $e->getMessage());
+                $io->writeln(sprintf('  [%d/%d] <error>no se pudo borrar</error> %s: %s', $n, $total, $video['external_ref'], $e->getMessage()));
+            }
+
+            usleep($pause);
         }
 
         $purgedVenues = 0;
         $movedVideos  = 0;
         foreach ($venues as $venue) {
-            $left = (int) $this->db->fetchOne('SELECT COUNT(*) FROM geostories WHERE business_id = ?', [$venue['id']]);
+            ++$n;
+            try {
+                $left = (int) $this->db->fetchOne('SELECT COUNT(*) FROM geostories WHERE business_id = ?', [$venue['id']]);
 
-            if ($left > 0 && $what === 'all') {
-                $io->note(sprintf('Se deja la sala «%s»: le quedan %d eventos de otras pasadas.', $venue['name'], $left));
-                continue;
+                if ($left > 0 && $what === 'all') {
+                    $io->writeln(sprintf('  [%d/%d] sala que se deja: «%s» (le quedan %d eventos de otras pasadas)', $n, $total, $venue['name'], $left));
+                    continue;
+                }
+
+                // Sólo salas: sus eventos no se van con ella, pasan a la Agenda.
+                if ($left > 0) {
+                    $movedVideos += $this->db->executeStatement(
+                        'UPDATE geostories SET business_id = NULL, influencer_id = ?, updated_at = NOW() WHERE business_id = ?',
+                        [$this->agenda->forCity($venue['city'] ?? 'Madrid'), $venue['id']],
+                    );
+                }
+
+                $business = $this->businesses->findById($venue['id']);
+                if ($business !== null) {
+                    $result = $this->purger->purge($business);
+                    ++$purgedVenues;
+                    ++$done;
+                    $io->writeln(sprintf(
+                        '  [%d/%d] sala borrada%s: %s',
+                        $n,
+                        $total,
+                        ($result['storage_deleted'] ?? true) ? '' : ' <comment>(sus imágenes no se pudieron borrar de Bunny)</comment>',
+                        $venue['name'],
+                    ));
+                    if (!($result['storage_deleted'] ?? true)) {
+                        $failed[] = 'imágenes de la sala «' . $venue['name'] . '»: business/' . $venue['id'] . '/';
+                    }
+                }
+            } catch (\Throwable $e) {
+                $failed[] = sprintf('sala «%s»: %s', $venue['name'], $e->getMessage());
+                $io->writeln(sprintf('  [%d/%d] <error>no se pudo borrar</error> la sala %s: %s', $n, $total, $venue['name'], $e->getMessage()));
+            } finally {
+                // Nada de lo que viene usa entidades ya cargadas: se sueltan
+                // para que la memoria no crezca con la vuelta.
+                $this->em->clear();
             }
 
-            // Sólo salas: sus eventos no se van con ella, pasan a la Agenda.
-            if ($left > 0) {
-                $movedVideos += $this->db->executeStatement(
-                    'UPDATE geostories SET business_id = NULL, influencer_id = ?, updated_at = NOW() WHERE business_id = ?',
-                    [$this->agenda->forCity($venue['city'] ?? 'Madrid'), $venue['id']],
-                );
-            }
+            usleep($pause);
+        }
 
-            $business = $this->businesses->findById($venue['id']);
-            if ($business !== null) {
-                $this->purger->purge($business);
-                ++$purgedVenues;
-            }
+        if ($failed !== []) {
+            $io->warning(array_merge(['No se pudo con todo; lo demás está borrado:'], $failed));
         }
 
         $io->success(sprintf(
             '%d vídeos y %d salas borrados de %s%s. La próxima pasada los volverá a importar.',
-            count($videos),
+            $done - $purgedVenues,
             $purgedVenues,
             $origin,
             $movedVideos > 0 ? sprintf(' (%d eventos pasados a la Agenda)', $movedVideos) : '',
         ));
 
-        return Command::SUCCESS;
+        return $failed === [] ? Command::SUCCESS : Command::FAILURE;
     }
 
     /**

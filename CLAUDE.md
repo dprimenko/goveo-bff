@@ -1268,6 +1268,15 @@ evento y la carpeta entera de cada sala), para que lo que no se valida no se acu
 | `--what` | `videos` · `businesses` · `all` (defecto) | qué borrar |
 | `--status` | `pending` (defecto) · `all` | sólo lo sin validar, o también lo validado |
 | `--source` | `berlin`, `clamores`… | sólo esas fuentes |
+| `--pause` | milisegundos (defecto 500) | espera entre un elemento y el siguiente |
+
+⚠️ **Borra de uno en uno** (25-09-2026): cada elemento se termina entero —fichero en Bunny y fila—
+antes del siguiente, con una línea de progreso por cada uno (`[33/34] sala borrada: …`). En
+producción, borrarlo todo de corrido tumbaba el servidor un rato —500 en todo, y luego se
+recuperaba— y el comando moría sin decir en qué elemento. En local no se reproduce: la API
+aguantó y el proceso no pasó de 106 MB. Si vuelve a pasar, la última línea del log dice dónde, y
+`--pause` más alto afloja. Un elemento que falla no corta la pasada: se lista al final y el
+comando acaba con error.
 
 `last` y `--older-than` son para las tareas de Dokploy, que llevan el comando escrito: con una
 fecha fija habría que editarlas antes de cada uso. `--older-than=7` con el `--status=pending` por

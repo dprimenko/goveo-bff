@@ -216,29 +216,39 @@ final class BunnyStorageService
      * Borra una imagen anterior. **No lanza**: es limpieza, y que falle no debe
      * tumbar un guardado que ya ha ido bien.
      */
-    public function deleteByUrl(?string $url): void
+    /**
+     * @return bool Si el fichero ya no está: borrado, o no había nada que
+     *              borrar (404). `false` si Bunny no respondió o dijo que no.
+     *              Quien sólo limpia al paso puede ignorarlo; el borrado de
+     *              pasadas del scraping lo usa para decir qué no se pudo.
+     */
+    public function deleteByUrl(?string $url): bool
     {
         if ($url === null || !$this->isConfigured()) {
-            return;
+            return false;
         }
 
         $prefix = sprintf('https://%s/', $this->cdnHostname);
         if (!str_starts_with($url, $prefix)) {
             // De Cloudinary o de fuera: no es nuestro, no se toca.
-            return;
+            return false;
         }
 
         try {
-            $this->httpClient->request(
+            $status = $this->httpClient->request(
                 'DELETE',
                 sprintf('https://%s/%s/%s', $this->host, $this->zone, substr($url, strlen($prefix))),
                 ['headers' => ['AccessKey' => $this->password]],
             )->getStatusCode();
+
+            return $status < 300 || $status === 404;
         } catch (\Throwable $e) {
             $this->logger->warning('No se pudo borrar una imagen antigua', [
                 'url'     => $url,
                 'message' => $e->getMessage(),
             ]);
+
+            return false;
         }
     }
 }
