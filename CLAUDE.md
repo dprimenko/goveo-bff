@@ -1263,9 +1263,16 @@ evento y la carpeta entera de cada sala), para que lo que no se valida no se acu
 
 | Opción | Valores | |
 |---|---|---|
+| `--origin` | `scraping_AAAA-MM-DD` · `last` (la última pasada) | qué pasada |
+| `--older-than` | días, en vez de `--origin` | todas las pasadas de hace más de N días |
 | `--what` | `videos` · `businesses` · `all` (defecto) | qué borrar |
 | `--status` | `pending` (defecto) · `all` | sólo lo sin validar, o también lo validado |
 | `--source` | `berlin`, `clamores`… | sólo esas fuentes |
+
+`last` y `--older-than` son para las tareas de Dokploy, que llevan el comando escrito: con una
+fecha fija habría que editarlas antes de cada uso. `--older-than=7` con el `--status=pending` por
+defecto es la limpieza de lo que nadie ha validado. Ojo: un evento largo —una exposición de tres
+meses— sigue dentro de la ventana, así que si se borra sin validar vuelve en la siguiente pasada.
 
 Con `all`, primero se van los eventos y la sala sólo si ya no le quedan de otras pasadas. Con
 `businesses`, los eventos de la sala **pasan a la Agenda de su ciudad** en vez de irse con ella. Al

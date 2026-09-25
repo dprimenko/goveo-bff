@@ -23,6 +23,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
  *     php bin/console goveo:events:purge --origin=scraping_2026-09-23                      # enseña qué borraría
  *     php bin/console goveo:events:purge --origin=scraping_2026-09-23 --apply              # borra
  *     php bin/console goveo:events:purge --origin=… --what=videos --status=all --apply     # vídeos, validados o no
+ *     php bin/console goveo:events:purge --origin=last --apply                             # la última pasada
+ *     php bin/console goveo:events:purge --older-than=7 --apply                            # las de hace más de 7 días
+ *
+ * `last` y `--older-than` existen para las tareas de Dokploy: una fecha escrita
+ * en la tarea obligaría a editarla antes de cada uso. `--older-than` con el
+ * `--status=pending` por defecto es la limpieza de lo que nadie ha validado.
  *
  * - `--what`: `videos` (los eventos), `businesses` (las salas que creó) o `all`.
  * - `--status`: `pending` (sólo lo sin validar, por defecto) o `all`. Lo validado
@@ -66,7 +72,8 @@ final class PurgeScrapedEventsCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addOption('origin', null, InputOption::VALUE_REQUIRED, 'La pasada, como sale en el panel: scraping_AAAA-MM-DD.')
+            ->addOption('origin', null, InputOption::VALUE_REQUIRED, 'La pasada, como sale en el panel (scraping_AAAA-MM-DD), o «last» para la última.')
+            ->addOption('older-than', null, InputOption::VALUE_REQUIRED, 'En vez de --origin: todas las pasadas de hace más de N días.')
             ->addOption('what', null, InputOption::VALUE_REQUIRED, 'Qué borrar: videos, businesses o all.', 'all')
             ->addOption('status', null, InputOption::VALUE_REQUIRED, 'pending (sólo lo sin validar) o all (también lo validado).', 'pending')
             ->addOption('source', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sólo estas fuentes (berlin, clamores…).')
@@ -75,17 +82,29 @@ final class PurgeScrapedEventsCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $io      = new SymfonyStyle($input, $output);
-        $origin  = trim((string) $input->getOption('origin'));
-        $what    = (string) $input->getOption('what');
-        $status  = (string) $input->getOption('status');
-        $apply   = (bool) $input->getOption('apply');
-        $sources = (array) $input->getOption('source');
+        $io        = new SymfonyStyle($input, $output);
+        $origin    = trim((string) $input->getOption('origin'));
+        $olderThan = $input->getOption('older-than');
+        $what      = (string) $input->getOption('what');
+        $status    = (string) $input->getOption('status');
+        $apply     = (bool) $input->getOption('apply');
+        $sources   = (array) $input->getOption('source');
 
-        // Sin `--origin` no se borra «todo lo importado»: un despiste en la
-        // orden no puede llevarse meses de cartelera.
-        if (!preg_match('/^scraping_\d{4}-\d{2}-\d{2}$/', $origin)) {
-            $io->error('Indica la pasada con --origin=scraping_AAAA-MM-DD (sale en cada tarjeta del panel).');
+        // Una de las dos, y siempre una: sin nada no se borra «todo lo
+        // importado», porque un despiste en la orden no puede llevarse meses de
+        // cartelera.
+        if (($origin === '') === ($olderThan === null)) {
+            $io->error('Indica --origin=scraping_AAAA-MM-DD, --origin=last o --older-than=DÍAS (una de las tres).');
+
+            return Command::INVALID;
+        }
+        if ($olderThan !== null && (!ctype_digit((string) $olderThan) || (int) $olderThan < 1)) {
+            $io->error('--older-than es un número de días, 1 o más.');
+
+            return Command::INVALID;
+        }
+        if ($origin !== '' && $origin !== 'last' && !preg_match('/^scraping_\d{4}-\d{2}-\d{2}$/', $origin)) {
+            $io->error('--origin es scraping_AAAA-MM-DD (sale en cada tarjeta del panel) o last.');
 
             return Command::INVALID;
         }
@@ -95,9 +114,18 @@ final class PurgeScrapedEventsCommand extends Command
             return Command::INVALID;
         }
 
+        $origins = $this->origins($origin, $olderThan === null ? null : (int) $olderThan);
+        if ($origins === []) {
+            $io->success('No hay ninguna pasada que coincida.');
+
+            return Command::SUCCESS;
+        }
+        $io->writeln('Pasadas: ' . implode(', ', $origins));
+        $origin = implode(', ', $origins);
+
         $withVerified = $status === 'all';
-        $videos       = $what !== 'businesses' ? $this->select('geostories', 'id, title, url, external_ref, verified_at', 'external_ref', $origin, $sources, $withVerified) : [];
-        $venues       = $what !== 'videos' ? $this->select('business', 'id, name, city, external_ref, verified_at', 'name', $origin, $sources, $withVerified) : [];
+        $videos       = $what !== 'businesses' ? $this->select('geostories', 'id, title, url, external_ref, verified_at', 'external_ref', $origins, $sources, $withVerified) : [];
+        $venues       = $what !== 'videos' ? $this->select('business', 'id, name, city, external_ref, verified_at', 'name', $origins, $sources, $withVerified) : [];
 
         if ($videos === [] && $venues === []) {
             $io->success(sprintf('Nada que borrar de %s con esos filtros.', $origin));
@@ -116,10 +144,10 @@ final class PurgeScrapedEventsCommand extends Command
         if (!$withVerified) {
             $left = [];
             if ($what !== 'businesses') {
-                $left[] = count($this->select('geostories', 'id', 'id', $origin, $sources, true)) - count($videos) . ' vídeos';
+                $left[] = count($this->select('geostories', 'id', 'id', $origins, $sources, true)) - count($videos) . ' vídeos';
             }
             if ($what !== 'videos') {
-                $left[] = count($this->select('business', 'id', 'id', $origin, $sources, true)) - count($venues) . ' salas';
+                $left[] = count($this->select('business', 'id', 'id', $origins, $sources, true)) - count($venues) . ' salas';
             }
             $io->note(sprintf('Validados de esa pasada que se dejan: %s. Para borrarlos también, --status=all.', implode(' y ', $left)));
         }
@@ -183,14 +211,15 @@ final class PurgeScrapedEventsCommand extends Command
      * Lo de esa pasada en una tabla. `geostories` y `business` guardan el
      * origen igual —`external_ref` y `meta.origin`—, así que es la misma consulta.
      *
+     * @param list<string> $origins
      * @param list<string> $sources
      *
      * @return list<array<string, mixed>>
      */
-    private function select(string $table, string $columns, string $order, string $origin, array $sources, bool $withVerified): array
+    private function select(string $table, string $columns, string $order, array $origins, array $sources, bool $withVerified): array
     {
-        $where  = "external_ref IS NOT NULL AND meta->>'origin' = ?";
-        $params = [$origin];
+        $where  = "external_ref IS NOT NULL AND meta->>'origin' IN (" . implode(', ', array_fill(0, count($origins), '?')) . ')';
+        $params = $origins;
 
         if ($sources !== []) {
             $where .= ' AND (' . implode(' OR ', array_fill(0, count($sources), 'external_ref LIKE ?')) . ')';
@@ -203,6 +232,36 @@ final class PurgeScrapedEventsCommand extends Command
         }
 
         return $this->db->fetchAllAssociative("SELECT {$columns} FROM {$table} WHERE {$where} ORDER BY {$order}", $params);
+    }
+
+    /**
+     * Las pasadas a borrar. `scraping_AAAA-MM-DD` se ordena igual como texto
+     * que como fecha, así que la última es la mayor y «hace más de N días» es
+     * una comparación de cadenas.
+     *
+     * @return list<string>
+     */
+    private function origins(string $origin, ?int $olderThan): array
+    {
+        if ($olderThan === null && $origin !== 'last') {
+            return [$origin];
+        }
+
+        $all = $this->db->fetchFirstColumn(
+            "SELECT DISTINCT meta->>'origin' AS o FROM geostories WHERE external_ref IS NOT NULL AND meta->>'origin' LIKE 'scraping\\_%'
+             UNION
+             SELECT DISTINCT meta->>'origin' FROM business WHERE external_ref IS NOT NULL AND meta->>'origin' LIKE 'scraping\\_%'
+             ORDER BY 1",
+        );
+
+        if ($olderThan === null) {
+            return $all === [] ? [] : [end($all)];
+        }
+
+        $limit = 'scraping_' . (new \DateTimeImmutable('today', new \DateTimeZone('Europe/Madrid')))
+            ->modify(sprintf('-%d days', $olderThan))->format('Y-m-d');
+
+        return array_values(array_filter($all, fn (string $o) => $o < $limit));
     }
 
     /** @param array<string, mixed> $row */
