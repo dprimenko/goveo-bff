@@ -44,6 +44,7 @@ class ListGeoStoriesController
         $feedType    = $request->query->get('feedType');
         $category    = $request->query->get('category');
         $notCategory = $request->query->get('notCategory');
+        $subcategory = $request->query->get('subcategory');
         $businessId  = $request->query->get('businessId');
         $influencerId = $request->query->get('influencerId');
 
@@ -83,6 +84,7 @@ class ListGeoStoriesController
             influencerId:  $influencerId,
             includeUnverified: $includeUnverified,
             supportsImages: $supportsImages,
+            subcategory:   $subcategory,
         );
 
         $result = $findFeed();
@@ -224,6 +226,9 @@ class ListGeoStoriesController
             'category_id'      => $s->categoryId,
             'category_name'    => $s->categoryName,
             'category_slug'    => $s->categorySlug,
+            'subcategory_id'   => $s->subcategoryId,
+            'subcategory_slug' => $s->subcategorySlug,
+            'subcategory_name' => $s->subcategoryName,
         ];
     }
 }

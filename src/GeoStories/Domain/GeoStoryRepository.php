@@ -77,6 +77,8 @@ interface GeoStoryRepository
          * `ListGeoStoriesController`).
          */
         bool $supportsImages = false,
+        /** Subcategoría de un evento, por slug o id. */
+        ?string $subcategory = null,
     ): array;
 
     /**

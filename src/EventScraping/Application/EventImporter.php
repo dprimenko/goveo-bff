@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\EventScraping\Application;
 
+use App\Categories\Application\Subcategories;
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
 use App\EventScraping\Infrastructure\PosterFrame;
@@ -47,6 +48,7 @@ final class EventImporter
         private readonly AgendaPublisher $agenda,
         private readonly PosterFrame $frame,
         private readonly EntityManagerInterface $em,
+        private readonly Subcategories $subcategories,
     ) {}
 
     /**
@@ -143,6 +145,8 @@ final class EventImporter
             if ($event->latitude !== null && $event->longitude !== null) {
                 $story->setLocation($event->latitude, $event->longitude);
             }
+            // «Otros» hasta que se reclasifique en el panel.
+            $story->setSubcategoryId($this->subcategories->resolve($this->eventsCategoryId(), null));
             $story->scheduleEvent($event->start, $event->end);
             $story->linkTo($event->link, $event->linkAction);
             $story->importedFrom($source->name(), $event->externalId, $runAt);

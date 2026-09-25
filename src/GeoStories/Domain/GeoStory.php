@@ -18,6 +18,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Index(name: 'idx_geostories_business_id', columns: ['business_id'], options: ['where' => 'deleted_at IS NULL'])]
 #[ORM\Index(name: 'idx_geostories_category_id', columns: ['category_id'], options: ['where' => 'deleted_at IS NULL'])]
 #[ORM\Index(name: 'idx_geostories_influencer_id', columns: ['influencer_id'], options: ['where' => 'deleted_at IS NULL'])]
+#[ORM\Index(name: 'idx_geostories_subcategory_id', columns: ['subcategory_id'], options: ['where' => 'deleted_at IS NULL'])]
 #[ORM\UniqueConstraint(name: 'uniq_geostories_external_ref', columns: ['external_ref'])]
 class GeoStory
 {
@@ -74,6 +75,15 @@ class GeoStory
 
     #[ORM\Column(name: 'category_id', type: 'guid', nullable: true)]
     private ?string $categoryId;
+
+    /**
+     * La subcategoría de un evento («Escena», «Flamenco»…): una categoría hija
+     * de `events`. Va aparte de `categoryId` porque lo que decide si algo es un
+     * evento mira la categoría, y cambiarla lo sacaría de Eventos. Nula fuera
+     * de Eventos.
+     */
+    #[ORM\Column(name: 'subcategory_id', type: 'guid', nullable: true)]
+    private ?string $subcategoryId = null;
 
     #[ORM\Column(name: 'influencer_id', type: 'guid', nullable: true)]
     private ?string $influencerId;
@@ -179,6 +189,15 @@ class GeoStory
     public function getLocation(): mixed { return $this->location; }
     public function getCategoryId(): ?string { return $this->categoryId; }
     public function getInfluencerId(): ?string { return $this->influencerId; }
+    public function getSubcategoryId(): ?string { return $this->subcategoryId; }
+
+    public function setSubcategoryId(?string $subcategoryId): self
+    {
+        $this->subcategoryId = $subcategoryId;
+        $this->updatedAt     = new \DateTimeImmutable();
+
+        return $this;
+    }
     public function getBusinessId(): ?string { return $this->businessId; }
     public function isMain(): bool { return $this->isMain; }
     public function getStatus(): string { return $this->status; }

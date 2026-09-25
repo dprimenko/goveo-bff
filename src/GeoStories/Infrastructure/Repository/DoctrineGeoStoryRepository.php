@@ -155,11 +155,15 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 buss.meta  AS business_meta,
                 cat.id     AS category_id,
                 cat.name   AS category_name,
-                cat.slug   AS category_slug
+                cat.slug   AS category_slug,
+                sub.id     AS subcategory_id,
+                sub.slug   AS subcategory_slug,
+                sub.name   AS subcategory_name
             FROM geostories geo
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business     buss ON geo.business_id   = buss.id
             LEFT JOIN categories   cat  ON geo.category_id   = cat.id
+            LEFT JOIN categories   sub  ON geo.subcategory_id = sub.id
             -- likes = base heredada del import + likes nuevos con usuario
             LEFT JOIN (
                 SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id
@@ -214,11 +218,15 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 buss.meta  AS business_meta,
                 cat.id     AS category_id,
                 cat.name   AS category_name,
-                cat.slug   AS category_slug
+                cat.slug   AS category_slug,
+                sub.id     AS subcategory_id,
+                sub.slug   AS subcategory_slug,
+                sub.name   AS subcategory_name
             FROM geostories geo
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business     buss ON geo.business_id   = buss.id
             LEFT JOIN categories   cat  ON geo.category_id   = cat.id
+            LEFT JOIN categories   sub  ON geo.subcategory_id = sub.id
             -- likes = base heredada del import + likes nuevos con usuario
             LEFT JOIN (
                 SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id
@@ -250,6 +258,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?string $influencerId = null,
         bool $includeUnverified = false,
         bool $supportsImages = false,
+        ?string $subcategory = null,
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
@@ -374,6 +383,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         }
 
         // Explicit category filter: accepts a UUID (from the category picker) or a slug.
+        // La subcategoría de un evento, por slug o id («Todos los eventos» es
+        // no mandarla).
+        if ($subcategory !== null && $subcategory !== '') {
+            $conditions[] = '(sub.id::text = :subcategory OR sub.slug = :subcategory)';
+            $params['subcategory'] = $subcategory;
+        }
+
         if ($categoryId !== null) {
             $conditions[] = '(cat.id::text = :category_id OR cat.slug = :category_id)';
             $params['category_id'] = $categoryId;
@@ -411,11 +427,15 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 cat.id       AS category_id,
                 cat.name     AS category_name,
                 cat.slug     AS category_slug,
+                sub.id       AS subcategory_id,
+                sub.slug     AS subcategory_slug,
+                sub.name     AS subcategory_name,
                 COUNT(*) OVER() AS total_count
             FROM geostories geo
             LEFT JOIN influencers influ ON geo.influencer_id = influ.id
             LEFT JOIN business    buss  ON geo.business_id   = buss.id
             LEFT JOIN categories  cat   ON geo.category_id   = cat.id
+            LEFT JOIN categories  sub   ON geo.subcategory_id = sub.id
             -- likes = base heredada del import + likes nuevos con usuario
             LEFT JOIN (
                 SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id

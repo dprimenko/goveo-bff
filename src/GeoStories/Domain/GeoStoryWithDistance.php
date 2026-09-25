@@ -41,6 +41,10 @@ final class GeoStoryWithDistance
         public readonly ?string $categoryName,
         /** El slug decide quién caduca y quién pide fechas: ver StorySchedule. */
         public readonly ?string $categorySlug = null,
+        /** La subcategoría de un evento (hija de `events`): id, slug y nombre. */
+        public readonly ?string $subcategoryId = null,
+        public readonly ?string $subcategorySlug = null,
+        public readonly ?string $subcategoryName = null,
     ) {}
 
     public static function fromRow(array $row): self
@@ -76,6 +80,9 @@ final class GeoStoryWithDistance
             categoryId: $row['category_id'] ?? null,
             categoryName: $row['category_name'] ?? null,
             categorySlug: $row['category_slug'] ?? null,
+            subcategoryId: $row['subcategory_id'] ?? null,
+            subcategorySlug: $row['subcategory_slug'] ?? null,
+            subcategoryName: $row['subcategory_name'] ?? null,
         );
     }
 }

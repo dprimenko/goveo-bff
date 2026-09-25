@@ -1203,6 +1203,32 @@ la app origen). Para publicar los **ya importados** antes de este cambio, un one
 Ejemplo de tienda con datos completos: **Jamonería López Pascual** — Firestore `2vyvumaqnCCVqE5xBoaE`,
 business `c91efd77-dc56-5c54-8c52-38b9aaed3f1a` (251 productos, 9 subcategorías).
 
+## Subcategorías de Eventos (`categories.parent_id`)
+
+Las subcategorías son **categorías hijas** (`categories.parent_id`), no una tabla aparte: es el
+árbol que necesita la reestructuración de categorías, y admite más niveles sin tocar el esquema.
+Hoy sólo las tiene Eventos (migración `Version20260926090000`), un nivel:
+
+`events-small-concerts` Conciertos pequeños · `events-nightlife` Noche y fiesta · `events-stage`
+Escena · `events-flamenco` Flamenco · `events-art` Arte y exposiciones · `events-markets` Mercados
+y ferias · `events-festivities` Fiestas de Madrid · `events-experiences` Planes y experiencias ·
+`events-other` Otros. El `name` es la clave de traducción `category.<slug>`, como el resto.
+«Conciertos grandes» no entra por ahora.
+
+- **`geostories.subcategory_id`, aparte de `category_id`**: la vigencia, el feed de Eventos y el
+  enlace externo miran `cat.slug = 'events'`, y cambiar la categoría a «Escena» lo sacaría de ahí.
+- **Siempre una válida o ninguna** ([`Subcategories`](src/Categories/Application/Subcategories.php)):
+  sólo lleva subcategoría lo que es de una categoría con hijas, y sólo una de *sus* hijas. Sin ella
+  —apps anteriores, panel sin tocar el campo, scraping— va a **«Otros»** (`<padre>-other`) en vez de
+  fallar. Al sacar algo de Eventos se le quita. Lo que existía antes se pasó a «Otros».
+- **Subida y edición**: `subcategoryId` (id o slug) en `POST /api/geostories` y en
+  `POST /api/geostories/{id}`.
+- **Feed**: `?subcategory=` (slug o id) en `/public/geostories`; cada elemento trae
+  `subcategory_id`, `subcategory_slug` y `subcategory_name`. En el panel, `subcategory {id, slug, name}`.
+- **Catálogo**: `/public/categories` devuelve **sólo las de primer nivel**, para que «Flamenco» no se
+  cuele entre los círculos de la home ni en los desplegables de negocio; `?parent=events` lista las
+  hijas. Cada categoría trae su `parent_id`.
+
 ## Scraping de eventos (`App\EventScraping`)
 
 `php bin/console goveo:events:scrape` importa la cartelera de salas y agendas como **geostories de

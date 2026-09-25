@@ -18,9 +18,29 @@ class ListCategoriesController
         private readonly EntityManagerInterface $em,
     ) {}
 
+    /**
+     * Por defecto, sólo las de primer nivel: las subcategorías (las de Eventos)
+     * colarían «Flamenco» entre los círculos de la home y en los desplegables
+     * de negocio. `?parent=events` (slug o id) lista las hijas de una.
+     */
     #[Route('', name: 'list', methods: ['GET'])]
     public function __invoke(Request $request): Response
     {
+        $parent = trim($request->query->getString('parent', ''));
+        if ($parent !== '') {
+            $rows = $this->em->getConnection()->fetchAllAssociative(
+                'SELECT c.id FROM categories c
+                   JOIN categories p ON p.id = c.parent_id
+                  WHERE c.deleted_at IS NULL AND (p.slug = ? OR p.id::text = ?)
+                  ORDER BY c."order" ASC',
+                [$parent, $parent],
+            );
+
+            return $this->respond(array_values(array_filter(
+                array_map(fn (array $r) => $this->em->find(Category::class, $r['id']), $rows),
+            )));
+        }
+
         // ?partner=xxx → filter by partner slug; no param → partner IS NULL
         $partner = $request->query->has('partner') ? $request->query->get('partner') : null;
 
@@ -39,6 +59,7 @@ class ListCategoriesController
                 FROM categories c
                 INNER JOIN categories_category_types cct ON cct.category_id = c.id
                 WHERE c.deleted_at IS NULL
+                  AND c.parent_id IS NULL
                   AND {$partnerWhere}
                   AND cct.type_id IN ({$placeholders})
                 ORDER BY c.order ASC
@@ -49,7 +70,7 @@ class ListCategoriesController
             ));
         } else {
             $categories = $this->em->getRepository(Category::class)->findBy(
-                ['deletedAt' => null, 'partner' => $partner],
+                ['deletedAt' => null, 'partner' => $partner, 'parentId' => null],
                 ['order' => 'ASC'],
             );
         }
@@ -63,6 +84,12 @@ class ListCategoriesController
             ));
         }
 
+        return $this->respond($categories);
+    }
+
+    /** @param list<Category> $categories */
+    private function respond(array $categories): Response
+    {
         return new JsonResponse(array_map(
             fn (Category $c) => [
                 'id'    => $c->getId(),
@@ -71,6 +98,7 @@ class ListCategoriesController
                 'image' => $c->getImage(),
                 'order' => $c->getOrder(),
                 'mode'  => $c->getMode(),
+                'parent_id' => $c->getParentId(),
             ],
             $categories,
         ));

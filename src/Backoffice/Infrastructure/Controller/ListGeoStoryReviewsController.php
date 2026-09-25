@@ -136,7 +136,8 @@ class ListGeoStoryReviewsController
         $from = 'FROM geostories g
             LEFT JOIN business b    ON b.id = g.business_id
             LEFT JOIN influencers i ON i.id = g.influencer_id
-            LEFT JOIN categories c  ON c.id = g.category_id';
+            LEFT JOIN categories c  ON c.id = g.category_id
+            LEFT JOIN categories sc ON sc.id = g.subcategory_id';
 
         $total = (int) $this->db->fetchOne("SELECT COUNT(*) {$from} WHERE {$where}", $params);
 
@@ -145,6 +146,7 @@ class ListGeoStoryReviewsController
                     g.status, g.media_type, g.meta, g.likes, g.views, g.external_ref,
                     g.created_at, g.verified_at, g.deleted_at, g.started_at, g.ended_at,
                     c.slug AS category_slug, c.name AS category_name,
+                    sc.id AS subcategory_id, sc.slug AS subcategory_slug, sc.name AS subcategory_name,
                     b.id AS business_id, b.name AS business_name, b.avatar AS business_avatar,
                     i.id AS influencer_id, i.name AS influencer_name, i.avatar AS influencer_avatar
                {$from}
@@ -225,6 +227,12 @@ class ListGeoStoryReviewsController
             'category'  => $row['category_slug'] === null ? null : [
                 'slug' => $row['category_slug'],
                 'name' => $row['category_name'],
+            ],
+            // La subcategoría de un evento, para editarla sin otra petición.
+            'subcategory' => $row['subcategory_id'] === null ? null : [
+                'id'   => $row['subcategory_id'],
+                'slug' => $row['subcategory_slug'],
+                'name' => $row['subcategory_name'],
             ],
             'owner'       => $owner,
             'created_at'  => self::iso($row['created_at']),

@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity]
 #[ORM\Table(name: 'categories')]
+#[ORM\Index(name: 'idx_categories_parent_id', columns: ['parent_id'])]
 class Category
 {
     // Which content owners can publish a video under this category.
@@ -53,6 +54,14 @@ class Category
     /** influencer | business | both — who can post video under this category. */
     #[ORM\Column(type: 'string', length: 20, options: ['default' => self::MODE_BUSINESS])]
     private string $mode;
+
+    /**
+     * La categoría de la que cuelga, si es una subcategoría (las de Eventos).
+     * Nula en las de primer nivel, que son las que lista `/public/categories`
+     * si no se pide otra cosa.
+     */
+    #[ORM\Column(name: 'parent_id', type: 'guid', nullable: true)]
+    private ?string $parentId = null;
 
     #[ORM\Column(name: 'created_at', type: 'datetimetz_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private \DateTimeImmutable $createdAt;
@@ -120,4 +129,6 @@ class Category
     }
 
     public function isDeleted(): bool { return $this->deletedAt !== null; }
+
+    public function getParentId(): ?string { return $this->parentId; }
 }

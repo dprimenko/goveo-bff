@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\GeoStories\Infrastructure\Controller;
 
 use App\Business\Domain\BusinessRepository;
+use App\Categories\Application\Subcategories;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use App\GeoStories\Infrastructure\Service\StorySchedule;
@@ -54,6 +55,7 @@ class UpdateGeoStoryController
         private readonly StorySchedule $schedule,
         private readonly BusinessRepository $businesses,
         private readonly BunnyStorageService $storage,
+        private readonly Subcategories $subcategories,
     ) {}
 
     public function __invoke(string $id, Request $request): Response
@@ -104,6 +106,15 @@ class UpdateGeoStoryController
                 }
             }
         }
+
+        // La subcategoría: la pedida si llega, y si no, la que tenía —o «Otros»
+        // si la categoría acaba de cambiar a Eventos—. Fuera de Eventos se va.
+        $story->setSubcategoryId($this->subcategories->resolve(
+            $story->getCategoryId(),
+            $request->request->has('subcategoryId')
+                ? (string) $request->request->get('subcategoryId')
+                : $story->getSubcategoryId(),
+        ));
 
         if (!$isBusiness) {
             $lat = $request->request->get('lat');
@@ -234,6 +245,7 @@ class UpdateGeoStoryController
             'influencer_id' => $story->getInfluencerId(),
             'business_id'   => $story->getBusinessId(),
             'category_id'   => $story->getCategoryId(),
+            'subcategory_id' => $story->getSubcategoryId(),
             'started_at'    => $story->getStartedAt()?->format(\DateTimeInterface::ATOM),
             'ended_at'      => $story->getEndedAt()?->format(\DateTimeInterface::ATOM),
         ]);

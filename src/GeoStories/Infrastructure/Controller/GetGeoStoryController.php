@@ -60,6 +60,9 @@ class GetGeoStoryController
             'category_id'       => $s->categoryId,
             'category_name'     => $s->categoryName,
             'category_slug'     => $s->categorySlug,
+            'subcategory_id'   => $s->subcategoryId,
+            'subcategory_slug' => $s->subcategorySlug,
+            'subcategory_name' => $s->subcategoryName,
         ];
     }
 }

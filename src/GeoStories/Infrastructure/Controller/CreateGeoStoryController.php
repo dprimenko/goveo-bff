@@ -6,6 +6,7 @@ namespace App\GeoStories\Infrastructure\Controller;
 
 use App\Backoffice\Application\ReviewQueueNotifier;
 use App\Business\Domain\BusinessManagerRepository;
+use App\Categories\Application\Subcategories;
 use App\Business\Domain\BusinessRepository;
 use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
@@ -59,6 +60,7 @@ class CreateGeoStoryController
         private readonly StorySchedule $schedule,
         private readonly BunnyStorageService $storage,
         private readonly ReviewQueueNotifier $reviewQueue,
+        private readonly Subcategories $subcategories,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -217,6 +219,12 @@ class CreateGeoStoryController
             mediaType: $isImage ? GeoStory::MEDIA_IMAGE : GeoStory::MEDIA_VIDEO,
         );
         $geoStory->linkTo($link['url'], $link['action']);
+        // La subcategoría de un evento; sin ella, o con una que no es de
+        // Eventos, va a «Otros» (ver Subcategories).
+        $geoStory->setSubcategoryId($this->subcategories->resolve(
+            $categoryId,
+            (string) $request->request->get('subcategoryId', ''),
+        ));
         $this->schedule->apply($geoStory, $categoryId, $rawStart, $rawEnd);
 
         // Published so it shows in the owner's profile immediately (as processing);
@@ -257,6 +265,7 @@ class CreateGeoStoryController
             'influencer_id' => $geoStory->getInfluencerId(),
             'business_id'   => $geoStory->getBusinessId(),
             'category_id'   => $geoStory->getCategoryId(),
+            'subcategory_id' => $geoStory->getSubcategoryId(),
             'started_at'    => $geoStory->getStartedAt()?->format(\DateTimeInterface::ATOM),
             'ended_at'      => $geoStory->getEndedAt()?->format(\DateTimeInterface::ATOM),
         ], Response::HTTP_CREATED);
