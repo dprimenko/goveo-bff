@@ -59,7 +59,10 @@ final class ComunidadMadridSource implements EventSource
     private const COVERED = '/teatros del canal|sh[oô]ko|teatro real|zarzuela|reina sof[ií]a|thyssen|joy eslava|'
         . 'sala villanos|la riviera|calder[oó]n|clamores|caf[eé] central|caf[eé] berl[ií]n|cardamomo|corral de la morer[ií]a|'
         . 'torres bermejas|fabrik|independance|moby dick|siroco|specka|teatro flamenco madrid|fundaci[oó]n telef[oó]nica|'
-        . 'abad[ií]a|teatro la latina|teatro marquina|teatro pr[ií]ncipe gran v[ií]a|teatro espa[nñ]ol|naves del espa|fern[aá]n g[oó]mez|conde duque|matadero|circo price|centrocentro/iu';
+        . 'abad[ií]a|teatro la latina|teatro marquina|teatro pr[ií]ncipe gran v[ií]a|teatro espa[nñ]ol|naves del espa|fern[aá]n g[oó]mez|conde duque|matadero|circo price|centrocentro|'
+        . 'sala el sol|auditorio nacional|teatro de la comedia|lope de vega|coliseum|teatro apolo|teatro alcal[aá]|rialto|'
+        . 'teatro amaya|infanta isabel|pav[oó]n|'
+        . 'el s[oó]tano|sala but|hangar 48|tempo club|caf[eé] la palma|honky tonk/iu';
 
     /** Escenarios al aire libre: allí, lo de la Hispanidad son sus fiestas. */
     private const OUTDOORS = '/^(plaza|puerta del sol|parque|jardines|paseo|calle)\b/iu';

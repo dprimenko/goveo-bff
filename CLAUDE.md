@@ -1277,6 +1277,15 @@ Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 30 días
 | `reina-sofia` | `page-data.json` de su web (Gatsby) | Tres sedes: museo, Palacio de Cristal, Palacio de Velázquez. |
 | `thyssen` | datos estructurados + tipo y hora del listado | Sin lo que es para Amigos o colegios. |
 | `fundacion-telefonica` | iCal (su API está cerrada) | Sin enlace de entradas. |
+| `sala-el-sol` | iCal de Events Manager + entradas de la ficha | Como `siroco`. Conciertos y clubbing por su categoría. |
+| `cntc` | cartelera por sala, a la que se llega por el menú | Su dirección cambia cada temporada. Sin horas: el rango entero. Todo al Teatro de la Comedia. |
+| `auditorio-nacional` | programación paginada (Plone) + ficha | Hasta +45 días (`HORIZON`): si se lanza con más `--days`, subirlo. Todo como clásica. |
+| `stage` | ficha de cada musical + el calendario de funciones de su web | Lope de Vega y Coliseum. El fin es la última función a la venta: la pasada siguiente lo alarga. |
+| `atg` | API de WordPress de atgtickets.es, la taquilla del propio grupo | Apolo, Nuevo Alcalá, Rialto y Amaya; lo de Barcelona fuera. Sin funciones sueltas: el rango y los días que diga el horario. |
+| `infanta-isabel` | fichas de la cartelera, fechas escritas a mano | La más frágil de los teatros: depende de cómo redacten «Fecha» y «Horario». |
+| `teatro-pavon` | las sesiones que la portada lleva para su calendario | Una petición. Sólo lo que está a la venta (~5 semanas). |
+| `el-sotano`, `hangar-48`, `sala-but`, `honky-tonk` | HTML de la agenda | Sala But sin horas y sin sus sesiones (Mondo Disko ya las lee). Hangar 48: la parte de clubbing estaba vacía al escribirla. |
+| `tempo`, `cafe-la-palma` | The Events Calendar + `TribeShows` | `TribeShows` junta la sesión semanal por el título. La Palma a veces tarda más de 30 s: alguna pasada fallará. |
 | `shoko`, `specka`, `mondo-disko`, `fabrik` | Shopify, datos estructurados, HTML, API propia | Fabrik está en Humanes y la terraza de Mondo en Alcorcón: van con su municipio, pero son de la agenda de Madrid (`city()`), que es con lo que las lanza el cron. |
 
 Añadir una sala es añadir una clase que implemente `EventSource`: se registra sola por la etiqueta.
@@ -1301,12 +1310,19 @@ vez con la geocodificación de Google y van fijas en cada clase.
   Florida Park (carteles en imagen, sin datos), Grupo Kapital (página estática sin agenda; Code y
   Loop entran por Fabrik), Teatro Kapital (entradas en ticketclub), Medias Puri (sin fechas: sólo
   en entradas.com), Teatro Barceló (agenda por AJAX con nonce de sesión), La Chocita del Loro
-  (todo en Fever, sesiones cargadas por su API privada), Galileo (bloquea bots). **No se leen
+  (todo en Fever, sesiones cargadas por su API privada), Galileo (bloquea bots), Centro Dramático
+  Nacional (antibots de Imperva en todas sus páginas), Sala Cocó, Lula Club y Nazca (su agenda sólo
+  está en Fourvenues), Gabana (carteles fijos por día de la semana, sin fechas), Cadavra (sin cartel
+  ni hora en su web: está en RA y DICE). **No se leen
   webs de ticketeras** (Fever, Fourvenues, Dice…), sólo lo que publica la propia sala.
 - **Fuentes del Excel del socio** (`GOVEO_fuentes_eventos_Madrid3_completado.xlsx`, 25-09-2026): de
   82, unas 20 tienen una web que no existe (dominio inventado, hay que buscar la real), madrid.es,
   Prado, CaixaForum y Juan March bloquean, estadios y Movistar Arena quedan fuera («conciertos
   grandes»), y el resto necesita un lector a medida como Berlín o Clamores.
+  La versión 4 (`GOVEO_fuentes_eventos_Madrid4.xlsx`) corrigió las webs: **tcalderon.com es el
+  Calderón de Valladolid**, no el de Madrid (se sigue con `calderon`), y flamencotorresbermejas.com
+  es el mismo tablao pero sin fechas ni elenco (se sigue con la de Wix). El Tablao Flamenco 1911 es
+  el antiguo Villa Rosa (`villa-rosa`).
 
 - **Sin imagen no entra.** Una tarjeta vacía en el feed no la abre nadie.
 - **El cartel se encaja en vertical** (9:16, [`PosterFrame`](src/EventScraping/Infrastructure/PosterFrame.php)):

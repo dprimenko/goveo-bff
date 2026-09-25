@@ -57,7 +57,10 @@ final class EsMadridSource implements EventSource
         'cardamomo', 'villa rosa', 'corral de la moreria', 'torres bermejas', 'clamores',
         'cafe berlin', 'fabrik', 'independance', 'moby dick', 'shoko', 'siroco', 'specka',
         'teatro flamenco madrid', 'tablao flamenco 1911', 'teatro la latina', 'teatro marquina',
-        'teatro principe gran via',
+        'teatro principe gran via', 'sala el sol', 'auditorio nacional', 'teatro de la comedia',
+        'teatro lope de vega', 'coliseum', 'teatro apolo', 'nuevo teatro alcala', 'teatro rialto',
+        'teatro amaya', 'teatro infanta isabel', 'gran teatro pavon', 'el sotano', 'sala but',
+        'hangar 48', 'tempo club', 'cafe la palma', 'honky tonk',
         // Gruposmedia.
         'teatro alcazar', 'capitol gran via', 'teatro gran via', 'teatro maravillas', 'teatro figaro',
     ];
