@@ -19,8 +19,11 @@ interface EventSource
     public function name(): string;
 
     /**
-     * Ciudad de la que es la fuente, tal como está en `business.city`
-     * («Madrid»). Filtra con `--city` y es donde se busca el negocio dueño.
+     * La agenda a la que pertenece la fuente («Madrid»): es con lo que la lanza
+     * el cron (`--city`). La ciudad **de cada evento** va en el propio evento
+     * (`ScrapedEvent::city`), y es la que se usa para buscar su negocio: una sala
+     * del área —Fabrik en Humanes, una terraza en Alcorcón— es de la agenda de
+     * Madrid pero no de su municipio.
      */
     public function city(): string;
 

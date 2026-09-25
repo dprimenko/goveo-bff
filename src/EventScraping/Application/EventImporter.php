@@ -33,6 +33,7 @@ final class EventImporter
 {
     public const SKIP_WINDOW    = 'fuera de fechas';
     public const SKIP_EXISTING  = 'ya importado';
+    public const EXTENDED       = 'alargado';
     public const SKIP_NO_IMAGE  = 'sin imagen';
     public const SKIP_BAD_IMAGE = 'imagen no válida';
     public const SKIP_BAD_LINK  = 'sin enlace válido';
@@ -66,7 +67,12 @@ final class EventImporter
             if (!$window->accepts($event)) {
                 $report(self::SKIP_WINDOW, $event, null);
             } elseif (isset($existing[$source->name() . ':' . $event->externalId])) {
-                $report(self::SKIP_EXISTING, $event, null);
+                // Ya importado: no se vuelve a crear, pero si la fuente dice que
+                // sigue más allá de lo guardado —un espectáculo que prorroga, uno
+                // diario sin fin anunciado—, se le alarga el fin. Si no, dejaba
+                // de verse al caducar aunque siguiera en cartel.
+                $extended = $this->extend($existing[$source->name() . ':' . $event->externalId], $event, $dryRun);
+                $report($extended ? self::EXTENDED : self::SKIP_EXISTING, $event, null);
             } else {
                 $candidates[] = $event;
             }
@@ -154,7 +160,7 @@ final class EventImporter
             $story->importedFrom($source->name(), $event->externalId, $runAt);
 
             $this->geoStories->save($story);
-            $existing[$story->getExternalRef()] = true;
+            $existing[$story->getExternalRef()] = ['id' => $story->getId(), 'ended_at' => $story->getEndedAt()?->format(\DATE_ATOM)];
             ++$created;
 
             $report('created', $event, $story->getId());
@@ -169,15 +175,44 @@ final class EventImporter
         }
     }
 
-    /** @return array<string, true> */
+    /** @return array<string, array{id: string, ended_at: ?string}> */
     private function existingRefs(string $source): array
     {
-        $refs = $this->db->fetchFirstColumn(
-            'SELECT external_ref FROM geostories WHERE external_ref LIKE ?',
+        $rows = $this->db->fetchAllAssociative(
+            'SELECT external_ref, id, ended_at FROM geostories WHERE external_ref LIKE ?',
             [addcslashes($source, '%_') . ':%'],
         );
 
-        return array_fill_keys($refs, true);
+        $refs = [];
+        foreach ($rows as $row) {
+            $refs[$row['external_ref']] = ['id' => $row['id'], 'ended_at' => $row['ended_at']];
+        }
+
+        return $refs;
+    }
+
+    /**
+     * Alarga el fin de un evento ya importado si la fuente lo da más tarde.
+     * **Sólo alarga**, nunca acorta —si la web recorta el rango, que se vea en el
+     * panel—, y no toca lo borrado: lo descartado sigue descartado.
+     *
+     * @param array{id: string, ended_at: ?string} $stored
+     */
+    private function extend(array $stored, ScrapedEvent $event, bool $dryRun): bool
+    {
+        $end = $event->end ?? $event->start->add(new \DateInterval(GeoStory::EVENT_DEFAULT_DURATION));
+        if ($stored['ended_at'] === null || $end <= new \DateTimeImmutable($stored['ended_at'])) {
+            return false;
+        }
+        // En seco sólo se dice: una prueba no escribe nada.
+        if ($dryRun) {
+            return true;
+        }
+
+        return $this->db->executeStatement(
+            'UPDATE geostories SET ended_at = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL',
+            [$end->format(\DATE_ATOM), $stored['id']],
+        ) > 0;
     }
 
     private function eventsCategoryId(): string

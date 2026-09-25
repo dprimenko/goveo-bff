@@ -1259,12 +1259,35 @@ Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 30 días
 | `ifema` | calendario de ferias | Sin imagen en los datos: sale del `og:image` de cada ficha. Mezcla ferias de público y profesionales. |
 | `teatros-canal`, `la-riviera` | API de WordPress «The Events Calendar» | La base `TribeEventsSource`. |
 
+| `teatro-real` | calendario de la temporada | Funciones por día; compra y descripción de la ficha. Imagen muy apaisada. |
+| `teatro-zarzuela` | JEvents (vista de mes) | ⚠️ Corta (403) tras ~8 peticiones seguidas: 4 s de pausa propia entre fichas. |
+| `teatro-abadia` | página de temporada + Koobin | Funciones exactas de la taquilla. |
+| `grupo-marquina` | cartelera de grupomarquina.es | Marquina y Príncipe Gran Vía. Sin horas: el rango entero. |
+| `teatro-la-latina` | portada | Fechas escritas a mano («El 9 y 11 de octubre…»). Sin horas. Sin fin anunciado → hoy + 30 días, y cada pasada lo alarga. |
+| `teatro-flamenco-madrid` | el antiguo Teatro Alfil | «Emociones», el diario, con 90 días que cada pasada alarga. |
+| `esmadrid` | XML de datos abiertos de esMadrid | Una petición. ⚠️ **`COVERED`**: salas que ya lee otra fuente y aquí se saltan; al añadir una sala nueva, apuntarla ahí. Sin enlace de entradas. |
+| `comunidad-madrid` | JSON del mapa del buscador + ficha | Robots pide 10 s entre páginas: ~115 fichas, ~20 min. Todo va a la Agenda salvo sala ya existente. |
+| `joy-eslava` | API de WordPress + ficha | Del club sólo la semana en curso (el resto está en Fourvenues). |
+| `independance` | JSON de su tienda Shopify | ⚠️ La fecha sólo está en el título del producto. |
+| `moby-dick`, `cafe-central` | HTML | Café Central tiene dos salas (Santa Catalina y La Cátedra). |
+| `siroco` | iCal de su web | Entradas de la ficha. |
+| `villanos` | agenda + datos estructurados de la ficha | También es Bogui Jazz. |
+| `corral-moreria` | cartel por tandas + la petición del formulario de reservas | Un evento por tanda (cambia el elenco). |
+| `torres-bermejas` | HTML de Wix | ⚠️ La más frágil: depende de la maqueta. Un evento por semana. |
+| `reina-sofia` | `page-data.json` de su web (Gatsby) | Tres sedes: museo, Palacio de Cristal, Palacio de Velázquez. |
+| `thyssen` | datos estructurados + tipo y hora del listado | Sin lo que es para Amigos o colegios. |
+| `fundacion-telefonica` | iCal (su API está cerrada) | Sin enlace de entradas. |
+| `shoko`, `specka`, `mondo-disko`, `fabrik` | Shopify, datos estructurados, HTML, API propia | Fabrik está en Humanes y la terraza de Mondo en Alcorcón: van con su municipio, pero son de la agenda de Madrid (`city()`), que es con lo que las lanza el cron. |
+
 Añadir una sala es añadir una clase que implemente `EventSource`: se registra sola por la etiqueta.
 Hay dos bases para no leer maquetas: **`JsonLdEventSource`** (webs con datos `schema.org/Event`, lo
 que lee Google) y **`TribeEventsSource`** (WordPress con The Events Calendar); con ellas una sala
 es sólo su configuración —dónde, qué sala, qué tipo—. Las coordenadas de las salas se sacaron una
 vez con la geocodificación de Google y van fijas en cada clase.
 
+- **Lo ya importado se alarga, no se duplica**: si la fuente da un fin posterior al guardado (un
+  espectáculo que prorroga, uno diario sin fin anunciado), la pasada le alarga `ended_at`. Sólo
+  alarga, nunca acorta, y no toca lo borrado. En seco sólo lo dice (`alargado`).
 - **Un espectáculo, un evento** ([`Shows`](src/EventScraping/Application/Shows.php)): los pases de un
   mismo espectáculo —un musical, la jam de cada jueves, el tablao cada noche— salen como un evento
   con su rango, del próximo pase al último día. Uno por función llenaba la cola de copias.
@@ -1274,6 +1297,12 @@ vez con la geocodificación de Google y van fijas en cada clase.
   (`MadridOpenDataSource::TYPES`). Sin tipo, «Otros». Se corrige en el panel.
 - ⚠️ **Galileo Galilei rechaza bots** (403 al identificarse como `GoveoAgenda`, 200 como navegador).
   No se esquiva el bloqueo haciéndose pasar por un navegador: si interesa, se le pide a la sala.
+- **No se leen, y por qué** (25-09-2026): Fitz Club (su agenda es un widget de Fourvenues),
+  Florida Park (carteles en imagen, sin datos), Grupo Kapital (página estática sin agenda; Code y
+  Loop entran por Fabrik), Teatro Kapital (entradas en ticketclub), Medias Puri (sin fechas: sólo
+  en entradas.com), Teatro Barceló (agenda por AJAX con nonce de sesión), La Chocita del Loro
+  (todo en Fever, sesiones cargadas por su API privada), Galileo (bloquea bots). **No se leen
+  webs de ticketeras** (Fever, Fourvenues, Dice…), sólo lo que publica la propia sala.
 - **Fuentes del Excel del socio** (`GOVEO_fuentes_eventos_Madrid3_completado.xlsx`, 25-09-2026): de
   82, unas 20 tienen una web que no existe (dominio inventado, hay que buscar la real), madrid.es,
   Prado, CaixaForum y Juan March bloquean, estadios y Movistar Arena quedan fuera («conciertos
