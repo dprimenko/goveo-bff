@@ -1326,7 +1326,8 @@ vez con la geocodificación de Google y van fijas en cada clase.
 
 - **Sin imagen no entra.** Una tarjeta vacía en el feed no la abre nadie.
 - **El cartel se encaja en vertical** (9:16, [`PosterFrame`](src/EventScraping/Infrastructure/PosterFrame.php)):
-  entero y centrado, con bandas negras arriba y abajo si es horizontal o a los lados si es muy alto.
+  entero y centrado, con bandas negras arriba y abajo si es horizontal o a los lados si es muy alto, y
+  siempre un 8 % de margen a cada lado (`SIDE_MARGIN`): pegado a los bordes se leía peor.
   No se amplía —un cartel de 630 px estirado sale borroso— y se reduce lo que pase de 1080×1920.
   Usa la extensión `gd` (JPEG, PNG, WebP, AVIF), instalada en `Dockerfile` y `Dockerfile.prod`.
 - **No se duplica**: `geostories.external_ref` (`fuente:id`) con índice único que **no excluye lo

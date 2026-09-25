@@ -46,11 +46,21 @@ final class PosterFrameTest extends TestCase
         // Como los de Café Berlín: 630×400.
         [$img, $w, $h] = $this->framed(630, 400);
 
-        self::assertSame(630, $w, 'no se amplía');
-        self::assertSame(1120, $h, '9:16');
-        self::assertTrue($this->isBlack($img, 315, 10), 'banda arriba');
-        self::assertTrue($this->isBlack($img, 315, $h - 10), 'banda abajo');
-        self::assertFalse($this->isBlack($img, 5, $h / 2), 'sin bandas a los lados');
+        // 630 de cartel y un 8 % de margen a cada lado: 750 de lienzo.
+        self::assertSame(750, $w, 'no se amplía: el lienzo es el cartel más su margen');
+        self::assertSame(1333, $h, '9:16');
+        self::assertTrue($this->isBlack($img, 375, 10), 'banda arriba');
+        self::assertTrue($this->isBlack($img, 375, $h - 10), 'banda abajo');
+        self::assertFalse($this->isBlack($img, 375, (int) ($h / 2)), 'el cartel, en medio');
+    }
+
+    public function testThePosterNeverTouchesTheSides(): void
+    {
+        [$img, $w, $h] = $this->framed(630, 400);
+
+        self::assertTrue($this->isBlack($img, 30, (int) ($h / 2)), 'margen a la izquierda');
+        self::assertTrue($this->isBlack($img, $w - 30, (int) ($h / 2)), 'margen a la derecha');
+        self::assertFalse($this->isBlack($img, 70, (int) ($h / 2)), 'y el cartel, justo después');
     }
 
     public function testAVeryTallPosterGetsBandsOnTheSides(): void

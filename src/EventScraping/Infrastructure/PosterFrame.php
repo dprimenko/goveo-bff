@@ -12,6 +12,9 @@ namespace App\EventScraping\Infrastructure;
  * **Se encaja, no se recorta**: el cartel entero, centrado. Si es más ancho que
  * 9:16, bandas arriba y abajo; si es más estrecho, a los lados.
  *
+ * **Y siempre con margen a los lados** (`SIDE_MARGIN`): pegado a los bordes, el
+ * cartel ocupaba todo el ancho del móvil y se leía peor. Lo pidió el socio.
+ *
  * **No se amplía**: el lienzo se hace a la medida del original. Un cartel de
  * 630×400 estirado a 1080 de ancho sale borroso, y la pantalla lo va a escalar
  * igual. Sólo se reduce lo que pasa de 1080×1920, que es más de lo que pinta
@@ -21,6 +24,9 @@ final class PosterFrame
 {
     private const MAX_WIDTH = 1080;
     private const QUALITY   = 88;
+
+    /** Negro a cada lado, en fracción del ancho del lienzo. */
+    private const SIDE_MARGIN = 0.08;
 
     /**
      * @return string JPEG ya encuadrado
@@ -39,8 +45,9 @@ final class PosterFrame
         $w = imagesx($source);
         $h = imagesy($source);
 
-        // El lienzo más pequeño en 9:16 que contiene el cartel entero…
-        $canvasW = max($w, (int) ceil($h * 9 / 16));
+        // El lienzo más pequeño en 9:16 que contiene el cartel entero con su
+        // margen a los lados…
+        $canvasW = max((int) ceil($w / (1 - 2 * self::SIDE_MARGIN)), (int) ceil($h * 9 / 16));
         // …y, si pasa del máximo, todo reducido en proporción.
         $scale   = min(1.0, self::MAX_WIDTH / $canvasW);
         $canvasW = (int) round($canvasW * $scale);
