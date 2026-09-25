@@ -145,8 +145,10 @@ final class EventImporter
             if ($event->latitude !== null && $event->longitude !== null) {
                 $story->setLocation($event->latitude, $event->longitude);
             }
-            // «Otros» hasta que se reclasifique en el panel.
-            $story->setSubcategoryId($this->subcategories->resolve($this->eventsCategoryId(), null));
+            // El tipo que diga la fuente (tablao → Flamenco…), o «Otros» si no
+            // lo sabe; y su subnivel, si lo hay. Se corrige en el panel.
+            $story->setSubcategoryId($this->subcategories->resolve($this->eventsCategoryId(), $event->subcategory));
+            $story->setSubtypeId($this->subcategories->resolveSubtype($story->getSubcategoryId(), $event->subtype));
             $story->scheduleEvent($event->start, $event->end);
             $story->linkTo($event->link, $event->linkAction);
             $story->importedFrom($source->name(), $event->externalId, $runAt);

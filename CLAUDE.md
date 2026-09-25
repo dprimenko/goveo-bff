@@ -1254,7 +1254,30 @@ Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 30 días
 | `clamores` | salaclamores.es/calendario (Webflow, paginado) | `?e5273e04_page=N` es el id de la colección: si rehacen la web, sólo se leerá la primera página. |
 | `calderon` | teatrocalderonmadrid.com/es/cartelera | Sin hora: cada evento dura su día entero. |
 
+| `gruposmedia` | cartelera de gruposmedia.com: Gran Vía, Pequeño Gran Vía, Capitol, Alcázar, Maravillas, Fígaro | Datos estructurados en cada ficha; ~100 fichas, la más lenta (~2,5 min). Un teatro que no esté en `VENUES` se descarta. |
+| `cardamomo`, `villa-rosa` | tablaos, una ficha por espectáculo | Imagen y sitio referenciados por `@id` (los resuelve `JsonLd`). |
+| `ifema` | calendario de ferias | Sin imagen en los datos: sale del `og:image` de cada ficha. Mezcla ferias de público y profesionales. |
+| `teatros-canal`, `la-riviera` | API de WordPress «The Events Calendar» | La base `TribeEventsSource`. |
+
 Añadir una sala es añadir una clase que implemente `EventSource`: se registra sola por la etiqueta.
+Hay dos bases para no leer maquetas: **`JsonLdEventSource`** (webs con datos `schema.org/Event`, lo
+que lee Google) y **`TribeEventsSource`** (WordPress con The Events Calendar); con ellas una sala
+es sólo su configuración —dónde, qué sala, qué tipo—. Las coordenadas de las salas se sacaron una
+vez con la geocodificación de Google y van fijas en cada clase.
+
+- **Un espectáculo, un evento** ([`Shows`](src/EventScraping/Application/Shows.php)): los pases de un
+  mismo espectáculo —un musical, la jam de cada jueves, el tablao cada noche— salen como un evento
+  con su rango, del próximo pase al último día. Uno por función llenaba la cola de copias.
+- **Tipo y subnivel automáticos por fuente** (`ScrapedEvent::subcategory/subtype`): tablao →
+  Flamenco/Tablao, teatro → Escena y el subnivel por el título, sesiones de club de madrugada →
+  Noche y fiesta/Sesiones DJ, IFEMA → Mercados/Ferias; el Ayuntamiento, por el tipo de su fichero
+  (`MadridOpenDataSource::TYPES`). Sin tipo, «Otros». Se corrige en el panel.
+- ⚠️ **Galileo Galilei rechaza bots** (403 al identificarse como `GoveoAgenda`, 200 como navegador).
+  No se esquiva el bloqueo haciéndose pasar por un navegador: si interesa, se le pide a la sala.
+- **Fuentes del Excel del socio** (`GOVEO_fuentes_eventos_Madrid3_completado.xlsx`, 25-09-2026): de
+  82, unas 20 tienen una web que no existe (dominio inventado, hay que buscar la real), madrid.es,
+  Prado, CaixaForum y Juan March bloquean, estadios y Movistar Arena quedan fuera («conciertos
+  grandes»), y el resto necesita un lector a medida como Berlín o Clamores.
 
 - **Sin imagen no entra.** Una tarjeta vacía en el feed no la abre nadie.
 - **El cartel se encaja en vertical** (9:16, [`PosterFrame`](src/EventScraping/Infrastructure/PosterFrame.php)):

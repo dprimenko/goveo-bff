@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\EventScraping\Infrastructure\Source;
 
+use App\EventScraping\Application\Shows;
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
 use App\EventScraping\Domain\ScrapedVenue;
@@ -17,8 +18,9 @@ use App\EventScraping\Infrastructure\WebPage;
  * La foto y la descripción sólo están en la ficha, y la ficha **no tiene
  * `og:image`**: la foto es la primera de la galería (`.project-gallery`).
  *
- * El mismo programa se repite en fechas distintas (la jam de cada jueves), así
- * que el identificador lleva la fecha.
+ * El mismo programa se repite en fechas distintas (la jam de cada jueves): sale
+ * **un solo evento** con su rango, del primer pase al último (ver `Shows`). Las
+ * sesiones de madrugada son del club (`berlin-club`) y van a Noche y fiesta.
  */
 final class CafeBerlinSource implements EventSource
 {
@@ -43,8 +45,9 @@ final class CafeBerlinSource implements EventSource
             throw new \RuntimeException('No se pudo descargar la programación de Café Berlín');
         }
 
-        $xp   = Html::xpath($html);
-        $seen = [];
+        $xp           = Html::xpath($html);
+        $seen         = [];
+        $performances = [];
 
         foreach ($xp->query('//article[' . Html::hasClass('programas-lista-programa') . ']') as $card) {
             $detail = Html::attr($xp, './/a[.//h2]', 'href', $card);
@@ -64,17 +67,20 @@ final class CafeBerlinSource implements EventSource
 
             $slug = trim((string) parse_url($detail, \PHP_URL_PATH), '/');
             $slug = basename($slug);
-            $id   = $slug . '@' . $start->format('Y-m-d');
-            if (isset($seen[$id])) {
+            // Cada tarjeta sale dos veces en el HTML (móvil y escritorio).
+            if (isset($seen[$slug . '@' . $start->format('Y-m-d H:i')])) {
                 continue;
             }
-            $seen[$id] = true;
+            $seen[$slug . '@' . $start->format('Y-m-d H:i')] = true;
 
             $tickets = Html::attr($xp, './/a[' . Html::hasClass('btn-entradas') . ']', 'href', $card);
+            // La sesión de club de madrugada, no el concierto de la sala.
+            $club = $xp->query('ancestor::div[' . Html::hasClass('berlin-club') . ']', $card)?->length > 0;
 
-            yield new ScrapedEvent(
+            $performances[] = new ScrapedEvent(
                 source: $this->name(),
-                externalId: $id,
+                // El programa, no el pase: `Shows` junta los de la misma jam.
+                externalId: $slug,
                 title: $title,
                 start: $start,
                 end: null,
@@ -85,8 +91,20 @@ final class CafeBerlinSource implements EventSource
                 link: $tickets ?? $detail,
                 linkAction: $tickets !== null ? 'buy' : 'info',
                 detailUrl: $detail,
+                subcategory: match (true) {
+                    $club                                   => 'events-nightlife',
+                    str_contains(mb_strtolower($title), 'flamenco') => 'events-flamenco',
+                    default                                 => 'events-small-concerts',
+                },
+                subtype: match (true) {
+                    $club                                   => 'events-nightlife-dj-sessions',
+                    str_contains(mb_strtolower($title), 'flamenco') => 'events-flamenco-venue',
+                    default                                 => null,
+                },
             );
         }
+
+        return Shows::group($performances);
     }
 
     public function enrich(ScrapedEvent $event): ScrapedEvent

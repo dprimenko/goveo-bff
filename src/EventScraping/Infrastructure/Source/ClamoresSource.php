@@ -87,6 +87,10 @@ final class ClamoresSource implements EventSource
                     linkAction: 'buy',
                     imageUrl: $img,
                     detailUrl: $detail,
+                    // Las sesiones de club de madrugada (Dance Club, Perreo
+                    // Baby…) son noche; lo demás, conciertos de sala.
+                    subcategory: $this->isClub($title, $start) ? 'events-nightlife' : 'events-small-concerts',
+                    subtype: $this->isClub($title, $start) ? 'events-nightlife-dj-sessions' : null,
                 );
             }
 
@@ -126,5 +130,11 @@ final class ClamoresSource implements EventSource
             address: 'Calle de Alburquerque, 14, 28010 Madrid',
             website: 'https://salaclamores.es/',
         );
+    }
+
+    private function isClub(string $title, \DateTimeImmutable $start): bool
+    {
+        return (int) $start->format('H') >= 23
+            || (bool) preg_match('/\b(club|perreo|dance|dj|baile)\b/iu', $title);
     }
 }

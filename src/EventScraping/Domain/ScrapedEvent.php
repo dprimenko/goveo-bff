@@ -37,6 +37,13 @@ final class ScrapedEvent
         public readonly ?array $weekdays = null,
         /** Calle y número, cuando la fuente los da (el Ayuntamiento). */
         public readonly ?string $venueAddress = null,
+        /**
+         * Tipo de evento (slug de la subcategoría: `events-flamenco`) y su
+         * subnivel (`events-flamenco-tablao`), si la fuente sabe cuáles son.
+         * Sin tipo va a «Otros»; sin subnivel, se queda en el tipo.
+         */
+        public readonly ?string $subcategory = null,
+        public readonly ?string $subtype = null,
     ) {}
 
     public function withDetails(?string $imageUrl, ?string $description, ?string $link = null, ?string $linkAction = null): self
@@ -58,6 +65,8 @@ final class ScrapedEvent
             detailUrl: $this->detailUrl,
             weekdays: $this->weekdays,
             venueAddress: $this->venueAddress,
+            subcategory: $this->subcategory,
+            subtype: $this->subtype,
         );
     }
 }

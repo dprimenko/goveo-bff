@@ -84,6 +84,8 @@ final class TeatroCalderonSource implements EventSource
                 linkAction: $tickets !== null ? 'buy' : 'info',
                 description: str_contains(mb_strtolower($venue), 'lírico') ? 'En Lírico, la terraza del Teatro Calderón.' : null,
                 imageUrl: $img,
+                subcategory: 'events-stage',
+                subtype: str_contains(mb_strtolower($title), 'musical') ? 'events-stage-musicals' : 'events-stage-theater',
             );
         }
     }

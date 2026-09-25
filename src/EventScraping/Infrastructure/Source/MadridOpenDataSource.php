@@ -36,6 +36,35 @@ final class MadridOpenDataSource implements EventSource
         'CapacitacionDigital', 'EnLinea',
     ];
 
+    /**
+     * El tipo de la agenda municipal → tipo de evento y subnivel de Goveo. Lo
+     * que no está aquí va a «Otros» y se clasifica en el panel.
+     *
+     * `ProgramacionDestacadaAgendaCultura` y `1ciudad21distritos` no dicen de
+     * qué es, sólo que es destacado: también a «Otros».
+     */
+    private const TYPES = [
+        'Musica'                                 => ['events-small-concerts', null],
+        'JazzSoulFunkySwingReagge'               => ['events-small-concerts', null],
+        'RockPop'                                => ['events-small-concerts', null],
+        'CantautorFolkCountry'                   => ['events-small-concerts', null],
+        'FolcloreEtnica'                         => ['events-small-concerts', null],
+        'Flamenco'                               => ['events-flamenco', 'events-flamenco-show'],
+        'TeatroPerformance'                      => ['events-stage', 'events-stage-theater'],
+        'DanzaBaile'                             => ['events-stage', 'events-stage-dance'],
+        'CircoMagia'                             => ['events-stage', 'events-stage-magic'],
+        'ComediaMonologo'                        => ['events-stage', 'events-stage-comedy'],
+        'CuentacuentosTiteresMarionetas'         => ['events-stage', 'events-stage-theater'],
+        'Exposiciones'                           => ['events-art', 'events-art-temporary'],
+        'Arte'                                   => ['events-art', null],
+        'Fiestas'                                => ['events-festivities', 'events-festivities-neighborhood'],
+        'Ferias'                                 => ['events-markets', 'events-markets-fairs'],
+        'CineActividadesAudiovisuales'           => ['events-experiences', 'events-experiences-cinema'],
+        'ExcursionesItinerariosVisitas'          => ['events-experiences', 'events-experiences-guided-tours'],
+        'ItinerariosOtrasActividadesAmbientales' => ['events-experiences', 'events-experiences-guided-tours'],
+        'ActividadesDeportivas'                  => ['events-experiences', 'events-experiences-sport'],
+    ];
+
     private const DAYS = ['MO' => 1, 'TU' => 2, 'WE' => 3, 'TH' => 4, 'FR' => 5, 'SA' => 6, 'SU' => 7];
 
     /**
@@ -134,6 +163,8 @@ final class MadridOpenDataSource implements EventSource
                 detailUrl: $this->https($e['link'] ?? null),
                 weekdays: $weekdays ?: null,
                 venueAddress: $this->address($e['address']['area'] ?? null),
+                subcategory: self::TYPES[$type][0] ?? null,
+                subtype: self::TYPES[$type][1] ?? null,
             );
         }
     }
