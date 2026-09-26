@@ -1301,6 +1301,11 @@ seguir viéndose bien:
   parte las pestañas con su lista de slugs (`accommodation` y `culture` entre ellos) y, sin esto,
   alojamientos y teatros se pasaban a «Comercio local». Comprobado: le salen los mismos 24 negocios
   en Turismo que antes de la migración.
+- **Sus círculos siguen siendo las categorías de siempre** y no los grupos: la app instalada los
+  pide con `types=` y sin `section`, y a esa petición `/public/categories` le devuelve las hojas con
+  imagen (Moda, Calzado…). Con los grupos perdía el filtro por categoría concreta, porque no sabe
+  desplegar subcategorías. Las nuevas, sin imagen, no entran. El mapa de la app nueva pide igual y
+  también ve las de siempre hasta que se pase a grupos.
 - Lo que no se recupera: en su pestaña de Turismo **no salen los círculos de Alojamiento ni de
   Experiencias** (una se fusionó y la otra ya no es de primer nivel).
 

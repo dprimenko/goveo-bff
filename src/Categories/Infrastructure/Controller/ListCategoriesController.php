@@ -36,7 +36,13 @@ use Symfony\Component\Routing\Attribute\Route;
  *   negocio o subir un vídeo — las hojas, no los grupos, estén encendidas o no:
  *   que una subcategoría no se enseñe todavía no impide usarla. Cada una trae
  *   `parent_id` para agruparlas en el selector.
- * - `?types=` y `?partner=` como siempre (ibiza tiene catálogo propio).
+ * - `?types=` y `?partner=` como siempre (ibiza tiene catálogo propio). Con
+ *   `types` y sin `section` ni `mode` es **la petición de la app publicada**
+ *   antes de los grupos (sus círculos de Comercio local y el mapa): se le
+ *   devuelven las categorías de siempre —las hojas con imagen— y no los
+ *   grupos, que esa versión no sabe desplegar y con los que perdía el filtro
+ *   por categoría concreta. Las subcategorías nuevas, sin imagen, no entran:
+ *   serían círculos vacíos.
  */
 #[Route('/public/categories', name: 'pub_categories_')]
 class ListCategoriesController
@@ -73,8 +79,19 @@ class ListCategoriesController
         $params  = $partner === null ? [] : ['partner' => $partner];
         $types   = [];
 
-        $mode = (string) $request->query->get('mode', '');
-        if ($mode !== '') {
+        $mode    = (string) $request->query->get('mode', '');
+        $section = (string) $request->query->get('section', '');
+        $typeIds = array_values(array_filter(explode(',', $request->query->getString('types', ''))));
+        $legacy  = $typeIds !== [] && $mode === '' && $section === '';
+
+        if ($legacy) {
+            $where[] = 'c.section IS NULL';
+            $where[] = '(c.parent_id IS NULL OR g.section IS NOT NULL)';
+            $where[] = 'c.active';
+            // Un grupo oculto se lleva sus categorías también aquí.
+            $where[] = '(g.id IS NULL OR g.active)';
+            $where[] = 'c.image IS NOT NULL';
+        } elseif ($mode !== '') {
             // Lo elegible: hojas de un grupo o sueltas de primer nivel. Ni los
             // grupos (un negocio va en una subcategoría) ni los tipos de
             // evento (van aparte, en `subcategory_id` del vídeo).
@@ -88,14 +105,12 @@ class ListCategoriesController
             $where[] = 'c.active';
         }
 
-        $section = (string) $request->query->get('section', '');
         if (in_array($section, [Category::SECTION_LOCAL, Category::SECTION_TOURISM], true)) {
             $where[] = 'c.section = :section';
             $params['section'] = $section;
         }
 
         // ?types=uuid1,uuid2 → por tipo de categoría (pivote categories_category_types).
-        $typeIds = array_values(array_filter(explode(',', $request->query->getString('types', ''))));
         if ($typeIds !== []) {
             $where[] = 'EXISTS (SELECT 1 FROM categories_category_types cct
                                  WHERE cct.category_id = c.id AND cct.type_id::text IN (:types))';
