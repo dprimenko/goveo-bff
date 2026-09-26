@@ -1254,8 +1254,16 @@ de negocios pasa a **grupos** con **subcategorías**, repartidos en dos **seccio
 
 | Sección | Grupos (`order`) |
 |---|---|
-| `local` | `gastronomy` · `fashion-style` · `beauty-wellness` · `culture-gifts` · `family-pets` · `home` · `tech-services` |
-| `tourism` | `tourism-experiences` · `tourism-culture` · `tourism-gastronomy` · `tourism-shopping` · `tourism-accommodation` |
+| `local` (Consumo local) | `gastronomy` · `leisure` (Ocio) · `fashion-style` · `beauty-wellness` · `culture-gifts` (Regalos) · `family-pets` · `home` · `tech-services` |
+| `tourism` | `tourism-culture` · `tourism-gastronomy` · `tourism-shopping` · `tourism-accommodation` |
+
+**Segunda vuelta** (`Version20260926130000`, Excel final de negocio): grupo **Ocio** con Vida Nocturna
+(sale de Gastronomía), Música en directo, Cultura y espectáculos y Experiencias (viene de Turismo y
+absorbe Workshops). Turismo pierde su grupo de Experiencias y sus nombres van con «Turismo»
+(«Cultura turismo», «Gastro Turismo», «Compras Turismo»), como los quiere negocio. Los teatros que
+quedaron por clasificar pasaron a Cultura y espectáculos y el tablao a Música en directo, sólo si
+seguían ahí: negocio está reclasificando a mano desde el panel. Ocio lleva de momento el icono de
+Experiencias.
 
 - **Los grupos son categorías de primer nivel con `section`**; las subcategorías cuelgan por
   `parent_id`, el mismo árbol de Eventos. **Las que ya existían se colgaron tal cual** (misma id y

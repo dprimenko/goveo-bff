@@ -26,14 +26,15 @@ class Category
      * está en su lista de turismo y «Cultura» es uno de sus círculos. Sin esto,
      * el filtro caería sobre una categoría borrada o que ya no tiene negocios
      * —`culture` quedó sólo para vídeos de influencer; sus teatros están en
-     * `tourism-culture`— y esos negocios cambiarían de pestaña.
+     * Ocio · Cultura y espectáculos— y esos negocios cambiarían de pestaña.
      */
     public const BUSINESS_FILTER_ALIASES = [
         'food'             => 'gourmet',
         'eco'              => 'gourmet',
         'accommodation'    => 'tourism-accommodation',
-        'culture-business' => 'tourism-culture',
-        'culture'          => 'tourism-culture',
+        // Teatros y tablaos: en Ocio desde Version20260926130000.
+        'culture-business' => 'culture-shows',
+        'culture'          => 'culture-shows',
     ];
 
     /** Las de influencer que ya eran «turismo» antes de que hubiera grupos. */
