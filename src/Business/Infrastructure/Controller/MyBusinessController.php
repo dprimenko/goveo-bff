@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Business\Infrastructure\Controller;
 
+use App\Business\Application\BusinessCategory;
 use App\Business\Application\ManagedBusinessFinder;
 use App\Business\Domain\Business;
 use App\Business\Domain\BusinessRepository;
@@ -35,6 +36,7 @@ class MyBusinessController
         private readonly ManagedBusinessFinder $managed,
         private readonly CityLookup $cities,
         private readonly LoggerInterface $logger,
+        private readonly BusinessCategory $category,
     ) {}
 
     #[Route('', name: 'get', methods: ['GET'])]
@@ -111,6 +113,7 @@ class MyBusinessController
         }
 
         $this->businesses->save($business);
+        $this->category->syncProducts($business);
 
         if ($lostVerification) {
             $this->logger->info('Cambio de categoría: el negocio vuelve a validación', [
@@ -208,8 +211,12 @@ class MyBusinessController
             $errors['name'] = 'required';
         }
 
-        if (array_key_exists('category_id', $p) && trim((string) $p['category_id']) === '') {
-            $errors['category_id'] = 'required';
+        if (array_key_exists('category_id', $p)) {
+            if (trim((string) $p['category_id']) === '') {
+                $errors['category_id'] = 'required';
+            } elseif (!$this->category->isAssignable((string) $p['category_id'])) {
+                $errors['category_id'] = 'invalid';
+            }
         }
 
         if (isset($p['address'])) {

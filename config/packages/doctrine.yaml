@@ -50,6 +50,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Categories/Domain'
                 prefix: 'App\Categories\Domain'
                 alias: Categories
+            Badges:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Badges/Domain'
+                prefix: 'App\Badges\Domain'
+                alias: Badges
             GeoStories:
                 type: attribute
                 is_bundle: false

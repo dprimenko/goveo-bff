@@ -239,6 +239,24 @@ class Business
         return $wasVerified;
     }
 
+    /**
+     * Cambio de categoría **hecho por Goveo** desde el panel: no retira la
+     * validación, porque quien la mueve es quien valida. Es lo que usa la
+     * reclasificación en grupos y subcategorías; con `changeCategory`, cada
+     * bar que se sacara de «Restaurantes» desaparecería del mapa.
+     */
+    public function reclassify(string $categoryId): bool
+    {
+        if ($categoryId === $this->categoryId) {
+            return false;
+        }
+
+        $this->categoryId = $categoryId;
+        $this->updatedAt  = new \DateTimeImmutable();
+
+        return true;
+    }
+
     public function setLocation(float $latitude, float $longitude): self
     {
         $this->location = sprintf('SRID=4326;POINT(%.7f %.7f)', $longitude, $latitude);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backoffice\Infrastructure\Controller;
 
+use App\Badges\Domain\BadgeRepository;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
@@ -34,6 +35,7 @@ class GetBusinessReviewController
 {
     public function __construct(
         private readonly Connection $db,
+        private readonly BadgeRepository $badges,
     ) {}
 
     public function __invoke(string $id): Response
@@ -43,7 +45,9 @@ class GetBusinessReviewController
                     b.created_at, b.updated_at, b.verified_at, b.rejected_at, b.deleted_at,
                     ST_Y(b.location::geometry) AS lat,
                     ST_X(b.location::geometry) AS lng,
-                    c.slug AS category_slug, c.name AS category_name,
+                    c.id::text AS category_id, c.slug AS category_slug, c.name AS category_name,
+                    cg.id::text AS group_id, cg.slug AS group_slug, cg.name AS group_name,
+                    c.section AS category_section,
                     u.email AS creator_email,
                     p.name AS partner_name,
                     (SELECT count(*) FROM products pr
@@ -54,6 +58,7 @@ class GetBusinessReviewController
                       WHERE m.business_id = b.id AND m.deleted_at IS NULL)     AS manager_count
                FROM business b
           LEFT JOIN categories c ON c.id = b.category_id
+          LEFT JOIN categories cg ON cg.id = c.parent_id
           LEFT JOIN users u      ON u.id = b.creator_id
           LEFT JOIN partners p   ON p.id = b.partner_id
               WHERE b.id = ?",
@@ -75,9 +80,18 @@ class GetBusinessReviewController
             'avatar'      => $row['avatar'],
             'main_image'  => $row['main_image'],
             'category'    => $row['category_slug'] === null ? null : [
+                'id'   => $row['category_id'],
                 'slug' => $row['category_slug'],
                 'name' => $row['category_name'],
+                // Es un grupo: está por clasificar en una subcategoría.
+                'is_group' => $row['category_section'] !== null,
+                'group' => $row['group_slug'] === null ? null : [
+                    'id'   => $row['group_id'],
+                    'slug' => $row['group_slug'],
+                    'name' => $row['group_name'],
+                ],
             ],
+            'badges'      => $this->badges->forBusinesses([$row['id']])[$row['id']] ?? [],
             'address'  => $meta['address'] ?? null,
             // Puede no tener: la ficha se puede guardar sin dirección que
             // geocodifique, y entonces el negocio no sale ni en mapa ni en feed

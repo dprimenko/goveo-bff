@@ -372,10 +372,19 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             $orderBy = 'geo.started_at ASC';
         } elseif ($feedType === 'geostories' && $categoryId === null) {
             $conditions[] = "cat.slug = 'news'";
-        } elseif ($feedType === 'tourism' && $categoryId === null) {
-            $conditions[] = "cat.slug IN ('place', 'nature', 'culture')";
+        } elseif ($feedType === 'tourism') {
+            // Lo de influencers de siempre más lo que cuelga de un grupo de
+            // Turismo (o es uno: lo que falta por clasificar) y el partner
+            // ibiza — el mismo corte que `section` en `/public/businesses`.
+            // Con una categoría encima se suman: filtrar Alojamientos dentro
+            // de Turismo es filtrar Alojamientos.
+            $conditions[] = "(cat.slug IN ('place', 'nature', 'culture')
+                OR COALESCE(grp.section, cat.section) = 'tourism'
+                OR cat.partner IS NOT NULL)";
         } elseif ($feedType === 'local') {
             $conditions[] = "cat.slug NOT IN ('place', 'events', 'news', 'culture', 'nature')";
+            $conditions[] = "COALESCE(grp.section, cat.section, 'local') <> 'tourism'";
+            $conditions[] = 'cat.partner IS NULL';
             if ($notCategoryId !== null) {
                 $conditions[] = 'cat.slug != :not_cat';
                 $params['not_cat'] = $notCategoryId;
@@ -391,7 +400,9 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         }
 
         if ($categoryId !== null) {
-            $conditions[] = '(cat.id::text = :category_id OR cat.slug = :category_id)';
+            // Un grupo trae lo de sus subcategorías: el vídeo lleva la hoja.
+            $conditions[] = '(cat.id::text = :category_id OR cat.slug = :category_id
+                OR grp.id::text = :category_id OR grp.slug = :category_id)';
             $params['category_id'] = $categoryId;
         }
 
@@ -436,6 +447,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             LEFT JOIN business    buss  ON geo.business_id   = buss.id
             LEFT JOIN categories  cat   ON geo.category_id   = cat.id
             LEFT JOIN categories  sub   ON geo.subcategory_id = sub.id
+            LEFT JOIN categories  grp   ON cat.parent_id     = grp.id
             -- likes = base heredada del import + likes nuevos con usuario
             LEFT JOIN (
                 SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id

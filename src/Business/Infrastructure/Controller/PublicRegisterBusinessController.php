@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Business\Infrastructure\Controller;
 
 use App\Billing\Domain\BillingPlanRepository;
+use App\Business\Application\BusinessCategory;
 use App\Business\Application\PublicBusinessRegistration;
 use App\Business\Domain\Business;
 use App\Business\Domain\BusinessRepository;
@@ -39,6 +40,7 @@ class PublicRegisterBusinessController
         private readonly UserRepository $users,
         private readonly LocalUserResolver $currentUser,
         private readonly LoggerInterface $logger,
+        private readonly BusinessCategory $category,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -183,6 +185,10 @@ class PublicRegisterBusinessController
 
         if (isset($p['email']) && !filter_var((string) $p['email'], FILTER_VALIDATE_EMAIL)) {
             $errors['email'] = 'invalid';
+        }
+
+        if (!isset($errors['category_id']) && !$this->category->isAssignable((string) $p['category_id'])) {
+            $errors['category_id'] = 'invalid';
         }
 
         $address = $p['address'] ?? null;

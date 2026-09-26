@@ -21,9 +21,9 @@ use Symfony\Component\Routing\Attribute\Route;
  *
  * La ficha no lleva localización ni categoría propias: **las hereda del
  * negocio**. Un producto suelto de su tienda no significa nada, y duplicar esos
- * campos sólo abriría la puerta a que se contradigan. `category_id` existe en la
- * tabla y se deja intacto —permite que una tienda aparezca en varias categorías
- * de descubrimiento— pero no se toca desde aquí.
+ * campos sólo abriría la puerta a que se contradigan. `category_id` es siempre
+ * la del negocio: se pone al crearlo y la actualiza el cambio de categoría del
+ * negocio (ver `BusinessCategory`), nunca desde aquí.
  *
  * Las imágenes van por su propio endpoint (ver `ProductImagesController`): son
  * lo único que viaja como `multipart`, y mezclarlas obligaría a que todo el
@@ -74,6 +74,7 @@ class ManageProductController
             businessId:    $business->getId(),
             title:         $title,
             slug:          $this->slugger->forTitle($business->getId(), $title),
+            categoryId:    $business->getCategoryId(),
             subcategoryId: $subcategory,
             description:   $this->readDescription($data),
             descriptionFormat: $this->readFormat($data),

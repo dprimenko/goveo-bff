@@ -40,6 +40,7 @@ interface BusinessRepository
         ?array $excludeCategoryIds = null,
         ?float $radiusMeters = null,
         ?string $query = null,
+        ?array $badgeIds = null,
     ): array;
 
     public function save(Business $business): void;

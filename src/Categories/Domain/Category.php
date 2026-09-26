@@ -16,6 +16,29 @@ class Category
     public const MODE_BUSINESS   = 'business';
     public const MODE_BOTH       = 'both';
 
+    public const SECTION_LOCAL   = 'local';
+    public const SECTION_TOURISM = 'tourism';
+
+    /**
+     * Al filtrar **negocios**, categoría de antes => la que ocupa su sitio.
+     *
+     * Las apps publicadas piden por los slugs e ids de siempre: `accommodation`
+     * está en su lista de turismo y «Cultura» es uno de sus círculos. Sin esto,
+     * el filtro caería sobre una categoría borrada o que ya no tiene negocios
+     * —`culture` quedó sólo para vídeos de influencer; sus teatros están en
+     * `tourism-culture`— y esos negocios cambiarían de pestaña.
+     */
+    public const BUSINESS_FILTER_ALIASES = [
+        'food'             => 'gourmet',
+        'eco'              => 'gourmet',
+        'accommodation'    => 'tourism-accommodation',
+        'culture-business' => 'tourism-culture',
+        'culture'          => 'tourism-culture',
+    ];
+
+    /** Las de influencer que ya eran «turismo» antes de que hubiera grupos. */
+    public const LEGACY_TOURISM_SLUGS = ['place', 'culture', 'nature', 'events'];
+
     /** Slug → mode overrides; everything else defaults to business. */
     private const MODE_BY_SLUG = [
         'historicalbusiness' => self::MODE_BOTH,
@@ -62,6 +85,22 @@ class Category
      */
     #[ORM\Column(name: 'parent_id', type: 'guid', nullable: true)]
     private ?string $parentId = null;
+
+    /**
+     * `local` | `tourism` en los **grupos** (Gastronomía, Alojamientos…); nula
+     * en el resto. Es lo que reparte la home y los feeds entre «Comercio
+     * local» y «Turismo».
+     */
+    #[ORM\Column(type: 'string', length: 20, nullable: true)]
+    private ?string $section = null;
+
+    /**
+     * Si se enseña al público. Las subcategorías de los grupos nacen apagadas
+     * y se encienden grupo a grupo cuando tienen volumen, para que no salga
+     * ningún chip vacío. Apagada sigue siendo asignable: sólo deja de listarse.
+     */
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
+    private bool $active = true;
 
     #[ORM\Column(name: 'created_at', type: 'datetimetz_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private \DateTimeImmutable $createdAt;
@@ -131,4 +170,21 @@ class Category
     public function isDeleted(): bool { return $this->deletedAt !== null; }
 
     public function getParentId(): ?string { return $this->parentId; }
+    public function getSection(): ?string { return $this->section; }
+    public function isGroup(): bool { return $this->section !== null; }
+    public function isActive(): bool { return $this->active; }
+
+    public function setActive(bool $active): self
+    {
+        $this->active = $active;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
+
+    public function setOrder(?int $order): self
+    {
+        $this->order = $order;
+        $this->updatedAt = new \DateTimeImmutable();
+        return $this;
+    }
 }

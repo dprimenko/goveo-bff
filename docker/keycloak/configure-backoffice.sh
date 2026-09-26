@@ -147,6 +147,7 @@ ensure_role "geostory.moderate" "Aprobar y retirar vídeos."
 ensure_role "business.edit"     "Editar la ficha de cualquier negocio."
 ensure_role "geostory.delete"   "Borrar vídeos definitivamente, también de Bunny."
 ensure_role "business.delete"   "Borrar negocios definitivamente, con sus productos y vídeos."
+ensure_role "category.manage"   "Encender y ordenar categorías y subcategorías."
 
 # ============================================================
 # LOS PUESTOS
@@ -181,7 +182,8 @@ ensure_group "backoffice-admin" \
     --rolename "geostory.moderate" \
     --rolename "business.edit" \
     --rolename "geostory.delete" \
-    --rolename "business.delete"
+    --rolename "business.delete" \
+    --rolename "category.manage"
 
 # ============================================================
 # USUARIO DE PRUEBA (sólo donde se pida)

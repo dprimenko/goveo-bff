@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Business\Infrastructure\Controller;
 
+use App\Badges\Domain\BadgeRepository;
 use App\Business\Domain\Business;
 use App\Business\Domain\BusinessRepository;
+use App\Categories\Domain\Category;
 use App\Categories\Domain\CategoryRepository;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,6 +26,16 @@ use Symfony\Component\Routing\Attribute\Route;
  * **excluye** en vez de incluir (`category=-hotels,-boats`): la home necesita
  * «todo lo que no es turismo», y enumerarlo serían cuarenta y tantos slugs en
  * la URL que además habría que mantener al día cada vez que nace una categoría.
+ *
+ * Un **grupo** (`gastronomy`) incluye todo lo que cuelga de él: el negocio está
+ * en la subcategoría, y quien filtra por el grupo espera verlos todos.
+ *
+ * `section=local|tourism` parte el listado en las dos pestañas de la home, sin
+ * que el cliente tenga que saber qué categorías son de cuál (ver
+ * `CategoryRepository::tourismIds`). Se combina con `category`.
+ *
+ * `badge=eco,terrace` (slug o id) deja sólo los que llevan todos esos badges.
+ * Cada negocio devuelve los suyos en `badges`.
  *
  * Returns businesses ordered by proximity to the given coordinates.
  * `radius` (metros) acota el resultado: lo usa el mapa para pedir sólo los
@@ -45,6 +57,7 @@ class ListBusinessesController
     public function __construct(
         private readonly BusinessRepository $repository,
         private readonly CategoryRepository $categories,
+        private readonly BadgeRepository $badges,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -54,6 +67,8 @@ class ListBusinessesController
         $page       = max(1, (int) ($request->query->get('page', 1)));
         $size       = min(self::MAX_SIZE, max(1, (int) ($request->query->get('size', self::DEFAULT_SIZE))));
         $category    = $this->readCategories((string) $request->query->get('category', ''));
+        $category    = $this->applySection($category, (string) $request->query->get('section', ''));
+        $badgeIds    = $this->readBadges((string) $request->query->get('badge', ''));
 
         $rawRadius = $request->query->get('radius');
         $radius    = $rawRadius === null || $rawRadius === ''
@@ -71,7 +86,13 @@ class ListBusinessesController
             excludeCategoryIds: $category['exclude'],
             radiusMeters: $radius,
             query:        $query !== '' ? $query : null,
+            badgeIds:     $badgeIds,
         );
+
+        $badges = $this->badges->forBusinesses(array_map(
+            static fn (array $row) => $row['business']->getId(),
+            $result['items'],
+        ));
 
         $items = array_map(
             fn (array $row) => $this->serialize(
@@ -79,7 +100,7 @@ class ListBusinessesController
                 $row['dist_meters'],
                 $row['lat'],
                 $row['long'],
-            ),
+            ) + ['badges' => $badges[$row['business']->getId()] ?? []],
             $result['items'],
         );
 
@@ -117,14 +138,22 @@ class ListBusinessesController
                 ? $this->categories->findById($value)
                 : $this->categories->findBySlug($value);
 
+            // La de antes, por la que ocupa su sitio (ver `BUSINESS_FILTER_ALIASES`).
+            $alias = Category::BUSINESS_FILTER_ALIASES[$category?->getSlug() ?? ''] ?? null;
+            if ($alias !== null) {
+                $category = $this->categories->findBySlug($alias);
+            }
+
             if ($category === null) {
                 continue;
             }
 
-            if ($negated) {
-                $exclude[$category->getId()] = true;
-            } else {
-                $include[$category->getId()] = true;
+            foreach ($this->categories->withDescendants([$category->getId()]) as $id) {
+                if ($negated) {
+                    $exclude[$id] = true;
+                } else {
+                    $include[$id] = true;
+                }
             }
         }
 
@@ -132,6 +161,50 @@ class ListBusinessesController
             'include' => $include === [] ? null : array_keys($include),
             'exclude' => $exclude === [] ? null : array_keys($exclude),
         ];
+    }
+
+    /**
+     * @param array{include: ?string[], exclude: ?string[]} $category
+     * @return array{include: ?string[], exclude: ?string[]}
+     */
+    private function applySection(array $category, string $section): array
+    {
+        if (!in_array($section, [Category::SECTION_LOCAL, Category::SECTION_TOURISM], true)) {
+            return $category;
+        }
+
+        $tourism = $this->categories->tourismIds();
+
+        if ($section === Category::SECTION_LOCAL) {
+            $category['exclude'] = array_values(array_unique([...($category['exclude'] ?? []), ...$tourism]));
+
+            return $category;
+        }
+
+        // Turismo con una categoría encima: la intersección. Si no queda nada,
+        // un id imposible y no `null`, que sería «sin filtro».
+        $include = $category['include'] === null
+            ? $tourism
+            : array_values(array_intersect($category['include'], $tourism));
+        $category['include'] = $include === [] ? ['00000000-0000-0000-0000-000000000000'] : $include;
+
+        return $category;
+    }
+
+    /** @return ?string[] */
+    private function readBadges(string $raw): ?array
+    {
+        $values = array_filter(array_map('trim', explode(',', $raw)));
+        if ($values === []) {
+            return null;
+        }
+
+        // Un badge desconocido no se ignora: pedir «terraza» y recibir de todo
+        // sería peor que una lista vacía.
+        return array_map(
+            fn (string $v) => $this->badges->resolve($v) ?? '00000000-0000-0000-0000-000000000000',
+            $values,
+        );
     }
 
     private function serialize(

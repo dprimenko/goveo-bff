@@ -34,6 +34,55 @@ class DoctrineCategoryRepository implements CategoryRepository
         return $this->em->getRepository(Category::class)->findAll();
     }
 
+    public function withDescendants(array $ids): array
+    {
+        if ($ids === []) {
+            return [];
+        }
+
+        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+
+        return $this->em->getConnection()->fetchFirstColumn(
+            "WITH RECURSIVE tree AS (
+                 SELECT id FROM categories WHERE id::text IN ({$placeholders})
+                 UNION
+                 SELECT c.id FROM categories c JOIN tree t ON c.parent_id = t.id
+                  WHERE c.deleted_at IS NULL
+             )
+             SELECT id::text FROM tree",
+            array_values($ids),
+        );
+    }
+
+    public function tourismIds(): array
+    {
+        $placeholders = implode(', ', array_fill(0, count(Category::LEGACY_TOURISM_SLUGS), '?'));
+
+        $roots = $this->em->getConnection()->fetchFirstColumn(
+            "SELECT id::text FROM categories
+              WHERE deleted_at IS NULL
+                AND (section = ? OR partner IS NOT NULL OR slug IN ({$placeholders}))",
+            [Category::SECTION_TOURISM, ...Category::LEGACY_TOURISM_SLUGS],
+        );
+
+        return $this->withDescendants($roots);
+    }
+
+    public function isAssignableToBusiness(string $id): bool
+    {
+        if (!preg_match('/^[0-9a-f-]{36}$/i', $id)) {
+            return false;
+        }
+
+        return (bool) $this->em->getConnection()->fetchOne(
+            "SELECT 1 FROM categories c
+               LEFT JOIN categories p ON p.id = c.parent_id
+              WHERE c.id = ? AND c.deleted_at IS NULL AND c.mode <> ?
+                AND (c.parent_id IS NULL OR p.section IS NOT NULL)",
+            [$id, Category::MODE_INFLUENCER],
+        );
+    }
+
     public function save(Category $category): void
     {
         $this->em->persist($category);

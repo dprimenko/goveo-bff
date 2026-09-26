@@ -47,6 +47,7 @@ class DoctrineBusinessRepository implements BusinessRepository
         ?array $excludeCategoryIds = null,
         ?float $radiusMeters = null,
         ?string $query = null,
+        ?array $badgeIds = null,
     ): array {
         $conn = $this->em->getConnection();
 
@@ -80,6 +81,14 @@ class DoctrineBusinessRepository implements BusinessRepository
                 $countParams[] = $id;
                 $dataParams[]  = $id;
             }
+        }
+
+        // Con varios badges, los que lleven **todos**: «ecológico con terraza»
+        // es un filtro que se estrecha, no uno que se ensancha.
+        foreach ($badgeIds ?? [] as $badgeId) {
+            $where .= ' AND EXISTS (SELECT 1 FROM business_badges bb WHERE bb.business_id = b.id AND bb.badge_id = ?)';
+            $countParams[] = $badgeId;
+            $dataParams[]  = $badgeId;
         }
 
         // Búsqueda por nombre: `unaccent` para que "jamoneria" encuentre

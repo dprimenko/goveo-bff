@@ -107,6 +107,9 @@ final class NewsOnlyCategories implements CategoryRepository
     }
 
     public function findAll(): array { return []; }
+    public function withDescendants(array $ids): array { return $ids; }
+    public function tourismIds(): array { return []; }
+    public function isAssignableToBusiness(string $id): bool { return false; }
     public function save(Category $category): void {}
     public function delete(Category $category): void {}
 }

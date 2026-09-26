@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backoffice\Infrastructure\Controller;
 
+use App\Badges\Domain\BadgeRepository;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -13,7 +14,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 /**
  * GET /api/admin/businesses?status=pending|scraped|rejected|verified|removed|all
- *                          &q=&city=&category=&plan=&sort=&dir=&page=&size=
+ *                          &q=&city=&category=&plan=&unclassified=&sort=&dir=&page=&size=
  *
  * La cola de revisión del panel. Tres estados que se excluyen entre sí:
  *
@@ -75,6 +76,7 @@ class ListBusinessReviewsController
 
     public function __construct(
         private readonly Connection $db,
+        private readonly BadgeRepository $badges,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -156,10 +158,16 @@ class ListBusinessReviewsController
 
         if ($category !== '') {
             // Por slug o por id, como el filtro público: el panel manda el slug,
-            // que es lo que se lee en la URL.
-            $where   .= ' AND (c.slug = ? OR c.id::text = ?)';
-            $params[] = $category;
-            $params[] = $category;
+            // que es lo que se lee en la URL. Un grupo trae lo de sus
+            // subcategorías.
+            $where   .= ' AND (c.slug = ? OR c.id::text = ? OR cg.slug = ? OR cg.id::text = ?)';
+            array_push($params, $category, $category, $category, $category);
+        }
+
+        if ($request->query->getBoolean('unclassified')) {
+            // Colgados del grupo sin subcategoría: lo que la reestructuración
+            // dejó para revisar a mano (teatros, campings, los ecológicos…).
+            $where .= ' AND c.section IS NOT NULL';
         }
 
         if ($plan !== '') {
@@ -181,7 +189,8 @@ class ListBusinessReviewsController
 
         // El `LEFT JOIN` de categorías hace falta ya en el recuento: el filtro
         // por categoría se apoya en él.
-        $from = 'FROM business b LEFT JOIN categories c ON c.id = b.category_id';
+        $from = 'FROM business b LEFT JOIN categories c ON c.id = b.category_id
+                  LEFT JOIN categories cg ON cg.id = c.parent_id';
 
         $total = (int) $this->db->fetchOne("SELECT COUNT(*) {$from} WHERE {$where}", $params);
 
@@ -189,6 +198,7 @@ class ListBusinessReviewsController
             "SELECT b.id, b.slug, b.name, b.avatar, b.main_image, b.meta, b.city,
                     b.created_at, b.verified_at, b.rejected_at, b.deleted_at,
                     c.slug AS category_slug, c.name AS category_name,
+                    cg.slug AS group_slug, cg.name AS group_name,
                     ST_Y(b.location::geometry) AS lat,
                     ST_X(b.location::geometry) AS lng,
                     -- Lo que tiene colgado, que es lo que dice si una ficha está
@@ -229,8 +239,13 @@ class ListBusinessReviewsController
             [...$params, $size, ($page - 1) * $size],
         );
 
+        $badges = $this->badges->forBusinesses(array_column($rows, 'id'));
+
         return new JsonResponse([
-            'items' => array_map([$this, 'toItem'], $rows),
+            'items' => array_map(
+                fn (array $row) => $this->toItem($row) + ['badges' => $badges[$row['id']] ?? []],
+                $rows,
+            ),
             'total' => $total,
             'page'  => $page,
             'size'  => $size,
@@ -254,11 +269,13 @@ class ListBusinessReviewsController
         $sort = (string) $request->query->get('sort', '');
 
         if (!isset(self::SORTS[$sort])) {
+            // Con el id de desempate, como las columnas: los importados
+            // comparten fecha, y sin él guardar uno los barajaba al recargar.
             return match ($status) {
-                'verified' => 'b.verified_at DESC',
-                'rejected' => 'b.rejected_at DESC',
-                'removed'  => 'b.deleted_at DESC',
-                default    => 'b.created_at ASC',
+                'verified' => 'b.verified_at DESC, b.id ASC',
+                'rejected' => 'b.rejected_at DESC, b.id ASC',
+                'removed'  => 'b.deleted_at DESC, b.id ASC',
+                default    => 'b.created_at ASC, b.id ASC',
             };
         }
 
@@ -294,6 +311,12 @@ class ListBusinessReviewsController
                 'slug' => $row['category_slug'],
                 // Clave de traducción, no un rótulo: se traduce en el panel.
                 'name' => $row['category_name'],
+                // El grupo del que cuelga; nulo si es un grupo (por
+                // clasificar) o una de primer nivel.
+                'group' => $row['group_slug'] === null ? null : [
+                    'slug' => $row['group_slug'],
+                    'name' => $row['group_name'],
+                ],
             ],
             'address'    => $meta['address'] ?? null,
             // De qué pasada del scraping salió (`scraping_2026-09-23`); nulo en

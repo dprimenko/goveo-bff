@@ -261,13 +261,19 @@ class ListGeoStoryReviewsController
      *
      * Un `sort` desconocido se ignora en lugar de responder un error: viaja en la
      * URL del panel y un enlace guardado tiene que seguir abriendo la lista.
+     *
+     * **Siempre con el id de desempate**, también el de por defecto. Lo que trae
+     * el scraping entra de cien en cien con la misma `created_at`, y sin él
+     * Postgres devuelve los empatados en el orden físico de la tabla: guardar un
+     * vídeo (cambiarle el tipo desde la tarjeta) mueve su fila, y al recargar
+     * la cola salía en otro orden.
      */
     private function order(Request $request): string
     {
         $sort = (string) $request->query->get('sort', '');
 
         if (!isset(self::SORTS[$sort])) {
-            return 'g.created_at DESC';
+            return 'g.created_at DESC, g.id ASC';
         }
 
         $direction = strtolower((string) $request->query->get('dir', 'asc')) === 'desc' ? 'DESC' : 'ASC';

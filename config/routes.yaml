@@ -10,6 +10,12 @@ categories_controllers:
         namespace: App\Categories\Infrastructure\Controller
     type: attribute
 
+badges_controllers:
+    resource:
+        path: ../src/Badges/Infrastructure/Controller/
+        namespace: App\Badges\Infrastructure\Controller
+    type: attribute
+
 geostories_controllers:
     resource:
         path: ../src/GeoStories/Infrastructure/Controller/

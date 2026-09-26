@@ -19,7 +19,10 @@ nginx en `:8080`, Postgres/PostGIS en `goveo-db`, DB `goveo`/`goveo`).
   tantos slugs en la URL que además habría que mantener al día. Lo que no existe se descarta en
   silencio —un slug renombrado dejaría la home vacía sin explicar por qué—, y al excluir entran
   también los negocios **sin categoría** (`IS NULL`), que con `NOT IN` a secas desaparecerían.
-- `GET /public/businesses/{id}` — negocio por id (guid) **o** slug: `id,name,description,avatar,main_image,meta`.
+  Un **grupo** incluye lo que cuelga de él. `section=local|tourism` y `badge=` en
+  [Grupos de categorías y badges](#grupos-de-categorías-y-badges); cada item trae sus `badges`.
+- `GET /public/businesses/{id}` — negocio por id (guid) **o** slug: `id,name,description,avatar,main_image,meta,category_id,badges`.
+- `GET /public/badges` — el catálogo de badges: `[{id,slug,name,emoji}]`.
 - `GET /public/businesses/{id}/subcategories` — subcategorías del negocio: `[{id,name,sort_order}]`.
 - `GET /public/businesses/{id}/products?subcategory=&page=&size=` — productos paginados
   (page **base 0**, size máx 50): `{items:[{id,title,description,image,subcategory_id,category_id,price_amount,price_currency,formatted_price}], total, page}`.
@@ -77,10 +80,13 @@ acepta id o slug y devuelve `null` tanto si no existe como si es de otro; lo usa
 | `PATCH` | `/subcategories/{id}` | `name` y/o `sort_order` |
 | `DELETE` | `/subcategories/{id}` | Borra y saca de ella a sus productos |
 
-- **Categoría y localización se heredan del negocio.** El producto no tiene columnas para
-  eso y no debe tenerlas: un producto suelto de su tienda no significa nada, y duplicarlas
-  sólo abriría la puerta a que se contradigan. `category_id` sigue en la tabla —permite que
-  una tienda salga en varias categorías de descubrimiento— pero no se toca desde aquí.
+- **Categoría y localización se heredan del negocio.** Un producto suelto de su tienda no
+  significa nada. `products.category_id` es **siempre la del negocio**: la pone el alta del
+  producto y la actualiza el cambio de categoría del negocio
+  ([`BusinessCategory::syncProducts`](src/Business/Application/BusinessCategory.php)). El import
+  traía otra —un libro en una tienda de regalos era `bookshop`, 7.802 así— y
+  `Version20260926121000` las igualó: con grupos y subcategorías un negocio está en un sitio, y
+  un producto en otro contradice el filtro. No se ofrece que una tienda salga en varias.
 - **La descripción se guarda en HTML** (`description_format`, por defecto `html` en el alta
   desde la app): lo importado ya viene así, la app lo pinta con `HtmlText` y un editor de
   texto enriquecido escupe HTML. El enum admite markdown, pero elegirlo obligaría a
@@ -1238,7 +1244,109 @@ y ferias · `events-festivities` Fiestas de Madrid · `events-experiences` Plane
   `subcategory_id`, `subcategory_slug` y `subcategory_name`. En el panel, `subcategory {id, slug, name}`.
 - **Catálogo**: `/public/categories` devuelve **sólo las de primer nivel**, para que «Flamenco» no se
   cuele entre los círculos de la home ni en los desplegables de negocio; `?parent=events` lista las
-  hijas. Cada categoría trae su `parent_id`.
+  hijas. Cada categoría trae su `parent_id`. Los grupos de negocio usan el mismo árbol: ver
+  [Grupos de categorías y badges](#grupos-de-categorías-y-badges).
+
+## Grupos de categorías y badges
+
+Reestructuración pedida por negocio (26-09-2026), migración `Version20260926120000`. El catálogo
+de negocios pasa a **grupos** con **subcategorías**, repartidos en dos **secciones**:
+
+| Sección | Grupos (`order`) |
+|---|---|
+| `local` | `gastronomy` · `fashion-style` · `beauty-wellness` · `culture-gifts` · `family-pets` · `home` · `tech-services` |
+| `tourism` | `tourism-experiences` · `tourism-culture` · `tourism-gastronomy` · `tourism-shopping` · `tourism-accommodation` |
+
+- **Los grupos son categorías de primer nivel con `section`**; las subcategorías cuelgan por
+  `parent_id`, el mismo árbol de Eventos. **Las que ya existían se colgaron tal cual** (misma id y
+  slug): negocios, vídeos y enlaces del alta (`?category=hostelry`) siguen valiendo. `hostelry` es
+  ahora «Restaurantes» y `gourmet` «Gourmet y Alimentación».
+- **Las de turismo llevan prefijo** (`tourism-hotels`…): `hotels`, `workshops` o `restaurants` ya
+  eran slugs del partner ibiza, que no se toca.
+- **Fusiones** (borrado blando, arrastran negocios, productos y vídeos): `food` → `gourmet`; `eco`
+  → `gourmet` + badge 🌱; `accommodation` → grupo `tourism-accommodation`; `culture-business` →
+  grupo `tourism-culture`. Los teatros de `culture` también van a ese grupo; `culture` se queda
+  como categoría de vídeos de influencer.
+- **«Por clasificar» = colgado del grupo sin subcategoría** (`c.section IS NOT NULL` en el negocio).
+  Se sigue encontrando al filtrar por el grupo. Así quedaron campings, casas rurales y teatros, que
+  no encajaban en las subcategorías sin mirarlos. Hostelería entera quedó en «Restaurantes» (el
+  reparto por defecto); bares y cafeterías se mueven a mano.
+- **`active`**: todo nace **visible**. Desde el panel se oculta un grupo entero o una subcategoría
+  suelta; oculta sigue siendo asignable, sólo deja de listarse. Lo vacío no hace falta ocultarlo:
+  al público no le llega (`with_businesses=1`).
+- **Qué puede llevar un negocio** (`CategoryRepository::isAssignableToBusiness`): una hoja de
+  grupo, un grupo (por clasificar) o una suelta de primer nivel (ibiza, Comercio Centenario). Ni las
+  sólo de influencer ni los tipos de evento. Lo validan el alta, el `PATCH` del gestor y el panel;
+  antes valía cualquier texto no vacío.
+- **«Turismo» en listados y feeds** = grupos de turismo y lo que cuelga, el partner ibiza y las de
+  influencer de siempre (`place`, `culture`, `nature`, `events`) — `CategoryRepository::tourismIds`
+  y la misma condición en el feed. **«Comercio local» es todo lo demás**, para que una categoría
+  nueva no se quede fuera de las dos pestañas.
+
+**Compatible con la app publicada, a propósito.** El BFF, el panel y la web salen sin esperar a
+la app nueva, que pasa por revisión de las tiendas, así que la que ya está instalada tiene que
+seguir viéndose bien:
+
+- ⚠️ **Nombres en español en `name`, no claves** (`Version20260926120000::NAMES`): los grupos, las
+  subcategorías nuevas, `hostelry` y `gourmet`. La app pinta `t(name, {defaultValue: name})` y la
+  instalada no tiene esas claves: con `category.gastronomy` saldría la clave en crudo. **Cuando la
+  app nueva esté publicada, una migración las devuelve a `category.<slug>`** — la lista es esa
+  constante. Mientras, quien lee `name` tiene que enseñar tal cual lo que no empiece por
+  `category.` (el panel y el alta web ya lo hacen).
+- Los grupos llevan **imagen** (la de una de sus categorías), o su círculo saldría vacío.
+- Sólo lo de **Comercio local** lleva el tipo `retail`, que es por lo que la app instalada pide sus
+  círculos; con él, los grupos de Turismo se colaban entre las tiendas.
+- **Alias al filtrar negocios** (`Category::BUSINESS_FILTER_ALIASES`): `accommodation`, `food`,
+  `eco`, `culture-business` y `culture` apuntan a donde están ahora sus negocios. La app instalada
+  parte las pestañas con su lista de slugs (`accommodation` y `culture` entre ellos) y, sin esto,
+  alojamientos y teatros se pasaban a «Comercio local». Comprobado: le salen los mismos 24 negocios
+  en Turismo que antes de la migración.
+- Lo que no se recupera: en su pestaña de Turismo **no salen los círculos de Alojamiento ni de
+  Experiencias** (una se fusionó y la otra ya no es de primer nivel).
+
+**API pública**
+
+- `/public/categories`: sin parámetros, el primer nivel (grupos y sueltas). `section=`, `tree=1`
+  (con `children` encendidas), `with_businesses=1` (quita lo que no tiene negocios publicados y añade
+  `business_count`; un grupo cuenta los de sus hijas). `mode=` devuelve **lo elegible** (hojas, no
+  grupos, encendidas o no) con `parent_id` para agrupar: lo usan el alta y la subida de vídeos.
+  Cada una trae `section` y `active`.
+- `/public/businesses`: `category=<grupo>` trae sus subcategorías; `section=local|tourism`;
+  `badge=eco,terrace` (**todos**, no cualquiera).
+- `/public/geostories`: `category=<grupo>` igual; `feedType=local|tourism` por sección.
+
+**Badges** (`badges`, `business_badges`): distintivos con emoji —Ecológico 🌱, Terraza ☀️—, varios
+por negocio, que salen en la ficha y filtran la búsqueda. `name` es la clave `badge.<slug>`.
+**`badge_categories`** dice en qué grupos se ofrece cada uno como chip de filtro (hoy los dos, sólo
+en Gastronomía); `tree=1` los devuelve en `badges` de cada grupo. Un negocio de otro grupo puede
+llevar el badge igual: esto sólo decide dónde sale el chip.
+
+**Ids fijos e iconos.** Las categorías y badges nuevos tienen id **UUID v5 del slug** (el espacio de
+nombres del import), así que coinciden en local, demo y producción. Los grupos llevan de imagen su
+icono del diseño en `https://goveo.b-cdn.net/categories/<id>/icon-v1.png`, en el almacenamiento de
+**producción** (`goveo-storage`), donde están las demás imágenes de categoría. Se subieron a mano con
+«Upload Folder» (la carpeta la genera la lista `Version20260926120000::ICONS`). Para cambiar uno:
+subir `icon-v2.png` y cambiar la URL — con el mismo nombre, la caché del CDN seguiría sirviendo el
+viejo. Las subcategorías no llevan imagen: son chips de texto.
+«Ecológico» dejó de ser categoría porque un restaurante ecológico tenía que elegir entre ser
+restaurante o ser ecológico.
+
+**Panel**
+
+| Endpoint | Permiso | |
+|---|---|---|
+| `GET /api/admin/categories` | `backoffice.access` | Grupos con **todas** sus hijas y negocios (publicados/total); `unclassified` = colgados del grupo |
+| `PATCH /api/admin/categories/{id}` | `category.manage` | `{active?, order?, children_active?}` |
+| `PATCH /api/admin/businesses/{id}/classification` | `business.edit` | `{category_id?, badges?}` — **no retira la validación** |
+| `GET /api/admin/businesses/classification.csv` | `business.edit` | `?category=&unclassified=1`, para repasarlos en una hoja |
+
+La reclasificación **no retira la validación**, a diferencia del `PATCH` del gestor: la hace
+Goveo, que es quien valida, y con la otra cada bar sacado de «Restaurantes» desaparecería del mapa.
+`/api/admin/businesses` acepta además `unclassified=1`, un grupo en `category`, y devuelve `badges`
+y `category.group`.
+
+`category.manage` es un rol nuevo del cliente del panel (`configure-backoffice.sh`, grupo
+`backoffice-admin`): **hay que relanzar el script en demo y producción** al desplegar.
 
 ## Scraping de eventos (`App\EventScraping`)
 
