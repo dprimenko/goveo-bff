@@ -59,6 +59,8 @@ services:
       # encenderla desde el `.env`**: se ponía la variable, se redesplegaba, y
       # el feed seguía enseñando eventos de hace tres años.
       GEOSTORY_EXPIRY_ENABLED: ${GEOSTORY_EXPIRY_ENABLED:-0}
+      # 0: la app publicada ve los grupos en sus círculos; 1: las de siempre.
+      CATEGORIES_LEGACY_LEAVES: ${CATEGORIES_LEGACY_LEAVES:-0}
     depends_on:
       db:
         condition: service_healthy

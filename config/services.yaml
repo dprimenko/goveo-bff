@@ -9,6 +9,11 @@ parameters:
     # debería empezar a esconder contenido por su cuenta.
     env(GEOSTORY_EXPIRY_ENABLED): '0'
 
+    # Qué ve la app publicada antes de los grupos en sus círculos de Comercio
+    # local: `0` los grupos (por defecto), `1` las categorías de siempre. Ver
+    # «Grupos de categorías y badges» en CLAUDE.md.
+    env(CATEGORIES_LEGACY_LEAVES): '0'
+
     # Audiencias aceptadas al verificar un token social, separadas por comas.
     # Vacías a propósito: sin lista, valen los clientes del mismo proyecto que
     # `GOOGLE_SOCIAL_CLIENT_ID` / `APPLE_CLIENT_ID`, que es lo que la app usa en
@@ -107,6 +112,10 @@ services:
     App\GeoStories\Infrastructure\Repository\DoctrineGeoStoryRepository:
         arguments:
             $expiryEnabled: '%env(bool:GEOSTORY_EXPIRY_ENABLED)%'
+
+    App\Categories\Infrastructure\Controller\ListCategoriesController:
+        arguments:
+            $legacyLeaves: '%env(bool:CATEGORIES_LEGACY_LEAVES)%'
 
     # Bunny Stream — video upload/transcoding
     App\GeoStories\Infrastructure\Service\BunnyVideoService:

@@ -38,11 +38,11 @@ use Symfony\Component\Routing\Attribute\Route;
  *   `parent_id` para agruparlas en el selector.
  * - `?types=` y `?partner=` como siempre (ibiza tiene catálogo propio). Con
  *   `types` y sin `section` ni `mode` es **la petición de la app publicada**
- *   antes de los grupos (sus círculos de Comercio local y el mapa): se le
- *   devuelven las categorías de siempre —las hojas con imagen— y no los
- *   grupos, que esa versión no sabe desplegar y con los que perdía el filtro
- *   por categoría concreta. Las subcategorías nuevas, sin imagen, no entran:
- *   serían círculos vacíos.
+ *   antes de los grupos (sus círculos de Comercio local y el mapa). Qué ve la
+ *   decide `CATEGORIES_LEGACY_LEAVES`: apagado (por defecto), los grupos
+ *   —filtra por grupo entero, no sabe bajar a subcategorías—; encendido, las
+ *   categorías de siempre, las hojas con imagen (las subcategorías nuevas, sin
+ *   imagen, serían círculos vacíos).
  */
 #[Route('/public/categories', name: 'pub_categories_')]
 class ListCategoriesController
@@ -52,6 +52,7 @@ class ListCategoriesController
 
     public function __construct(
         private readonly Connection $db,
+        private readonly bool $legacyLeaves = false,
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -82,7 +83,7 @@ class ListCategoriesController
         $mode    = (string) $request->query->get('mode', '');
         $section = (string) $request->query->get('section', '');
         $typeIds = array_values(array_filter(explode(',', $request->query->getString('types', ''))));
-        $legacy  = $typeIds !== [] && $mode === '' && $section === '';
+        $legacy  = $this->legacyLeaves && $typeIds !== [] && $mode === '' && $section === '';
 
         if ($legacy) {
             $where[] = 'c.section IS NULL';
