@@ -134,14 +134,19 @@ class ManageBusinessSubcategoriesController
             return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
         }
 
-        // La de promociones no se toca: el sistema de ofertas la busca por su
-        // marca, pero el gestor la reconoce por el nombre, y una «Promos»
+        $data = json_decode($request->getContent(), true) ?? [];
+
+        // La de promociones no se renombra: el sistema de ofertas la busca por
+        // su marca, pero el gestor la reconoce por el nombre, y una «Promos»
         // renombrada a «Varios» deja a todos mirando a sitios distintos.
-        if ($subcategory->isPromos()) {
+        //
+        // **Ordenarla sí**, como a las demás. Antes se rechazaba cualquier
+        // cambio, y como las apps renumeran todas al subir o bajar una, bastaba
+        // con que «Promos» cambiara de puesto para que el movimiento entero
+        // fallara y se deshiciera.
+        if ($subcategory->isPromos() && array_key_exists('name', $data)) {
             return $this->invalid('promos_is_fixed');
         }
-
-        $data = json_decode($request->getContent(), true) ?? [];
 
         if (array_key_exists('name', $data)) {
             $name = trim((string) $data['name']);
