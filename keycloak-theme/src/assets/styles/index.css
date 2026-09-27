@@ -58,19 +58,12 @@ body {
     padding: 32px 28px;
 }
 
-.goveo-wordmark {
-    margin: 0;
-    text-align: center;
-    font-size: 30px;
-    font-weight: 700;
-    letter-spacing: 3px;
-}
-
-.goveo-rule {
-    width: 56px;
-    height: 3px;
-    margin: 12px auto 0;
-    background: var(--goveo-primary);
+/* Redondo en el propio fichero, como en la app: no hace falta `border-radius`. */
+.goveo-logo {
+    display: block;
+    width: 104px;
+    height: 104px;
+    margin: 0 auto;
 }
 
 .goveo-tagline {
@@ -178,6 +171,21 @@ body {
 
 .goveo-button--secondary:hover {
     background: var(--goveo-surface-raised);
+}
+
+/* Blanco con texto oscuro e icono, como los accesos sociales de la app. */
+.goveo-button--social {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: #ffffff;
+    color: #18181b;
+    font-weight: 600;
+}
+
+.goveo-button--social:hover {
+    background: #ececef;
 }
 
 .goveo-social {

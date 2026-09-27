@@ -120,6 +120,8 @@ services:
       GOVEO_BACKOFFICE_ORIGINS: ${GOVEO_BACKOFFICE_ORIGINS:-https://admin-demo.goveo.app}
 
       KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
+      # La web del «Regístrate» de la pantalla de entrar (tema goveo).
+      GOVEO_WEB_URL: ${GOVEO_WEB_URL:-https://demo.goveo.app}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
 
       # Los correos que manda Keycloak por su cuenta (recuperar contraseña,

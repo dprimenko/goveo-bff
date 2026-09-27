@@ -30,6 +30,10 @@ const { useI18n, ofTypeI18n } = i18nBuilder
             showPassword: 'Ver la contraseña',
             hidePassword: 'Ocultar la contraseña',
             identityProviderSeparator: 'o',
+            // El mismo rótulo que los botones de la app; {0} es el proveedor.
+            continueWith: 'Continúa con {0}',
+            noAccount: '¿No tienes cuenta?',
+            doRegister: 'Regístrate',
             // Recuperar la contraseña
             emailForgotTitle: '¿Has olvidado tu contraseña?',
             emailInstruction:
@@ -69,6 +73,9 @@ const { useI18n, ofTypeI18n } = i18nBuilder
             showPassword: 'Show password',
             hidePassword: 'Hide password',
             identityProviderSeparator: 'or',
+            continueWith: 'Continue with {0}',
+            noAccount: "Don't have an account?",
+            doRegister: 'Sign up',
             emailForgotTitle: 'Forgot your password?',
             emailInstruction:
                 "Enter your email and we'll send you a link to choose a new one.",

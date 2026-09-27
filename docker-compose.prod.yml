@@ -125,6 +125,8 @@ services:
       GOVEO_BACKOFFICE_ORIGINS: ${GOVEO_BACKOFFICE_ORIGINS:-https://admin.goveo.app}
 
       KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL}
+      # La web del «Regístrate» de la pantalla de entrar (tema goveo).
+      GOVEO_WEB_URL: ${GOVEO_WEB_URL:-https://goveo.app}
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
 
       KC_SMTP_HOST: ${KC_SMTP_HOST:-}

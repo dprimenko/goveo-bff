@@ -88,6 +88,9 @@ services:
       KC_HOSTNAME_STRICT: "false"
       KC_PROXY_HEADERS: xforwarded
       KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8081}
+      # La web a la que manda el «Regístrate» de la pantalla de entrar (tema
+      # goveo). Sin ella, el tema apunta a producción.
+      GOVEO_WEB_URL: ${GOVEO_WEB_URL:-http://localhost:4321}
       GOOGLE_SOCIAL_CLIENT_ID: ${GOOGLE_SOCIAL_CLIENT_ID:-}
       GOOGLE_SOCIAL_CLIENT_SECRET: ${GOOGLE_SOCIAL_CLIENT_SECRET:-}
       APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}

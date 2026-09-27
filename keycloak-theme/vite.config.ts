@@ -20,6 +20,11 @@ export default defineConfig({
         keycloakify({
             accountThemeImplementation: 'none',
             themeName: ['goveo'],
+            // Dónde está la web, para el «Regístrate» de la pantalla de entrar:
+            // el registro de Keycloak está cerrado y las cuentas se crean en
+            // goveo.app/registro. Keycloak la lee de su entorno al arrancar, así
+            // que en local y en demo basta con definir `GOVEO_WEB_URL`.
+            environmentVariables: [{ name: 'GOVEO_WEB_URL', default: 'https://goveo.app' }],
             startKeycloakOptions: {
                 dockerImage: 'quay.io/keycloak/keycloak:26.0',
                 realmJsonFilePath: '../docker/keycloak/goveo-realm.json',

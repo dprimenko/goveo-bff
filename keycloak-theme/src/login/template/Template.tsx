@@ -7,6 +7,9 @@ import { useSetClassName } from 'keycloakify/tools/useSetClassName'
 import { kcSanitize } from 'keycloakify/lib/kcSanitize'
 import type { I18n } from '../i18n'
 import type { KcContext } from '../KcContext'
+// El mismo logo que la pantalla de acceso de la app (`auth-goveo-logo.png`):
+// quien entra desde la app tiene que reconocer que sigue en Goveo.
+import logoUrl from '../../assets/images/goveo-logo.png'
 
 /**
  * La caja de todas las pantallas: fondo oscuro, la marca arriba y una tarjeta.
@@ -54,8 +57,7 @@ export default function Template(props: TemplateProps<KcContext, I18n>) {
     return (
         <div className="goveo-page">
             <main className="goveo-card">
-                <p className="goveo-wordmark">GOVEO</p>
-                <div className="goveo-rule" />
+                <img className="goveo-logo" src={logoUrl} alt="Goveo" width={104} height={104} />
                 <p className="goveo-tagline">La Vídeo Smart City de Madrid</p>
 
                 {headerNode !== null && <h1 className="goveo-title">{headerNode}</h1>}
