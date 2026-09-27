@@ -128,7 +128,8 @@ class ProductImagesController
             return new JsonResponse(['error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
         }
 
-        $business = $this->managed->find($businessId);
+        // El panel también entra (`business.edit`), como en el resto del catálogo.
+        $business = $this->managed->find($businessId, allowBackoffice: true);
         if ($business === null) {
             return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
         }

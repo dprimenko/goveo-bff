@@ -33,12 +33,13 @@ final class ManagedBusinessFinder
 
     /**
      * @param bool $allowBackoffice deja pasar también a quien tenga permiso de
-     *                              edición en el panel, aunque no gestione el
-     *                              negocio. Va apagado por defecto y se enciende
-     *                              **sólo** en la ficha y sus imágenes: así
-     *                              `business.edit` permite exactamente lo que su
-     *                              nombre dice, y no de paso tocar productos o
-     *                              subcategorías por estos mismos endpoints.
+     *                              edición en el panel (`business.edit`), aunque
+     *                              no gestione el negocio. Va apagado por defecto
+     *                              y se enciende en la ficha, sus imágenes y su
+     *                              catálogo (productos, sus imágenes y
+     *                              subcategorías): el panel ya listaba y publicaba
+     *                              productos con ese permiso, y le faltaba poder
+     *                              darlos de alta y corregirlos.
      */
     public function find(string $idOrSlug, bool $allowBackoffice = false): ?Business
     {

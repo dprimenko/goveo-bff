@@ -77,6 +77,7 @@ class BusinessProductsController
 
         $rows = $this->db->fetchAllAssociative(
             "SELECT p.id, p.title, p.slug, p.images, p.price_amount, p.price_currency,
+                    p.description, p.subcategory_id, p.meta,
                     p.created_at, p.published_at, p.deleted_at, sc.name AS subcategory
                {$from}
               WHERE {$where}
@@ -163,6 +164,10 @@ class BusinessProductsController
     private function toItem(array $row): array
     {
         $images = json_decode((string) ($row['images'] ?? ''), true) ?: [];
+        // Por su `order`, como `Product::imageUrls()`: guardadas pueden estar en
+        // cualquier orden, y la portada es la primera de la lista ordenada.
+        usort($images, static fn ($a, $b) => ($a['order'] ?? 0) <=> ($b['order'] ?? 0));
+        $meta   = json_decode((string) ($row['meta'] ?? ''), true) ?: [];
 
         return [
             'id'    => $row['id'],
@@ -175,6 +180,16 @@ class BusinessProductsController
                 'currency' => $row['price_currency'] ?? 'EUR',
             ],
             'subcategory'  => $row['subcategory'],
+            // Lo que necesita el formulario de edición del panel, que no tiene
+            // otra forma de leer un producto entero.
+            'subcategory_id' => $row['subcategory_id'],
+            'description'    => $row['description'],
+            'images'         => array_values(array_filter(array_map(
+                static fn ($i) => is_array($i) ? ($i['url'] ?? null) : null,
+                $images,
+            ))),
+            'link_url'       => $meta['link_url'] ?? null,
+            'link_action'    => $meta['link_action'] ?? null,
             'created_at'   => self::iso($row['created_at']),
             'published_at' => self::iso($row['published_at']),
             'deleted_at'   => self::iso($row['deleted_at']),

@@ -214,7 +214,9 @@ class ManageBusinessSubcategoriesController
         }
 
         // `null` cubre tanto «no existe» como «es de otro»: ver ManagedBusinessFinder.
-        return $this->managed->find($businessId)
+        // El panel también entra (`business.edit`): gestiona el catálogo de
+        // cualquier negocio, igual que ya lista y publica sus productos.
+        return $this->managed->find($businessId, allowBackoffice: true)
             ?? new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
     }
 
