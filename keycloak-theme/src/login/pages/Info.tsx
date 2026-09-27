@@ -1,7 +1,9 @@
+import { useEffect } from 'react'
 import type { PageProps } from 'keycloakify/login/pages/PageProps'
 import { kcSanitize } from 'keycloakify/lib/kcSanitize'
 import type { KcContext } from '../KcContext'
 import type { I18n } from '../i18n'
+import { finishSwitch, isSwitching } from '../switchAccount'
 
 /**
  * El paso intermedio: «pulsa aquí para continuar».
@@ -21,6 +23,14 @@ export default function Info(props: PageProps<Extract<KcContext, { pageId: 'info
     const { messageHeader, message, requiredActions, skipLink, pageRedirectUri, actionUri, client } =
         kcContext
     const { msgStr, advancedMsg } = i18n
+
+    // «Has cerrado sesión» a mitad de un cambio de cuenta: no se enseña, se
+    // vuelve al login que lo pidió (ver `switchAccount`).
+    const switching = isSwitching()
+    useEffect(() => {
+        if (switching) finishSwitch()
+    }, [switching])
+    if (switching) return null
 
     /**
      * El caso que de verdad se ve: el enlace del correo de recuperación. Ahí

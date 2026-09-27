@@ -33,6 +33,7 @@ const { useI18n, ofTypeI18n } = i18nBuilder
             // El mismo rótulo que los botones de la app; {0} es el proveedor.
             continueWith: 'Continúa con {0}',
             noAccount: '¿No tienes cuenta?',
+            switchingAccount: 'Un momento…',
             doRegister: 'Regístrate',
             // Recuperar la contraseña
             emailForgotTitle: '¿Has olvidado tu contraseña?',
@@ -75,6 +76,7 @@ const { useI18n, ofTypeI18n } = i18nBuilder
             identityProviderSeparator: 'or',
             continueWith: 'Continue with {0}',
             noAccount: "Don't have an account?",
+            switchingAccount: 'One moment…',
             doRegister: 'Sign up',
             emailForgotTitle: 'Forgot your password?',
             emailInstruction:

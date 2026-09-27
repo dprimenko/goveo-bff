@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { PageProps } from 'keycloakify/login/pages/PageProps'
 import type { KcContext } from '../KcContext'
 import type { I18n } from '../i18n'
 import { kcSanitize } from 'keycloakify/lib/kcSanitize'
+import { startSwitch } from '../switchAccount'
 
 /**
  * La pantalla de entrar.
@@ -22,10 +23,34 @@ export default function Login(
     const { social, realm, url, login, auth, registrationDisabled, messagesPerField } = kcContext
     const { msg, msgStr } = i18n
 
+    // Keycloak ya tiene una sesión abierta y pide «Vuelva a autenticar» con esa
+    // cuenta fija: se cierra y se vuelve aquí limpio, para poder entrar con la
+    // que se quiera (ver `switchAccount`). Mientras, no se pinta el formulario.
+    const reauth = kcContext.auth?.showUsername === true && usernameHidden(kcContext)
+    const [switching, setSwitching] = useState(reauth)
+    useEffect(() => {
+        if (reauth && !startSwitch(kcContext.client.clientId)) setSwitching(false)
+    }, [])
+
     const [revealed, setRevealed] = useState(false)
     // Keycloak rechaza el segundo envío del mismo formulario, así que el botón
     // se desactiva al enviar: sin eso, un doble clic acaba en «página caducada».
     const [sending, setSending] = useState(false)
+
+    if (switching) {
+        return (
+            <Template
+                kcContext={kcContext}
+                i18n={i18n}
+                doUseDefaultCss={doUseDefaultCss}
+                classes={classes}
+                displayMessage={false}
+                headerNode={msg('switchingAccount')}
+            >
+                {null}
+            </Template>
+        )
+    }
 
     return (
         <Template
