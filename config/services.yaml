@@ -75,7 +75,13 @@ services:
             $keycloakRealm: '%env(KEYCLOAK_REALM)%'
             # Los clientes de los que aceptamos tokens. Uno nuevo se añade aquí
             # a propósito: que exista en el realm no lo hace nuestro.
-            $allowedClients: ['%env(KEYCLOAK_CLIENT_ID)%', 'goveo-backoffice']
+            #
+            # `goveo-app` es el de la web (goveo.app), que entra por la pantalla
+            # de Keycloak con PKCE. En local coincide con KEYCLOAK_CLIENT_ID,
+            # pero en demo y producción el BFF usa `goveo-bff`, y sin nombrarlo
+            # aquí cada petición de la web volvía con 401: «Mi cuenta» mandaba a
+            # entrar, Keycloak devolvía con la sesión abierta, y así sin fin.
+            $allowedClients: ['%env(KEYCLOAK_CLIENT_ID)%', 'goveo-app', 'goveo-backoffice']
 
     App\Auth\Infrastructure\Service\KeycloakService:
         arguments:
