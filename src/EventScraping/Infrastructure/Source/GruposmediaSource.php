@@ -64,7 +64,7 @@ final class GruposmediaSource extends JsonLdEventSource
             'lng'      => $lng,
             'address'  => $address,
             'website'  => 'https://gruposmedia.com/',
-            'category' => 'culture-business',
+            'category' => 'culture-shows',
         ];
     }
 

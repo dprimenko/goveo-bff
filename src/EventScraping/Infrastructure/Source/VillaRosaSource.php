@@ -37,7 +37,7 @@ final class VillaRosaSource extends JsonLdEventSource
             'lng'      => -3.7014214,
             'address'  => 'Plaza de Santa Ana, 15, 28012 Madrid',
             'website'  => 'https://tablaoflamenco1911.com/es/',
-            'category' => 'culture-business',
+            'category' => 'live-music',
         ];
     }
 

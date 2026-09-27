@@ -137,7 +137,7 @@ final class TeatroRealSource implements EventSource
             externalId: 'venue',
             name: 'Teatro Real',
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: 40.4181323,
             longitude: -3.7102972,
             address: 'Plaza de Isabel II, s/n, 28013 Madrid',

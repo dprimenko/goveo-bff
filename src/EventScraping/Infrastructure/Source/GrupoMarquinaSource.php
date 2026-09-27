@@ -140,7 +140,7 @@ final class GrupoMarquinaSource implements EventSource
             externalId: 'venue-' . basename($venue['website']),
             name: $venue['name'],
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: $venue['lat'],
             longitude: $venue['lng'],
             address: $venue['address'],

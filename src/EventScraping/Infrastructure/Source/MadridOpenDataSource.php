@@ -198,7 +198,7 @@ final class MadridOpenDataSource implements EventSource
             externalId: 'sala-' . $this->slug($event->venueName),
             name: $event->venueName,
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: $event->latitude,
             longitude: $event->longitude,
             address: $event->venueAddress,

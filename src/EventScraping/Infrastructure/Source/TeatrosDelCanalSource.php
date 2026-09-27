@@ -28,7 +28,7 @@ final class TeatrosDelCanalSource extends TribeEventsSource
             'lat'      => 40.4382790,
             'lng'      => -3.7051836,
             'address'  => 'Calle de Cea Bermúdez, 1, 28003 Madrid',
-            'category' => 'culture-business',
+            'category' => 'culture-shows',
         ];
     }
 

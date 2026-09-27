@@ -1482,6 +1482,11 @@ vez con la geocodificación de Google y van fijas en cada clase.
   es el mismo tablao pero sin fechas ni elenco (se sigue con la de Wix). El Tablao Flamenco 1911 es
   el antiguo Villa Rosa (`villa-rosa`).
 
+- **Dirección en `meta.address`** (la de la sala, o «sala, ciudad»): es lo que enseña la tarjeta y lo
+  que abre «Cómo llegar». Hasta el 27-09-2026 no se guardaba, y los eventos de la **Agenda Goveo**
+  —sin negocio del que heredarla— salían con «España» y el botón no hacía nada. Una pasada nueva
+  completa lo que siga en la fuente; para el resto, `goveo:events:fill-addresses [--apply]` la saca
+  de las coordenadas de cada evento con la geocodificación inversa de Google (`GOOGLE_MAPS_API_KEY`).
 - **Sin imagen no entra.** Una tarjeta vacía en el feed no la abre nadie.
 - **El cartel se encaja en vertical** (9:16, [`PosterFrame`](src/EventScraping/Infrastructure/PosterFrame.php)):
   entero y centrado, con bandas negras arriba y abajo si es horizontal o a los lados si es muy alto, y
@@ -1503,9 +1508,12 @@ vez con la geocodificación de Google y van fijas en cada clase.
   descartada no se vuelve a crear: sus eventos van a la Agenda.
   - Las salas **con web** (Berlín, Clamores, Calderón) salen completas: avatar = el icono grande
     de la web, escaparate = su `og:image` (o el cartel del evento si no tiene), descripción y
-    teléfono (`WebsiteProfile`). Categoría fija por fuente (`nightlife` / `culture-business`).
+    teléfono (`WebsiteProfile`). Categoría fija por fuente: `nightlife`, `live-music` (tablaos, Auditorio),
+    `culture-shows` (teatros) o `tourism-museums`. ⚠️ `culture-business` ya no existe (se fusionó al
+    reorganizar las categorías): con una categoría borrada la fuente entera falla con «No existe la
+    categoría».
   - Las **del Ayuntamiento**, sólo las que tienen 5 eventos o más en la agenda (~40-60 de 173),
-    como `culture-business`, **sin avatar** —el fichero no trae web ni logo, y la ficha de la
+    como `culture-shows`, **sin avatar** —el fichero no trae web ni logo, y la ficha de la
     entidad da 404— y con el cartel de su primer evento como escaparate.
   - **Sus eventos no se ven hasta validar la sala** (`findFeed`), porque llevarían a una ficha que
     no es pública. Sólo en las del scraping: el resto de negocios sin validar siguen como estaban.

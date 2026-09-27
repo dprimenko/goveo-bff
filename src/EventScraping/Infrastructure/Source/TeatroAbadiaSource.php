@@ -126,7 +126,7 @@ final class TeatroAbadiaSource implements EventSource
             externalId: 'venue',
             name: 'Teatro de La Abadía',
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: 40.4353022,
             longitude: -3.7094283,
             address: 'Calle de Fernández de los Ríos, 42, 28015 Madrid',

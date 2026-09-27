@@ -117,7 +117,7 @@ final class TeatroLaLatinaSource implements EventSource
             externalId: 'venue',
             name: 'Teatro La Latina',
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: 40.4114334,
             longitude: -3.7087451,
             address: 'Plaza de la Cebada, 2, 28005 Madrid',

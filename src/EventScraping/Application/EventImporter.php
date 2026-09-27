@@ -71,7 +71,13 @@ final class EventImporter
                 // sigue más allá de lo guardado —un espectáculo que prorroga, uno
                 // diario sin fin anunciado—, se le alarga el fin. Si no, dejaba
                 // de verse al caducar aunque siguiera en cartel.
-                $extended = $this->extend($existing[$source->name() . ':' . $event->externalId], $event, $dryRun);
+                $stored   = $existing[$source->name() . ':' . $event->externalId];
+                $extended = $this->extend($stored, $event, $dryRun);
+                // Lo importado antes de guardar la dirección se queda sin ella
+                // —y sin «Cómo llegar»—: se completa al pasar otra vez.
+                if (!$dryRun) {
+                    $this->fillAddress($stored['id'], $event);
+                }
                 $report($extended ? self::EXTENDED : self::SKIP_EXISTING, $event, null);
             } else {
                 $candidates[] = $event;
@@ -151,6 +157,7 @@ final class EventImporter
             if ($event->latitude !== null && $event->longitude !== null) {
                 $story->setLocation($event->latitude, $event->longitude);
             }
+            $story->locatedAt($this->address($event));
             // El tipo que diga la fuente (tablao → Flamenco…), o «Otros» si no
             // lo sabe; y su subnivel, si lo hay. Se corrige en el panel.
             $story->setSubcategoryId($this->subcategories->resolve($this->eventsCategoryId(), $event->subcategory));
@@ -213,6 +220,30 @@ final class EventImporter
             'UPDATE geostories SET ended_at = ?, updated_at = NOW() WHERE id = ? AND deleted_at IS NULL',
             [$end->format(\DATE_ATOM), $stored['id']],
         ) > 0;
+    }
+
+    /**
+     * La dirección del evento: la de la sala si la fuente la da y, si no, su
+     * nombre y la ciudad, que es lo que se escribiría en el buscador del mapa.
+     */
+    private function address(ScrapedEvent $event): ?string
+    {
+        return $event->venueAddress ?? (trim($event->venueName . ', ' . $event->city, ' ,') ?: null);
+    }
+
+    /** Pone la dirección a un evento ya importado que no la tenga. */
+    private function fillAddress(string $id, ScrapedEvent $event): void
+    {
+        if (($address = $this->address($event)) === null) {
+            return;
+        }
+
+        $this->db->executeStatement(
+            "UPDATE geostories
+                SET meta = jsonb_set(COALESCE(meta::jsonb, '{}'::jsonb), '{address}', to_jsonb(?::text))::json
+              WHERE id = ? AND deleted_at IS NULL AND (meta->>'address') IS NULL",
+            [mb_substr($address, 0, 255), $id],
+        );
     }
 
     private function eventsCategoryId(): string

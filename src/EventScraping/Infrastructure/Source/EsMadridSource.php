@@ -189,7 +189,7 @@ final class EsMadridSource implements EventSource
             externalId: 'sala-' . $this->slug($event->venueName),
             name: $event->venueName,
             city: $this->city(),
-            categorySlug: $music * 2 > array_sum($types) ? 'nightlife' : 'culture-business',
+            categorySlug: $music * 2 > array_sum($types) ? 'nightlife' : 'culture-shows',
             latitude: $event->latitude,
             longitude: $event->longitude,
             address: $event->venueAddress,

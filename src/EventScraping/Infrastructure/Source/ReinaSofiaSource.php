@@ -91,7 +91,7 @@ final class ReinaSofiaSource implements EventSource
             externalId: 'venue-' . $key,
             name: $venue['name'],
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'tourism-museums',
             latitude: $venue['lat'],
             longitude: $venue['lng'],
             address: $venue['address'],

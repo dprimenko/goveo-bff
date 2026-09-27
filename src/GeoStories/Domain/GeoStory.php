@@ -276,6 +276,28 @@ class GeoStory
     public function getExternalRef(): ?string { return $this->externalRef; }
 
     /**
+     * La dirección que enseña la tarjeta y que abre «Cómo llegar».
+     *
+     * Va en `meta.address`, que es donde la ha buscado siempre la app; sin ella
+     * tira de la del negocio, y un evento de la Agenda no tiene negocio: salía
+     * «España» y el botón no abría nada.
+     */
+    public function locatedAt(?string $address): self
+    {
+        $meta = $this->meta ?? [];
+        unset($meta['address']);
+
+        if ($address !== null && trim($address) !== '') {
+            $meta['address'] = mb_substr(trim($address), 0, 255);
+        }
+
+        $this->meta      = $meta ?: null;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
+
+    /**
      * Marca la publicación como importada por el scraping de eventos.
      *
      * `origin` lleva el día de la pasada (`scraping_2026-09-23`): cuando algo

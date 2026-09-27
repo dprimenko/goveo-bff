@@ -104,7 +104,7 @@ final class TorresBermejasSource implements EventSource
             externalId: 'venue',
             name: 'Torres Bermejas',
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'live-music',
             latitude: self::LAT,
             longitude: self::LNG,
             address: self::ADDRESS,

@@ -183,7 +183,7 @@ final class AtgSource implements EventSource
                 externalId: 'venue-' . trim((string) preg_replace('/[^a-z0-9]+/', '-', strtr(mb_strtolower($venue['name']), ['á' => 'a'])), '-'),
                 name: $venue['name'],
                 city: $this->city(),
-                categorySlug: 'culture-business',
+                categorySlug: 'culture-shows',
                 latitude: $venue['lat'],
                 longitude: $venue['lng'],
                 address: $venue['address'],

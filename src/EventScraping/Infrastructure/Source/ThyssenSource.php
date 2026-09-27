@@ -40,7 +40,7 @@ final class ThyssenSource extends JsonLdEventSource
         'lng'      => -3.6949254,
         'address'  => 'Paseo del Prado, 8, 28014 Madrid',
         'website'  => 'https://www.museothyssen.org/',
-        'category' => 'culture-business',
+        'category' => 'tourism-museums',
     ];
 
     /** @var array<string, string> URL de la ficha → tipo de su tarjeta */

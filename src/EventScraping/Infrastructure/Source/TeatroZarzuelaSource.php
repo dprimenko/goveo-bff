@@ -145,7 +145,7 @@ final class TeatroZarzuelaSource implements EventSource
             externalId: 'venue',
             name: 'Teatro de la Zarzuela',
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: 40.4171895,
             longitude: -3.6969903,
             address: 'Calle de Jovellanos, 4, 28014 Madrid',

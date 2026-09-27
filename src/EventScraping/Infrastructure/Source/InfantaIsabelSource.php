@@ -110,7 +110,7 @@ final class InfantaIsabelSource implements EventSource
             externalId: 'venue',
             name: self::VENUE['name'],
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: self::VENUE['lat'],
             longitude: self::VENUE['lng'],
             address: self::VENUE['address'],

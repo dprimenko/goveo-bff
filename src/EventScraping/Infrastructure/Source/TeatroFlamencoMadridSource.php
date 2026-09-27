@@ -101,7 +101,7 @@ final class TeatroFlamencoMadridSource implements EventSource
             externalId: 'venue',
             name: self::VENUE['name'],
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'live-music',
             latitude: self::VENUE['lat'],
             longitude: self::VENUE['lng'],
             address: self::VENUE['address'],

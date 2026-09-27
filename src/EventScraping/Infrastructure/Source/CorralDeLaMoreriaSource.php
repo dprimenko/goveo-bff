@@ -115,7 +115,7 @@ final class CorralDeLaMoreriaSource implements EventSource
             externalId: 'venue',
             name: 'Corral de la Morería',
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'live-music',
             latitude: self::LAT,
             longitude: self::LNG,
             address: self::ADDRESS,

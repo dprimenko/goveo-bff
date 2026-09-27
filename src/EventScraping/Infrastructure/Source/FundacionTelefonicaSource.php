@@ -128,7 +128,7 @@ final class FundacionTelefonicaSource implements EventSource
             externalId: 'venue',
             name: self::VENUE['name'],
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'tourism-museums',
             latitude: self::VENUE['lat'],
             longitude: self::VENUE['lng'],
             address: self::VENUE['address'],

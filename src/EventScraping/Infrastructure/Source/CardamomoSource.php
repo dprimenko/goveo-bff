@@ -35,7 +35,7 @@ final class CardamomoSource extends JsonLdEventSource
             'lng'      => -3.6995109,
             'address'  => 'Calle de Echegaray, 15, 28014 Madrid',
             'website'  => 'https://cardamomo.com/es/',
-            'category' => 'culture-business',
+            'category' => 'live-music',
         ];
     }
 

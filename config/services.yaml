@@ -213,3 +213,8 @@ services:
     App\Business\Infrastructure\Geocoding\GoogleCityLookup:
         arguments:
             $apiKey: '%env(GOOGLE_MAPS_API_KEY)%'
+
+    # Dirección de los eventos importados sin ella, por sus coordenadas.
+    App\EventScraping\Infrastructure\Command\FillEventAddressesCommand:
+        arguments:
+            $apiKey: '%env(GOOGLE_MAPS_API_KEY)%'

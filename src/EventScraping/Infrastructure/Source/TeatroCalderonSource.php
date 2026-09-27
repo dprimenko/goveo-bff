@@ -107,7 +107,7 @@ final class TeatroCalderonSource implements EventSource
             externalId: 'venue',
             name: 'Teatro Calderón',
             city: $this->city(),
-            categorySlug: 'culture-business',
+            categorySlug: 'culture-shows',
             latitude: 40.4140434,
             longitude: -3.7035111,
             address: 'Calle de Atocha, 18, 28012 Madrid',

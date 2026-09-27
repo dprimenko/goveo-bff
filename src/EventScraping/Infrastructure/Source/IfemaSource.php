@@ -41,7 +41,7 @@ final class IfemaSource extends JsonLdEventSource
             'lng'      => -3.6167070,
             'address'  => 'Avenida del Partenón, 5, 28042 Madrid',
             'website'  => 'https://www.ifema.es/',
-            'category' => 'culture-business',
+            'category' => 'culture-shows',
         ];
     }
 
