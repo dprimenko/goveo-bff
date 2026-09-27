@@ -10,6 +10,7 @@ use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use App\Shared\Application\ProfileOwnership;
+use App\Users\Infrastructure\Service\LocalUserResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,6 +31,7 @@ class ListGeoStoriesController
         private readonly BunnyVideoService $bunny,
         private readonly ReviewQueueNotifier $reviewQueue,
         private readonly ProfileOwnership $ownership,
+        private readonly LocalUserResolver $currentUser,
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -70,6 +72,9 @@ class ListGeoStoriesController
         // pueden tocar.
         $supportsImages = $this->clientSupports($request, 'image');
 
+        // Con sesión, fuera lo de las cuentas que ha bloqueado.
+        $viewerId = $this->currentUser->currentId();
+
         $findFeed = fn () => $this->repository->findFeed(
             latitude:      $lat,
             longitude:     $lng,
@@ -85,6 +90,7 @@ class ListGeoStoriesController
             includeUnverified: $includeUnverified,
             supportsImages: $supportsImages,
             subcategory:   $subcategory,
+            viewerId:      $viewerId,
         );
 
         $result = $findFeed();

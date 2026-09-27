@@ -30,6 +30,8 @@ interface BusinessRepository
      * @param ?float  $radiusMeters acota el resultado a ese radio (mapa: sólo lo
      *                              que entra en la vista). null = sin límite.
      * @param ?string $query        busca por nombre, sin tildes ni mayúsculas.
+     * @param ?string $blockedBy    id local de quien mira: fuera los negocios
+     *                              que ha bloqueado.
      */
     public function findNearby(
         float $latitude,
@@ -41,6 +43,7 @@ interface BusinessRepository
         ?float $radiusMeters = null,
         ?string $query = null,
         ?array $badgeIds = null,
+        ?string $blockedBy = null,
     ): array;
 
     public function save(Business $business): void;

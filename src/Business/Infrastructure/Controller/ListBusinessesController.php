@@ -9,6 +9,7 @@ use App\Business\Domain\Business;
 use App\Business\Domain\BusinessRepository;
 use App\Categories\Domain\Category;
 use App\Categories\Domain\CategoryRepository;
+use App\Users\Infrastructure\Service\LocalUserResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -58,6 +59,7 @@ class ListBusinessesController
         private readonly BusinessRepository $repository,
         private readonly CategoryRepository $categories,
         private readonly BadgeRepository $badges,
+        private readonly LocalUserResolver $currentUser,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -87,6 +89,7 @@ class ListBusinessesController
             radiusMeters: $radius,
             query:        $query !== '' ? $query : null,
             badgeIds:     $badgeIds,
+            blockedBy:    $this->currentUser->currentId(),
         );
 
         $badges = $this->badges->forBusinesses(array_map(

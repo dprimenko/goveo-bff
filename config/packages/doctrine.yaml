@@ -98,6 +98,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Loyalty/Domain'
                 prefix: 'App\Loyalty\Domain'
                 alias: Loyalty
+            Moderation:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Moderation/Domain'
+                prefix: 'App\Moderation\Domain'
+                alias: Moderation
         controller_resolver:
             auto_mapping: false
 

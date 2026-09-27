@@ -48,6 +48,7 @@ class DoctrineBusinessRepository implements BusinessRepository
         ?float $radiusMeters = null,
         ?string $query = null,
         ?array $badgeIds = null,
+        ?string $blockedBy = null,
     ): array {
         $conn = $this->em->getConnection();
 
@@ -89,6 +90,15 @@ class DoctrineBusinessRepository implements BusinessRepository
             $where .= ' AND EXISTS (SELECT 1 FROM business_badges bb WHERE bb.business_id = b.id AND bb.badge_id = ?)';
             $countParams[] = $badgeId;
             $dataParams[]  = $badgeId;
+        }
+
+        // Los que ha bloqueado quien mira no salen ni en el listado, ni en el
+        // mapa, ni en la búsqueda.
+        if ($blockedBy !== null) {
+            $where .= " AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.user_id::text = ?"
+                    . " AND ub.target_type = 'business' AND ub.target_id = b.id)";
+            $countParams[] = $blockedBy;
+            $dataParams[]  = $blockedBy;
         }
 
         // Búsqueda por nombre: `unaccent` para que "jamoneria" encuentre

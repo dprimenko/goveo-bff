@@ -238,6 +238,39 @@ Endpoints:
 El borrado definitivo de un negocio (`BusinessPurger`) limpia las cuatro tablas: no tienen clave
 ajena, como `user_follows`.
 
+## Moderación: denuncias, bloqueos y condiciones (`App\Moderation`)
+
+Por la **guideline 1.2 de Apple** (contenido generado por usuarios): la 1.6.0 se rechazó por no
+tenerlo. Apple pide filtrar lo inapropiado —eso ya lo hace la revisión previa del panel—,
+**denunciar**, **bloquear** (y que bloquear avise a quien modera y quite el contenido del feed al
+instante) y que se acepten unas condiciones con tolerancia cero **antes** de usar la cuenta.
+
+- **Denunciar** — `POST /api/reports` `{type: geostory|product|business|influencer, id, reason,
+  comment?}` → `content_reports`. Motivos: `spam|sexual|violence|hate|fraud|false_info|other`.
+  Guarda también **de quién es** lo denunciado (`owner_type/owner_id`), para agrupar por cuenta.
+  Idempotente por usuario + contenido + motivo. **Avisa por correo** a `REVIEW_EMAIL`
+  (`ReviewQueueNotifier::contentReported`), con cuántas lleva abiertas eso mismo.
+- **Bloquear** — `POST /api/blocks` `{type: business|influencer, id, content?: {type, id}}` →
+  `user_blocks`, y **deja una denuncia con motivo `blocked`** (sobre el vídeo o producto desde el
+  que se bloquea, o si no sobre la cuenta): así avisa y cae en la misma cola. `blocked` no lo
+  puede mandar el usuario a mano. `GET /api/blocks` → `{business:[{id,name,avatar}], influencer:[…]}`
+  · `DELETE /api/blocks/{type}/{id}` (no toca la denuncia).
+- **Lo bloqueado no sale** para quien bloquea en `/public/geostories` (feeds y perfiles),
+  `/public/businesses` (listado, mapa, búsqueda) y `/public/influencers`. Esas rutas son públicas,
+  pero si llega un token se lee (`LocalUserResolver`). Sin sesión no se filtra nada: bloquear
+  exige cuenta, como seguir.
+- **Sin ocultado automático** por número de denuncias, a propósito: todo lo publicado ya pasó una
+  revisión, y esconder a las N denuncias daría a cualquiera un botón para tumbar a un competidor.
+- **Condiciones** — `POST /api/account/terms` `{version}` → `terms_acceptances` (tabla propia: quien
+  entra con Google/Apple no siempre tiene fila en `users`, y así queda el historial). `/api/auth/me`
+  devuelve `terms_version` (la última aceptada); la versión vigente la decide la app.
+- **Panel** (`ROLE_GEOSTORY_MODERATE`, el mismo que valida vídeos): `GET /api/admin/reports?status=
+  open|dismissed|actioned|all` (con vista previa, dueño y `open_for_target`) · `PUT
+  /api/admin/reports/{id}/dismiss|remove|remove-owner`. Cada decisión **cierra todas las abiertas
+  sobre lo mismo** (o sobre la cuenta, con `remove-owner`). Retirar **archiva**
+  (`ContentTakedown`: `deleted_at`, y una cuenta se lleva sus vídeos y productos), así que se
+  deshace desde Vídeos/Negocios con el `restore` de siempre.
+
 ## Cuenta (`/api/account`)
 
 - `GET /api/account/businesses` — negocios que gestiona el usuario, con `name`, `avatar`,

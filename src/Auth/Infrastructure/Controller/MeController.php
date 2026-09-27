@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Auth\Infrastructure\Controller;
 
+use App\Account\Domain\TermsAcceptanceRepository;
 use App\Business\Domain\BusinessManagerRepository;
 use App\Business\Domain\BusinessRepository;
 use App\Influencers\Domain\InfluencerRepository;
@@ -27,6 +28,7 @@ class MeController
         private readonly BusinessManagerRepository $businessManagers,
         private readonly BusinessRepository $businesses,
         private readonly UserRepository $users,
+        private readonly TermsAcceptanceRepository $terms,
     ) {}
 
     public function __invoke(): Response
@@ -68,6 +70,10 @@ class MeController
             'influencer_id' => $influencer?->getId(),
             'business_ids'  => $businessIds,
             'profile_name'  => $profileName,
+            // Última versión de las condiciones que aceptó (null = ninguna).
+            // La app la compara con la suya y, si no coincide, las enseña antes
+            // de dejar seguir: es lo que cubre a quien entra con Google o Apple.
+            'terms_version' => $this->terms->latestVersion($localUserId),
         ]);
     }
 }

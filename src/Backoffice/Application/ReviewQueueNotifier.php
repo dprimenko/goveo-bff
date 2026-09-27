@@ -6,6 +6,9 @@ namespace App\Backoffice\Application;
 
 use App\Business\Domain\Business;
 use App\GeoStories\Domain\GeoStory;
+use App\Moderation\Domain\ContentReport;
+use App\Moderation\Domain\ReportReason;
+use App\Moderation\Domain\ReportTarget;
 use App\Shared\Application\Mail\GoveoMessage;
 use Doctrine\DBAL\Connection;
 use Psr\Log\LoggerInterface;
@@ -108,6 +111,54 @@ final class ReviewQueueNotifier
                 sprintf('%s: %s', ucfirst($que), $story->getUrl()),
                 '',
                 sprintf('Revisar: %s/videos', rtrim($this->backofficeUrl, '/')),
+            ],
+        );
+    }
+
+    /**
+     * Alguien ha denunciado algo, o ha bloqueado a una cuenta (que deja una
+     * denuncia con motivo `blocked`: Apple pide que bloquear avise también).
+     *
+     * El asunto dice cuántas lleva abiertas eso mismo: la quinta denuncia al
+     * mismo vídeo no se lee igual que la primera.
+     */
+    public function contentReported(ContentReport $report, string $label, ?string $ownerName, int $openCount): void
+    {
+        if ($this->reviewAddress === '') {
+            $this->logger->warning(
+                'Denuncia sin avisar: BACKOFFICE_REVIEW_EMAIL está vacío. {id}',
+                ['id' => $report->getId()],
+            );
+        }
+
+        $que = match ($report->getTargetType()) {
+            ReportTarget::GeoStory   => 'Vídeo',
+            ReportTarget::Product    => 'Producto',
+            ReportTarget::Business   => 'Negocio',
+            ReportTarget::Influencer => 'Influencer',
+        };
+
+        $blocked = $report->getReason() === ReportReason::Blocked;
+
+        $this->send(
+            sprintf(
+                '%s: %s%s',
+                $blocked ? 'Cuenta bloqueada por un usuario' : 'Nueva denuncia',
+                $label,
+                $openCount > 1 ? sprintf(' (%d abiertas)', $openCount) : '',
+            ),
+            [
+                $blocked
+                    ? 'Un usuario ha bloqueado esta cuenta. Conviene mirar qué publica.'
+                    : 'Un usuario ha denunciado este contenido. Hay que atenderlo en menos de 24 h.',
+                '',
+                sprintf('%s: %s', str_pad($que, 10), $label),
+                sprintf('De:         %s', $ownerName ?? '—'),
+                sprintf('Motivo:     %s', $report->getReason()->label()),
+                sprintf('Comentario: %s', $report->getComment() ?? '—'),
+                sprintf('Abiertas:   %d', $openCount),
+                '',
+                sprintf('Revisar: %s/denuncias', rtrim($this->backofficeUrl, '/')),
             ],
         );
     }

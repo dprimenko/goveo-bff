@@ -6,6 +6,7 @@ namespace App\Influencers\Infrastructure\Controller;
 
 use App\Influencers\Domain\Influencer;
 use App\Influencers\Domain\InfluencerRepository;
+use App\Users\Infrastructure\Service\LocalUserResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +26,7 @@ class ListInfluencersController
 
     public function __construct(
         private readonly InfluencerRepository $repository,
+        private readonly LocalUserResolver $currentUser,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -40,6 +42,7 @@ class ListInfluencersController
             $query !== '' ? $query : null,
             $page,
             $size,
+            $this->currentUser->currentId(),
         );
 
         return new JsonResponse([

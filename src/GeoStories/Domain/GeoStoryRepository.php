@@ -79,6 +79,11 @@ interface GeoStoryRepository
         bool $supportsImages = false,
         /** Subcategoría de un evento, por slug o id. */
         ?string $subcategory = null,
+        /**
+         * Id local de quien mira, si hay sesión: se le quita lo de las cuentas
+         * que ha bloqueado (ver `App\Moderation`).
+         */
+        ?string $viewerId = null,
     ): array;
 
     /**

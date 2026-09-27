@@ -259,6 +259,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         bool $includeUnverified = false,
         bool $supportsImages = false,
         ?string $subcategory = null,
+        ?string $viewerId = null,
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
@@ -318,6 +319,18 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         // enseñarla rota — y así no hace falta obligar a nadie a actualizar.
         if (!$supportsImages) {
             $conditions[] = "geo.media_type = 'video'";
+        }
+
+        // Lo de las cuentas que ha bloqueado quien mira no sale en ningún
+        // sitio, tampoco en su perfil si llega a él por un enlace: bloquear es
+        // no volver a ver lo que publica (Apple, guideline 1.2).
+        if ($viewerId !== null) {
+            $conditions[] = "NOT EXISTS (
+                SELECT 1 FROM user_blocks ub
+                 WHERE ub.user_id::text = :viewer_id
+                   AND ((ub.target_type = 'business'   AND ub.target_id = geo.business_id)
+                     OR (ub.target_type = 'influencer' AND ub.target_id = geo.influencer_id)))";
+            $params['viewer_id'] = $viewerId;
         }
 
         // Feed-type category filters use cat.slug via the categories JOIN.

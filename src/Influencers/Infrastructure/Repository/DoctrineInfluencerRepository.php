@@ -29,7 +29,7 @@ class DoctrineInfluencerRepository implements InfluencerRepository
         return $this->em->getRepository(Influencer::class)->findOneBy(['username' => $username]);
     }
 
-    public function searchByName(?string $query, int $page, int $size): array
+    public function searchByName(?string $query, int $page, int $size, ?string $blockedBy = null): array
     {
         $conn  = $this->em->getConnection();
         $where = 'i.deleted_at IS NULL';
@@ -43,6 +43,12 @@ class DoctrineInfluencerRepository implements InfluencerRepository
             $like     = '%' . $query . '%';
             $params[] = $like;
             $params[] = $like;
+        }
+
+        if ($blockedBy !== null) {
+            $where .= " AND NOT EXISTS (SELECT 1 FROM user_blocks ub WHERE ub.user_id::text = ?"
+                    . " AND ub.target_type = 'influencer' AND ub.target_id = i.id)";
+            $params[] = $blockedBy;
         }
 
         $total = (int) $conn->fetchOne("SELECT COUNT(*) FROM influencers i WHERE {$where}", $params);
