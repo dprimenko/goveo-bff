@@ -123,6 +123,24 @@ borra, para no perder el rastro.
 
 ---
 
+## Productos
+
+| Comando | Qué hace |
+|---|---|
+| `goveo:products:fill-missing-images URL` | Pone una imagen por defecto a los productos (no borrados) que no tienen ninguna. Con `--dry-run` dice cuántos y cuáles sin tocar nada; `--business=<slug o id>` lo limita a un negocio. |
+
+La imagen de ahora es `https://goveo.b-cdn.net/resources/goveo_producto_noimagen.jpeg`:
+
+```bash
+goveo:products:fill-missing-images https://goveo.b-cdn.net/resources/goveo_producto_noimagen.jpeg --dry-run
+goveo:products:fill-missing-images https://goveo.b-cdn.net/resources/goveo_producto_noimagen.jpeg
+```
+
+- **La URL no puede estar dentro de `business/…`**: al borrar un negocio se borra su carpeta, y con
+  ella la imagen de todos. Por eso va en `resources/`.
+- **Queda marcada como imagen por defecto**, no como una foto más: en cuanto el negocio sube una de
+  verdad, la por defecto se quita sola, y quitarla no borra el fichero compartido de Bunny.
+
 ## Migraciones de datos heredados
 
 Traen datos del sistema antiguo. **Ya se ejecutaron**; están aquí para poder
