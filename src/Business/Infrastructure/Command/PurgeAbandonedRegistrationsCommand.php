@@ -68,6 +68,15 @@ final class PurgeAbandonedRegistrationsCommand extends Command
             WHERE s.status = 'pending_payment'
               AND s.stripe_subscription_id IS NULL
               AND s.created_at < NOW() - (:days || ' days')::interval
+              -- Sólo altas que se quedaron a medias. Un negocio validado, o con
+              -- otra tarifa además de la pendiente, ya existía: el enlace sin
+              -- pagar es de un cambio de tarifa (`PlanOffer`), y borrarlo se
+              -- llevaría por delante un negocio de verdad.
+              AND b.verified_at IS NULL
+              AND NOT EXISTS (
+                  SELECT 1 FROM business_subscriptions o
+                   WHERE o.business_id = s.business_id AND o.status <> 'pending_payment'
+              )
             ORDER BY s.created_at
         SQL, ['days' => $days]);
 

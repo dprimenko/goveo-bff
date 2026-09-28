@@ -54,4 +54,13 @@ class BusinessManager
     }
 
     public function isDeleted(): bool { return $this->deletedAt !== null; }
+
+    /** Vuelve a gestionarlo quien lo había dejado (la fila se conserva al quitarlo). */
+    public function restore(): self
+    {
+        $this->deletedAt = null;
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return $this;
+    }
 }

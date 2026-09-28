@@ -55,6 +55,14 @@ class BusinessSubscription
     #[ORM\Column(name: 'payment_url', type: 'text', nullable: true)]
     private ?string $paymentUrl = null;
 
+    /**
+     * A quién se le ofreció desde el panel (`PlanOffer`): el usuario al que se
+     * le dio acceso con esta tarifa. Si se repite con otro correo antes de que
+     * pague —se escribió mal—, a este se le quita el acceso.
+     */
+    #[ORM\Column(name: 'offered_user_id', type: 'guid', nullable: true)]
+    private ?string $offeredUserId = null;
+
     /** Cliente de Stripe, que aparece al pagar y no antes. */
     #[ORM\Column(name: 'stripe_customer_id', type: 'string', length: 255, nullable: true)]
     private ?string $stripeCustomerId = null;
@@ -134,6 +142,14 @@ class BusinessSubscription
 
     public function getStripePaymentLinkId(): ?string        { return $this->stripePaymentLinkId; }
     public function getPaymentUrl(): ?string                 { return $this->paymentUrl; }
+    public function getOfferedUserId(): ?string              { return $this->offeredUserId; }
+
+    public function offeredTo(string $userId): self
+    {
+        $this->offeredUserId = $userId;
+
+        return $this;
+    }
     public function getStripeCustomerId(): ?string           { return $this->stripeCustomerId; }
     public function getStripePriceId(): ?string              { return $this->stripePriceId; }
     public function getAmountCents(): ?int                   { return $this->amountCents; }

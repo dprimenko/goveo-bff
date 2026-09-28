@@ -131,6 +131,18 @@ class StripeWebhookController
             'subscription' => $subscription->getStripeSubscriptionId(),
         ]);
 
+        // La tarifa que tuviera hasta ahora —la gratuita, cuando el equipo le
+        // cambia la tarifa a un negocio que ya existía (`PlanOffer`)— deja de
+        // valer al pagar la nueva. Sólo las que no cobra Stripe: una de pago
+        // viva no se cancela en silencio desde aquí.
+        foreach ($this->subscriptions->findByBusinessId($subscription->getBusinessId()) as $other) {
+            if ($other->getId() !== $subscription->getId() && $other->getStripeSubscriptionId() === null
+                && ($other->isActive() || $other->isPendingPayment())) {
+                $other->cancel();
+                $this->subscriptions->save($other);
+            }
+        }
+
         // Ahora sí toca la bienvenida: el negocio está pagado y su dueño
         // necesita entrar. Va dentro del `isPendingPayment` de arriba, así que
         // un reenvío del webhook no manda el correo dos veces.
@@ -139,10 +151,18 @@ class StripeWebhookController
 
         if ($business !== null && $owner !== null && $owner->getEmail() !== null) {
             // Aquí es cuando el alta se ha cobrado: hasta ahora no había nada
-            // que revisar, porque el negocio podía quedarse a medias.
-            $this->reviewQueue->businessPendingReview($business);
+            // que revisar, porque el negocio podía quedarse a medias. Uno ya
+            // validado (al que se le ha cambiado la tarifa) no vuelve a la cola.
+            if (!$business->isVerified()) {
+                $this->reviewQueue->businessPendingReview($business);
+            }
 
-            $this->welcome->send($business, $owner->getId(), $owner->getEmail(), $owner->getName());
+            // Sin bienvenida todavía: el alta de pago la deja para ahora. Si ya
+            // la tiene es que se la mandó `PlanOffer` a su nuevo dueño, y aquí
+            // le llegaría a quien lo creó —la cuenta del equipo—.
+            if ($business->getWelcomeEmailSentAt() === null) {
+                $this->welcome->send($business, $owner->getId(), $owner->getEmail(), $owner->getName());
+            }
         }
     }
 

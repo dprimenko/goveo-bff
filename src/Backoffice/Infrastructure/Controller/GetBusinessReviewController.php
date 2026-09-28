@@ -136,7 +136,7 @@ class GetBusinessReviewController
     private function subscription(string $businessId): ?array
     {
         $row = $this->db->fetchAssociative(
-            'SELECT s.status, s.amount_cents, s.current_period_end, s.cancelled_at, p.name AS plan
+            'SELECT s.status, s.amount_cents, s.current_period_end, s.cancelled_at, s.payment_url, p.name AS plan
                FROM business_subscriptions s
           LEFT JOIN billing_plans p ON p.id = s.billing_plan_id
               WHERE s.business_id = ?
@@ -149,12 +149,25 @@ class GetBusinessReviewController
             return null;
         }
 
+        $pending = $row['status'] === 'pending_payment';
+
         return [
             'plan'         => $row['plan'],
             'status'       => $row['status'],
             'amount_cents' => $row['amount_cents'] === null ? null : (int) $row['amount_cents'],
             'period_end'   => self::iso($row['current_period_end']),
             'cancelled_at' => self::iso($row['cancelled_at']),
+            // Mientras no paga, el enlace para pasárselo otra vez, y la tarifa
+            // que sigue teniendo entretanto (la gratuita, si se la cambió el
+            // panel: no se le quita hasta que pague la nueva).
+            'payment_url'  => $pending ? $row['payment_url'] : null,
+            'current_plan' => $pending ? ($this->db->fetchOne(
+                "SELECT p.name FROM business_subscriptions s
+                   LEFT JOIN billing_plans p ON p.id = s.billing_plan_id
+                  WHERE s.business_id = ? AND s.status IN ('active', 'trialing')
+               ORDER BY s.created_at DESC LIMIT 1",
+                [$businessId],
+            ) ?: null) : null,
         ];
     }
 

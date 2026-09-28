@@ -44,6 +44,7 @@ Se puede fijar lo que haga falta: `GOVEO_SSH`, `GOVEO_PHP_CONTAINER`,
 | `goveo:billing:seed-plans-2026` | Crea las tarifas TOP 3 · PLATINUM · PREMIUM · FREE (mensual, semestral y anual). Con `--retire-legacy` desactiva las 58 heredadas. Idempotente. |
 | `goveo:billing:assign-free-plan` | Pone en FREE a los negocios **activos** (validados y no borrados) que no tienen suscripción. Idempotente, con `--dry-run`. |
 | `goveo:stripe:sync` | Crea en Stripe los Products, Prices y Coupons que falten para lo que esté activo. Idempotente. |
+| `goveo:billing:offer-plan NEGOCIO TARIFA CORREO` | Cambia la tarifa de un negocio y se lo pasa a ese correo: le da la gestión (creando la cuenta si hace falta), manda los correos del alta y saca el enlace de pago. Repetirlo con otro correo corrige una errata. Lo mismo que «Cambiar tarifa» en el panel. |
 | `goveo:migrate:billing-plan-stripe-ids` | Recupera `billing_plans.stripe_price_id` desde los ids de Firestore. |
 
 ### ⚠️ Orden obligatorio

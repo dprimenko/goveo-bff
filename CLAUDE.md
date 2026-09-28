@@ -617,6 +617,37 @@ El correo de bienvenida **no sale** si la cuenta ya tenía contraseña: `hasPend
 lo pregunta a Keycloak, que es quien lo sabe. El negocio se marca igual como resuelto para que no
 aparezca luego en `goveo:account:resend-welcome`.
 
+### Cambio de tarifa y traspaso al cliente (`PlanOffer`)
+
+El caso del comercial: da de alta el negocio **con la cuenta de Goveo** (goveoapp@gmail.com) y
+tarifa FREE para enseñárselo al cliente, y cuando éste dice que sí hay que **cambiarle la tarifa y
+pasárselo**. [`PlanOffer`](src/Billing/Application/PlanOffer.php), por dos caminos:
+
+- `goveo:billing:offer-plan NEGOCIO TARIFA CORREO [--first-name] [--last-name]` (id, slug o código).
+- `POST /api/admin/businesses/{id}/plan-offer` `{plan, email, first_name?, last_name?}`, con
+  `ROLE_BUSINESS_EDIT` — lo que usa el panel para que el comercial lo haga solo.
+
+Hace lo mismo que el alta: crea la cuenta si no existe (`AccountProvisioner`, sin contraseña), la
+hace gestora del negocio, crea el enlace de pago (`PaymentLinkCreator`, el mismo del alta) y manda
+el correo de bienvenida en su versión —crear contraseña o «ya tenías cuenta»— y, si hay que pagar,
+el del enlace. Devuelve el enlace para pasárselo por WhatsApp o donde sea.
+
+- **No hay un «cambiar tarifa» en la suscripción: es una fila nueva** en `pending_payment` (o
+  `active` si es gratuita). **La que tenía sigue hasta que pague**: el negocio no se queda sin
+  tarifa mientras el cliente se lo piensa. Al pagar, el webhook cancela las demás filas sin
+  suscripción de Stripe.
+- **Repetirlo corrige una errata.** Una oferta nueva cancela la pendiente anterior (su enlace deja de
+  valer para nosotros) y, si era para otro correo, **le quita a ese usuario la gestión** —borrado de
+  verdad, no `deleted_at`: `ManagedBusinessFinder` y `/me` no miran el borrado lógico—. Para saber a
+  quién se ofreció está `business_subscriptions.offered_user_id`. Al creador no se le quita nunca.
+- **El webhook no repite lo que ya pasó**: la cola de revisión sólo si el negocio no está validado,
+  y la bienvenida sólo si `welcome_email_sent_at` es nulo (si no, al creador le llegaría otra).
+- **La purga de altas abandonadas no lo toca**: sólo borra negocios sin validar y sin ninguna fila
+  que no sea `pending_payment`. Antes, un enlace sin pagar de siete días se habría llevado el
+  negocio entero.
+- **El enlace lleva el correo ya escrito** (`prefilled_email`), en el alta y aquí: quien paga no lo
+  teclea, y Stripe usa ése para las facturas.
+
 ### Imágenes: Bunny Storage
 
 `POST /api/businesses/{id}/images/{avatar|main_image}` — multipart, sólo para gestores del negocio.

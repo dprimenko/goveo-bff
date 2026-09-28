@@ -166,9 +166,9 @@ services:
             $fromAddress: '%env(EMAIL_FROM)%'
             $webUrl: '%env(WEB_URL)%'
 
-    # El alta pública: necesita saber a dónde devolver desde Stripe y qué
-    # descuento lleva puesto el enlace de pago.
-    App\Business\Application\PublicBusinessRegistration:
+    # El enlace de pago de Stripe (alta pública y cambio de tarifa desde el
+    # panel): a dónde devolver al pagar y qué descuento lleva puesto.
+    App\Billing\Application\PaymentLinkCreator:
         arguments:
             $webUrl: '%env(WEB_URL)%'
             $defaultPromoCode: '%env(STRIPE_DEFAULT_PROMO_CODE)%'
