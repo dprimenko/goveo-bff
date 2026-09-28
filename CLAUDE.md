@@ -201,12 +201,14 @@ o en prueba (`BillingPlanEligibility`, por el prefijo del código del plan: `pla
 tarjeta sin premios no promete nada— **y encendida por el negocio** (`activated_at`). La activación
 manual **sólo suma** — no le quita la tarjeta a quien la tiene por su tarifa.
 
-**El interruptor del negocio** (`activated_at`, fecha o nula): tener derecho no es enseñarla. Sale
-**apagada**; el negocio la enciende cuando ha terminado de poner los premios (desde la app o la
-web) y la apaga para pararla un tiempo — **los sellos de sus clientes se guardan**. Encenderla pide
+**El interruptor del negocio** (`activated_at`, fecha o nula): tener derecho no es enseñarla. El
+negocio la enciende cuando ha terminado de poner los premios (desde la app o la web) y la apaga para
+pararla un tiempo — **los sellos de sus clientes se guardan**. ⚠️ **Provisionalmente sale
+encendida** (`LoyaltyProgram::ACTIVE_BY_DEFAULT = true`): la app publicada no tiene el interruptor.
+Cuando esté en las tiendas la que lo tiene, se pone a `false` y saldrá apagada. Encenderla pide
 derecho y algún premio (422 `cannot_activate`, `reason: not_enabled|no_rewards`). El panel también
-la enciende y la apaga, por si al negocio se le olvida. La migración que lo trajo dejó encendidas
-las que ya tenían premios: hasta entonces se enseñaban, y no podían desaparecer de un día para otro.
+la enciende y la apaga, por si al negocio se le olvida. La migración que lo trajo las dejó todas
+encendidas: hasta entonces se enseñaban, y no podían desaparecer de un día para otro.
 
 **Cada cambio que hace el propio negocio** —premios, encender, apagar— **avisa por correo a
 `REVIEW_EMAIL`** (`ReviewQueueNotifier::loyaltyChanged`): qué ha cambiado, en qué estado queda y,

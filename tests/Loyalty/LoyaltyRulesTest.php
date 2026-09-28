@@ -68,14 +68,15 @@ final class LoyaltyRulesTest extends TestCase
         self::assertTrue($token->isExpired(new \DateTimeImmutable('2026-09-24 12:30:00')));
     }
 
-    public function testANewCardStartsSwitchedOff(): void
+    public function testANewCardStartsAsTheDefaultSays(): void
     {
-        self::assertFalse((new LoyaltyProgram('negocio-1'))->isActive());
+        self::assertSame(LoyaltyProgram::ACTIVE_BY_DEFAULT, (new LoyaltyProgram('negocio-1'))->isActive());
     }
 
     public function testSwitchingOnAgainKeepsTheDate(): void
     {
         $program = new LoyaltyProgram('negocio-1');
+        $program->setActive(false);
         $program->setActive(true);
         $since = $program->getActivatedAt();
 

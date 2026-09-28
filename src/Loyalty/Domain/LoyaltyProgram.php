@@ -19,10 +19,15 @@ use Doctrine\ORM\Mapping as ORM;
  * - `manually_enabled_at`: el panel le **da** la tarjeta a un negocio cuya
  *   tarifa no la incluye. **Sólo suma**: no quita la que da la tarifa.
  * - `activated_at`: el negocio la tiene **encendida**. Tener derecho a la
- *   tarjeta no es enseñarla: sale apagada, el negocio la enciende cuando ha
- *   terminado de configurar los premios, y la apaga si quiere pararla un tiempo
- *   (los sellos de sus clientes se guardan). El panel también puede tocarlo,
- *   por si el negocio se olvida.
+ *   tarjeta no es enseñarla: el negocio la enciende cuando ha terminado de
+ *   configurar los premios, y la apaga si quiere pararla un tiempo (los sellos
+ *   de sus clientes se guardan). El panel también puede tocarlo, por si el
+ *   negocio se olvida.
+ *
+ * ⚠️ **Provisional: sale encendida** (`ACTIVE_BY_DEFAULT`). La app publicada no
+ * tiene todavía el interruptor, y un negocio que configurase ahí su tarjeta la
+ * dejaría apagada sin saberlo. Cuando la app nueva esté en las tiendas, se pone
+ * a `false` y la tarjeta nueva saldrá apagada, que es lo que se quiere.
  */
 #[ORM\Entity]
 #[ORM\Table(name: 'loyalty_programs')]
@@ -33,6 +38,9 @@ class LoyaltyProgram
 
     /** La descripción se lee en la vista del premio, no en la tarjeta. */
     public const DESCRIPTION_MAX_LENGTH = 500;
+
+    /** Ver la nota de la clase: `false` en cuanto la app con el interruptor esté publicada. */
+    public const ACTIVE_BY_DEFAULT = true;
 
     #[ORM\Id]
     #[ORM\Column(name: 'business_id', type: 'guid')]
@@ -60,7 +68,7 @@ class LoyaltyProgram
         $this->businessId      = $businessId;
         $this->rewards         = [];
         $this->manuallyEnabledAt = null;
-        $this->activatedAt       = null;
+        $this->activatedAt       = self::ACTIVE_BY_DEFAULT ? new \DateTimeImmutable() : null;
         $this->updatedAt         = new \DateTimeImmutable();
     }
 
