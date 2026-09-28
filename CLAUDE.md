@@ -868,6 +868,35 @@ pagar también sigue viva en Stripe e intentaría cobrar.
 **Un fallo de Stripe no impide borrar**: se registra, se devuelve `subscription: "failed"` y el panel
 lo dice. Dejar el negocio a medio borrar porque la pasarela no contesta es peor que borrarlo y avisar.
 
+### Influencers desde el panel (`/api/admin/influencers`)
+
+[`AdminInfluencersController`](src/Backoffice/Infrastructure/Controller/AdminInfluencersController.php):
+listar (`status=active|removed`, `q` por nombre, usuario o correo), alta, edición, avatar, archivar,
+recuperar y borrar del todo. **Con `business.edit` / `business.delete`**, sin roles propios: un
+influencer es otro publicador, y hoy nadie debería llevar unos sí y otros no. Separarlos pediría
+roles nuevos en Keycloak.
+
+- **Un influencer cuelga de una cuenta** (`user_id`). En el alta, con correo se usa su cuenta o se le
+  crea una **sin contraseña** (`AccountProvisioner`), sin mandarle nada; sin correo, una cuenta sin
+  acceso, como la de la agenda de eventos. Una cuenta que ya es influencer da 409
+  `email_has_influencer`: la app sólo sabe de uno por cuenta. Lo que da de alta el equipo nace validado.
+- **Usuario**: va en la URL, `^[a-z0-9][a-z0-9._-]{2,39}$`. Sólo se valida si cambia: los heredados
+  no cumplen todos el formato y no por eso hay que renombrarlos.
+- **Archivar se lleva sus vídeos y recuperar los devuelve**
+  ([`InfluencerArchiver`](src/Influencers/Application/InfluencerArchiver.php)), con el mismo truco de
+  la marca de tiempo que los negocios. Lo usa también la retirada por denuncia (`ContentTakedown`), así
+  que recuperar desde el panel deshace también eso. **La ficha pública de uno archivado da 404.**
+- **Borrar del todo** ([`InfluencerPurger`](src/Influencers/Application/InfluencerPurger.php)), sólo
+  archivados: vídeos en Bunny Stream, fotos, la carpeta `influencers/{id}/`, likes, seguimientos,
+  bloqueos, denuncias y la fila. **La cuenta de usuario se queda**: es de una persona.
+
+### Productos de todas las tiendas (`GET /api/admin/products`)
+
+El listado del catálogo sin negocio (`status`, `q` —también por nombre de tienda—, `business`), con
+`business{id, name, avatar, removed}` en cada producto. Las acciones y el borrado definitivo siguen
+por las rutas de cada negocio: el producto trae su id. Un producto de una tienda archivada sale con
+`removed: true`, porque recuperarlo solo no lo hace visible.
+
 Probado contra Stripe en modo prueba (`sk_test`, en `.env.local`): archivar deja la suscripción
 intacta (`active`, `cancel_at_period_end=false`) y borrar la deja en `canceled`.
 

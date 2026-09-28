@@ -17,6 +17,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * El catálogo de un negocio, visto desde el panel.
  *
  * `GET  /api/admin/businesses/{id}/products?status=&q=&page=&size=`
+ * `GET  /api/admin/products?status=&q=&business=&page=&size=` (todas las tiendas)
  * `PUT  /api/admin/businesses/{id}/products/{productId}/{publish|unpublish|remove|restore}`
  * `DELETE /api/admin/businesses/{id}/products/{productId}` (definitivo)
  *
@@ -44,6 +45,27 @@ class BusinessProductsController
     #[Route('/api/admin/businesses/{id}/products', name: 'admin_business_products', methods: ['GET'])]
     public function list(string $id, Request $request): Response
     {
+        return $this->listWhere($request, 'p.business_id = ?', [$id]);
+    }
+
+    /**
+     * Los productos de todas las tiendas, con la suya al lado. Para buscar uno
+     * sin saber de quién es, y para vaciar la papelera de todo el catálogo de
+     * una vez. `q` busca también en el nombre del negocio; `business` acota a
+     * uno.
+     */
+    #[Route('/api/admin/products', name: 'admin_products', methods: ['GET'])]
+    public function listAll(Request $request): Response
+    {
+        $business = trim((string) $request->query->get('business', ''));
+
+        return $business === ''
+            ? $this->listWhere($request, 'TRUE', [], withBusiness: true)
+            : $this->listWhere($request, 'p.business_id = ?', [$business], withBusiness: true);
+    }
+
+    private function listWhere(Request $request, string $scope, array $params, bool $withBusiness = false): Response
+    {
         $status = (string) $request->query->get('status', 'published');
         $page   = max(1, (int) $request->query->get('page', 1));
         $size   = min(self::MAX_SIZE, max(1, (int) $request->query->get('size', self::DEFAULT_SIZE)));
@@ -63,25 +85,36 @@ class BusinessProductsController
             );
         }
 
-        $where  = "p.business_id = ? AND ({$condition})";
-        $params = [$id];
+        $where = "{$scope} AND ({$condition})";
 
         if ($q !== '') {
-            $where   .= ' AND unaccent(lower(p.title)) LIKE unaccent(lower(?))';
+            $where .= $withBusiness
+                ? ' AND (unaccent(lower(p.title)) LIKE unaccent(lower(?)) OR unaccent(lower(b.name)) LIKE unaccent(lower(?)))'
+                : ' AND unaccent(lower(p.title)) LIKE unaccent(lower(?))';
             $params[] = '%' . $q . '%';
+            if ($withBusiness) {
+                $params[] = '%' . $q . '%';
+            }
         }
 
-        $from = 'FROM products p LEFT JOIN product_subcategories sc ON sc.id = p.subcategory_id';
+        $from = 'FROM products p
+                 LEFT JOIN product_subcategories sc ON sc.id = p.subcategory_id
+                 LEFT JOIN business b ON b.id = p.business_id';
 
         $total = (int) $this->db->fetchOne("SELECT COUNT(*) {$from} WHERE {$where}", $params);
 
+        // En la papelera, lo último borrado arriba: es lo que se busca al
+        // arrepentirse.
+        $order = $status === 'removed' ? 'p.deleted_at DESC' : 'p.created_at DESC';
+
         $rows = $this->db->fetchAllAssociative(
-            "SELECT p.id, p.title, p.slug, p.images, p.price_amount, p.price_currency,
+            "SELECT p.id, p.business_id, p.title, p.slug, p.images, p.price_amount, p.price_currency,
                     p.description, p.subcategory_id, p.meta,
-                    p.created_at, p.published_at, p.deleted_at, sc.name AS subcategory
+                    p.created_at, p.published_at, p.deleted_at, sc.name AS subcategory,
+                    b.name AS business_name, b.avatar AS business_avatar, b.deleted_at AS business_deleted_at
                {$from}
               WHERE {$where}
-              ORDER BY p.created_at DESC
+              ORDER BY {$order}, p.id
               LIMIT ? OFFSET ?",
             [...$params, $size, ($page - 1) * $size],
         );
@@ -171,6 +204,14 @@ class BusinessProductsController
 
         return [
             'id'    => $row['id'],
+            'business' => [
+                'id'     => $row['business_id'],
+                'name'   => $row['business_name'],
+                'avatar' => $row['business_avatar'],
+                // Un producto de una tienda archivada no se recupera solo: al
+                // recuperarlo seguiría sin verse hasta recuperar la tienda.
+                'removed' => $row['business_deleted_at'] !== null,
+            ],
             'title' => $row['title'],
             'slug'  => $row['slug'],
             // La primera imagen es la portada del producto en la tienda.

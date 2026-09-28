@@ -25,7 +25,9 @@ class GetInfluencerController
         $influencer = $this->repository->findById($id)
             ?? $this->repository->findByUsername($id);
 
-        if ($influencer === null) {
+        // Uno archivado desde el panel no tiene perfil: sus vídeos ya no salen, y
+        // su ficha no debería seguir respondiendo por un enlace compartido.
+        if ($influencer === null || $influencer->isDeleted()) {
             return new JsonResponse(['error' => 'Not found'], Response::HTTP_NOT_FOUND);
         }
 

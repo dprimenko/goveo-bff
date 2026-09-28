@@ -180,6 +180,21 @@ final class BunnyStorageService
         return $this->deleteFolder(sprintf('business/%s', $businessId));
     }
 
+    /** El avatar de un influencer, en su carpeta como el de un negocio. */
+    public function uploadInfluencerAvatar(string $influencerId, string $contents): string
+    {
+        return $this->upload(
+            fn (string $ext) => sprintf('influencers/%s/avatar-%d.%s', $influencerId, time(), $ext),
+            $contents,
+        );
+    }
+
+    /** Todo lo de un influencer: su avatar y los que fue sustituyendo. */
+    public function deleteInfluencerFolder(string $influencerId): bool
+    {
+        return $this->deleteFolder(sprintf('influencers/%s', $influencerId));
+    }
+
     /** Las imágenes de un producto, que cuelgan de la carpeta de su negocio. */
     public function deleteProductFolder(string $businessId, string $productId): bool
     {

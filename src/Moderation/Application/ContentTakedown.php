@@ -7,10 +7,10 @@ namespace App\Moderation\Application;
 use App\Business\Application\BusinessArchiver;
 use App\Business\Domain\BusinessRepository;
 use App\GeoStories\Domain\GeoStoryRepository;
+use App\Influencers\Application\InfluencerArchiver;
 use App\Influencers\Domain\InfluencerRepository;
 use App\Moderation\Domain\ReportTarget;
 use App\Products\Domain\ProductRepository;
-use Doctrine\DBAL\Connection;
 
 /**
  * Retirar lo denunciado. **Archiva, no destruye**, igual que el resto del
@@ -29,7 +29,7 @@ final class ContentTakedown
         private readonly BusinessRepository $businesses,
         private readonly BusinessArchiver $businessArchiver,
         private readonly InfluencerRepository $influencers,
-        private readonly Connection $db,
+        private readonly InfluencerArchiver $influencerArchiver,
     ) {}
 
     /** @return bool false si ya no existe */
@@ -82,14 +82,9 @@ final class ContentTakedown
             return false;
         }
 
-        $influencer->softDelete();
-        $this->influencers->save($influencer);
-
-        $this->db->executeStatement(
-            'UPDATE geostories SET deleted_at = NOW(), updated_at = NOW()
-              WHERE influencer_id = ? AND deleted_at IS NULL',
-            [$id],
-        );
+        // Con el archivador, como el negocio: recuperarlo desde el panel
+        // devuelve también sus vídeos.
+        $this->influencerArchiver->archive($influencer);
 
         return true;
     }
