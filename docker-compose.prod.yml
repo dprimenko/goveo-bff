@@ -52,6 +52,13 @@ services:
       MAILER_DSN: ${MAILER_DSN}
       EMAIL_FROM: ${EMAIL_FROM}
       APP_LINK_URL: ${APP_LINK_URL:-https://links.goveo.app/1GHor7ffjWb}
+
+      # Los avisos internos (negocio nuevo, vídeo por validar, denuncias,
+      # tarjeta de fidelización). No estaban aquí: el destinatario salía del
+      # `.env` de la imagen —que por suerte es el bueno— y el enlace al panel,
+      # también, pero ahí es `localhost:5173`, así que llegaba roto.
+      REVIEW_EMAIL: ${REVIEW_EMAIL:-hola@goveo.app}
+      BACKOFFICE_URL: ${BACKOFFICE_URL:-https://admin.goveo.app}
       BILLING_TAX_PERCENT: ${BILLING_TAX_PERCENT:-21}
 
       # Caducidad de eventos y noticias. No estaba aquí, así que en el servidor
