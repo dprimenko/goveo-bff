@@ -108,6 +108,8 @@ class ProductImagesController
         }
 
         $url = (string) ((json_decode($request->getContent(), true) ?? [])['url'] ?? '');
+        // Antes de quitarla: después ya no se sabe si era la de por defecto.
+        $shared = $url !== '' && $product->isPlaceholderImage($url);
         if ($url === '' || !$product->removeImage($url)) {
             return new JsonResponse(['error' => 'image_not_found'], Response::HTTP_NOT_FOUND);
         }
@@ -115,8 +117,11 @@ class ProductImagesController
         $this->products->save($product);
 
         // Después de guardar: al revés, si el guardado fallara el producto se
-        // quedaría apuntando a un fichero que ya no existe.
-        $this->storage->deleteByUrl($url);
+        // quedaría apuntando a un fichero que ya no existe. La imagen por
+        // defecto no se borra nunca: es la misma para todos los productos.
+        if (!$shared) {
+            $this->storage->deleteByUrl($url);
+        }
 
         return new JsonResponse(['images' => $product->imageUrls()]);
     }

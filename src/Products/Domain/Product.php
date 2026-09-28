@@ -213,7 +213,12 @@ class Product
      */
     public function addImage(string $url): void
     {
-        $images = $this->images ?? [];
+        // La imagen por defecto se va en cuanto llega una de verdad: si no, se
+        // quedaría de portada delante de la foto que el negocio acaba de subir.
+        $images = array_values(array_filter(
+            $this->images ?? [],
+            static fn (array $i) => !($i['placeholder'] ?? false),
+        ));
 
         if (count($images) >= self::MAX_IMAGES) {
             throw new \DomainException(sprintf(
@@ -225,6 +230,42 @@ class Product
         $images[]        = ['url' => $url, 'order' => count($images) + 1];
         $this->images    = $images;
         $this->updatedAt = new \DateTimeImmutable();
+    }
+
+    /**
+     * Pone la imagen por defecto a un producto que no tiene ninguna. Devuelve
+     * si la ha puesto: con alguna imagen, no se toca.
+     *
+     * Va marcada (`placeholder`) porque **es la misma para todos**: al subir
+     * una foto de verdad se quita sola (`addImage`), y al quitarla a mano no se
+     * borra el fichero de Bunny, que lo siguen usando los demás
+     * (`isPlaceholderImage`).
+     *
+     * Es un apaño hasta que la app publicada enseñe a su dueño los productos
+     * sin imagen: sin ninguna, el producto no se ve en la ficha.
+     */
+    public function setPlaceholderImage(string $url): bool
+    {
+        if (($this->images ?? []) !== []) {
+            return false;
+        }
+
+        $this->images    = [['url' => $url, 'order' => 1, 'placeholder' => true]];
+        $this->updatedAt = new \DateTimeImmutable();
+
+        return true;
+    }
+
+    /** Si esa URL es la imagen por defecto de este producto (su fichero no es suyo). */
+    public function isPlaceholderImage(string $url): bool
+    {
+        foreach ($this->images ?? [] as $image) {
+            if (($image['url'] ?? null) === $url) {
+                return (bool) ($image['placeholder'] ?? false);
+            }
+        }
+
+        return false;
     }
 
     /** Quita una imagen por su URL y renumera el resto. */

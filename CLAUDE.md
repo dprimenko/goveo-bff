@@ -54,6 +54,13 @@ Autowiring interface→impl (una sola impl por repo). Rutas registradas vía `pr
   de uno en uno: con columnas, cada añadido sería otra migración. Se guarda la **intención**,
   no el texto del botón: el rótulo lo pone la app en el idioma de quien mira. Quitar
   `link_url` (mandarlo vacío) borra también la acción.
+- **Imagen por defecto** (`goveo:products:fill-missing-images URL [--business=] [--dry-run]`): sin
+  imagen, un producto no sale en la ficha, y muchos negocios no tienen foto de cada plato. El comando
+  les pone una imagen común, **marcada** en su JSON (`{url, order, placeholder: true}`): al subir una
+  foto de verdad se quita sola (`addImage`), y quitarla a mano **no borra el fichero** de Bunny, que
+  comparten todos (`ProductImagesController`). La URL tiene que estar fuera de `business/…`: borrar un
+  negocio o un producto borra su carpeta entera. Es un apaño mientras la app publicada no enseñe a su
+  dueño los productos sin imagen.
 - `product_subcategories` (`App\Products\Domain\ProductSubcategory`): subcategorías que **crea cada
   tienda** (`business_id`, `name`, `sort_order`). Distintas de `default_subcategories` (plantillas
   del sistema por categoría). `product.subcategory_id` → `product_subcategories.id`.
