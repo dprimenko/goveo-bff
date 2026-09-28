@@ -69,4 +69,17 @@ final class ManagedBusinessFinder
     {
         return $this->currentUser->currentId() !== null;
     }
+
+    /**
+     * Si quien hace la petición gestiona el negocio, y no sólo entra desde el
+     * panel. Para distinguir lo que cambia el propio negocio de lo que cambia el
+     * equipo (los avisos al equipo sólo tienen sentido en el primer caso).
+     */
+    public function isManager(Business $business): bool
+    {
+        $userId = $this->currentUser->currentId();
+
+        return $userId !== null
+            && $this->managers->findByUserAndBusiness($userId, $business->getId()) !== null;
+    }
 }

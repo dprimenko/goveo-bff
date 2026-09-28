@@ -6,6 +6,7 @@ namespace App\Backoffice\Application;
 
 use App\Business\Domain\Business;
 use App\GeoStories\Domain\GeoStory;
+use App\Loyalty\Application\LoyaltyStatus;
 use App\Moderation\Domain\ContentReport;
 use App\Moderation\Domain\ReportReason;
 use App\Moderation\Domain\ReportTarget;
@@ -159,6 +160,44 @@ final class ReviewQueueNotifier
                 sprintf('Abiertas:   %d', $openCount),
                 '',
                 sprintf('Revisar: %s/denuncias', rtrim($this->backofficeUrl, '/')),
+            ],
+        );
+    }
+
+    /**
+     * Un negocio ha tocado su tarjeta de fidelización: los premios, o la ha
+     * encendido o apagado.
+     *
+     * Para poder echarle una mano: lo normal es que ponga los premios y se le
+     * olvide encenderla, o que no la tenga en su tarifa y haya que activársela
+     * a mano. El correo dice en qué ha quedado y, si no se ve, por qué.
+     *
+     * @param string[] $changes lo que ha cambiado, ya en frase
+     */
+    public function loyaltyChanged(Business $business, LoyaltyStatus $status, array $changes): void
+    {
+        if ($changes === []) {
+            return;
+        }
+
+        $name  = $business->getName() ?? $business->getSlug();
+        $state = match (true) {
+            $status->isAvailable()  => 'Visible para los clientes.',
+            !$status->isEnabled()   => 'No se ve: su tarifa no la incluye. Actívala a mano en el panel si le corresponde.',
+            !$status->hasRewards    => 'No se ve: no tiene ningún premio puesto.',
+            default                 => 'No se ve: está apagada. Puede encenderla el negocio o el panel.',
+        };
+
+        $this->send(
+            sprintf('Tarjeta de fidelización: %s', $name),
+            [
+                sprintf('%s ha cambiado su tarjeta de fidelización.', $name),
+                '',
+                ...array_map(static fn (string $c) => '· ' . $c, $changes),
+                '',
+                sprintf('Estado: %s', $state),
+                '',
+                sprintf('Ficha: %s/negocios/%s', rtrim($this->backofficeUrl, '/'), $business->getId()),
             ],
         );
     }

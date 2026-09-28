@@ -197,13 +197,25 @@ uso y el cliente lo escanea desde la app.
 
 **Quién la tiene** (`LoyaltyAvailability`): la tarifa **PLATINUM o TOP 3** con suscripción activa
 o en prueba (`BillingPlanEligibility`, por el prefijo del código del plan: `platinum-…`, `top3-…`),
-**o** la activación manual del panel. Y en los dos casos, **al menos un premio puesto**: una
-tarjeta sin premios no promete nada. La activación manual **sólo suma** — no le quita la tarjeta a
-quien la tiene por su tarifa.
+**o** la activación manual del panel. Y en los dos casos, **al menos un premio puesto** —una
+tarjeta sin premios no promete nada— **y encendida por el negocio** (`activated_at`). La activación
+manual **sólo suma** — no le quita la tarjeta a quien la tiene por su tarifa.
+
+**El interruptor del negocio** (`activated_at`, fecha o nula): tener derecho no es enseñarla. Sale
+**apagada**; el negocio la enciende cuando ha terminado de poner los premios (desde la app o la
+web) y la apaga para pararla un tiempo — **los sellos de sus clientes se guardan**. Encenderla pide
+derecho y algún premio (422 `cannot_activate`, `reason: not_enabled|no_rewards`). El panel también
+la enciende y la apaga, por si al negocio se le olvida. La migración que lo trajo dejó encendidas
+las que ya tenían premios: hasta entonces se enseñaban, y no podían desaparecer de un día para otro.
+
+**Cada cambio que hace el propio negocio** —premios, encender, apagar— **avisa por correo a
+`REVIEW_EMAIL`** (`ReviewQueueNotifier::loyaltyChanged`): qué ha cambiado, en qué estado queda y,
+si no se ve, por qué (sin derecho → activarla a mano; sin premios; apagada). Lo que cambia el panel
+no avisa (`ManagedBusinessFinder::isManager`).
 
 | Tabla | Qué guarda |
 |---|---|
-| `loyalty_programs` | Premios (`rewards`, json `{"3": {label, description}, "5": …}`) y `manually_enabled_at` (la fecha de la activación manual, o nula). Sin fila, sin tarjeta. La descripción es opcional y se lee en la vista del premio. |
+| `loyalty_programs` | Premios (`rewards`, json `{"3": {label, description}, "5": …}`), `manually_enabled_at` (la fecha de la activación manual, o nula) y `activated_at` (encendida por el negocio desde esa fecha, o nula). Sin fila, sin tarjeta. La descripción es opcional y se lee en la vista del premio. |
 | `loyalty_cards` | Sellos de cada usuario en cada negocio. Se crea con el primer sello. |
 | `loyalty_tokens` | Los QR: sello o canje (con su `reward_stage`). Sólo el hash, como `password_setup_tokens`. |
 | `loyalty_events` | Cada sello y cada canje, con el premio **copiado** tal como estaba al canjearlo. |
@@ -230,10 +242,10 @@ Endpoints:
 | `GET /public/businesses/{id}/loyalty` | Si tiene tarjeta y qué premios. Lo que ve quien llega del QR sin sesión. |
 | `GET /api/loyalty/cards` · `/cards/{businessId}` | Las tarjetas del usuario / la de un negocio (0 sellos si no tiene). |
 | `POST /api/loyalty/scan` `{token}` | Escanea. Siempre devuelve `outcome` (ver `ScanOutcome`). |
-| `GET·PUT /api/businesses/{id}/loyalty` | Estado y premios, para el gestor **y el panel** (`business.edit`). |
+| `GET·PUT /api/businesses/{id}/loyalty` | Estado y premios, para el gestor **y el panel** (`business.edit`). PUT `{rewards?, active?}`. |
 | `POST /api/businesses/{id}/loyalty/tokens` | Genera un QR (`{kind: stamp}` o `{kind: redeem, reward_stage}`). **Sólo el gestor**: generar QR es dar sellos. |
 | `GET /api/businesses/{id}/loyalty/tokens/{tokenId}` | `pending|used|expired`: la pantalla del negocio lo consulta mientras enseña el QR. |
-| `GET·PUT /api/admin/businesses/{id}/loyalty` | Estado, premios y **cifras de uso** (clientes, sellos, canjes, último movimiento) / la activación manual (`{manually_enabled}`). Con `business.edit`, sin permiso propio. |
+| `GET·PUT /api/admin/businesses/{id}/loyalty` | Estado, premios y **cifras de uso** (clientes, sellos, canjes, último movimiento) / la activación manual y el interruptor (`{manually_enabled?, active?}`). Con `business.edit`, sin permiso propio. |
 
 El borrado definitivo de un negocio (`BusinessPurger`) limpia las cuatro tablas: no tienen clave
 ajena, como `user_follows`.

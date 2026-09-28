@@ -20,10 +20,14 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * La tarjeta de un negocio vista desde el panel.
  *
  * GET  /api/admin/businesses/{id}/loyalty — estado, premios y cómo se usa.
- * PUT  /api/admin/businesses/{id}/loyalty — Body: {"manually_enabled": true}
+ * PUT  /api/admin/businesses/{id}/loyalty — Body: {"manually_enabled": true, "active": true}
  *
- * La activación manual da la tarjeta a un negocio cuya tarifa no la incluye.
- * **Sólo suma**: apagarla no se la quita a quien la tiene por su tarifa.
+ * - `manually_enabled`: da la tarjeta a un negocio cuya tarifa no la incluye.
+ *   **Sólo suma**: apagarla no se la quita a quien la tiene por su tarifa.
+ * - `active`: la enciende o la apaga por el negocio, por si se le olvida. Con
+ *   la misma regla que el negocio: encenderla pide derecho y algún premio.
+ *
+ * Las dos son opcionales; al menos una.
  *
  * Los premios no se cambian aquí: el panel los edita por `PUT
  * /api/businesses/{id}/loyalty`, el mismo que usa el negocio, igual que edita
@@ -61,12 +65,29 @@ class AdminLoyaltyController
         }
 
         $payload = json_decode($request->getContent() ?: '{}', true);
-        if (!is_array($payload) || !is_bool($payload['manually_enabled'] ?? null)) {
+        $manual  = is_array($payload) ? ($payload['manually_enabled'] ?? null) : null;
+        $active  = is_array($payload) ? ($payload['active'] ?? null) : null;
+        if (!is_array($payload) || ($manual === null && $active === null)
+            || ($manual !== null && !is_bool($manual)) || ($active !== null && !is_bool($active))) {
             return new JsonResponse(['error' => 'invalid_payload'], Response::HTTP_BAD_REQUEST);
         }
 
         $program = $this->programs->findByBusinessId($id) ?? new LoyaltyProgram($id);
-        $program->setManuallyEnabled($payload['manually_enabled']);
+        if ($manual !== null) {
+            $program->setManuallyEnabled($manual);
+        }
+        if ($active === true) {
+            $status = $this->availability->check($id, $program);
+            if (!$status->canActivate()) {
+                return new JsonResponse([
+                    'error'  => 'cannot_activate',
+                    'reason' => $status->isEnabled() ? 'no_rewards' : 'not_enabled',
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+        if ($active !== null) {
+            $program->setActive($active);
+        }
         $this->programs->save($program);
 
         return new JsonResponse($this->serialize($id, $program));
@@ -87,6 +108,7 @@ class AdminLoyaltyController
 
         return $this->availability->check($id, $program)->toArray() + [
             'manually_enabled_at' => $program?->getManuallyEnabledAt()?->format(\DATE_ATOM),
+            'activated_at'        => $program?->getActivatedAt()?->format(\DATE_ATOM),
             'max_stamps'          => LoyaltyCard::MAX_STAMPS,
             'rewards'             => $rewards,
             'stats'               => [

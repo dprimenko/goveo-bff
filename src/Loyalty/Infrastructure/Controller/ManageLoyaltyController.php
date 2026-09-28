@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Loyalty\Infrastructure\Controller;
 
+use App\Backoffice\Application\ReviewQueueNotifier;
 use App\Business\Application\ManagedBusinessFinder;
 use App\Business\Domain\Business;
 use App\Loyalty\Application\LoyaltyAvailability;
@@ -36,6 +37,7 @@ class ManageLoyaltyController
         private readonly LoyaltyTokenRepository $tokens,
         private readonly LoyaltyAvailability $availability,
         private readonly LocalUserResolver $currentUser,
+        private readonly ReviewQueueNotifier $notifier,
     ) {}
 
     #[Route('', name: 'get', methods: ['GET'])]
@@ -53,12 +55,19 @@ class ManageLoyaltyController
     }
 
     /**
-     * Body: {"rewards": {"3": {"label": "Café gratis", "description": "…"}, "5": null}}
+     * Body: {"rewards": {"3": {"label": "Café gratis", "description": "…"}, "5": null}, "active": true}
      *
-     * Un premio nulo o sin nombre lo quita; uno que no se manda se queda como
-     * está. La descripción es opcional.
-     * Se puede guardar aunque la tarifa no incluya la tarjeta: así el negocio la
-     * tiene lista cuando cambie de tarifa o se la activen.
+     * Las dos partes son opcionales (al menos una):
+     *
+     * - `rewards`: un premio nulo o sin nombre lo quita; uno que no se manda se
+     *   queda como está. La descripción es opcional. Se pueden guardar aunque la
+     *   tarifa no incluya la tarjeta: así la tiene lista cuando cambie de tarifa
+     *   o se la activen.
+     * - `active`: enciende o apaga la tarjeta. Encenderla pide derecho (tarifa o
+     *   activación manual) y al menos un premio —422 `cannot_activate` con el
+     *   motivo—; apagarla siempre se puede y guarda los sellos de los clientes.
+     *
+     * Cuando lo cambia el propio negocio (no el panel), se avisa al equipo.
      */
     #[Route('', name: 'update', methods: ['PUT'])]
     public function update(string $id, Request $request): Response
@@ -69,8 +78,10 @@ class ManageLoyaltyController
         }
 
         $payload = json_decode($request->getContent() ?: '{}', true);
-        $rewards = is_array($payload) ? ($payload['rewards'] ?? null) : null;
-        if (!is_array($rewards)) {
+        $rewards = is_array($payload) ? ($payload['rewards'] ?? []) : null;
+        $active  = is_array($payload) ? ($payload['active'] ?? null) : null;
+        if (!is_array($rewards) || ($active !== null && !is_bool($active))
+            || ($rewards === [] && $active === null)) {
             return new JsonResponse(['error' => 'invalid_payload'], Response::HTTP_BAD_REQUEST);
         }
 
@@ -99,12 +110,69 @@ class ManageLoyaltyController
         }
 
         $program = $this->programs->findByBusinessId($business->getId()) ?? new LoyaltyProgram($business->getId());
+        $before  = ['rewards' => $program->rewards(), 'active' => $program->isActive()];
+
         foreach ($rewards as $stage => $reward) {
             $program->setReward((int) $stage, $reward['label'] ?? null, $reward['description'] ?? null);
         }
+
+        if ($active === true) {
+            $status = $this->availability->check($business->getId(), $program);
+            if (!$status->canActivate()) {
+                return new JsonResponse([
+                    'error'  => 'cannot_activate',
+                    'reason' => $status->isEnabled() ? 'no_rewards' : 'not_enabled',
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+        }
+        if ($active !== null) {
+            $program->setActive($active);
+        }
         $this->programs->save($program);
 
+        if ($this->managed->isManager($business)) {
+            $this->notifier->loyaltyChanged(
+                $business,
+                $this->availability->check($business->getId(), $program),
+                self::changes($before, $program),
+            );
+        }
+
         return new JsonResponse($this->serialize($business, $program));
+    }
+
+    /**
+     * Lo que ha cambiado, en frases para el correo al equipo.
+     *
+     * @param array{rewards: array<int, array{label: string, description: ?string}>, active: bool} $before
+     *
+     * @return string[]
+     */
+    private static function changes(array $before, LoyaltyProgram $program): array
+    {
+        $changes = [];
+        $after   = $program->rewards();
+
+        foreach (LoyaltyCard::REWARD_STAGES as $stage) {
+            $old = $before['rewards'][$stage] ?? null;
+            $new = $after[$stage] ?? null;
+            if ($old == $new) {
+                continue;
+            }
+            $changes[] = match (true) {
+                $old === null => sprintf('Premio del %d: añade «%s»', $stage, $new['label']),
+                $new === null => sprintf('Premio del %d: quita «%s»', $stage, $old['label']),
+                default       => $old['label'] === $new['label']
+                    ? sprintf('Premio del %d: cambia la descripción de «%s»', $stage, $new['label'])
+                    : sprintf('Premio del %d: «%s» → «%s»', $stage, $old['label'], $new['label']),
+            };
+        }
+
+        if ($before['active'] !== $program->isActive()) {
+            $changes[] = $program->isActive() ? 'La ha encendido.' : 'La ha apagado.';
+        }
+
+        return $changes;
     }
 
     /**
@@ -191,8 +259,9 @@ class ManageLoyaltyController
         }
 
         return $this->availability->check($business->getId(), $program)->toArray() + [
-            'max_stamps' => LoyaltyCard::MAX_STAMPS,
-            'rewards'    => $rewards,
+            'activated_at' => $program?->getActivatedAt()?->format(\DATE_ATOM),
+            'max_stamps'   => LoyaltyCard::MAX_STAMPS,
+            'rewards'      => $rewards,
         ];
     }
 

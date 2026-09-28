@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Tests\Loyalty;
 
+use App\Loyalty\Application\LoyaltyStatus;
 use App\Loyalty\Domain\LoyaltyCard;
 use App\Loyalty\Domain\LoyaltyProgram;
 use App\Loyalty\Domain\LoyaltyToken;
@@ -65,5 +66,34 @@ final class LoyaltyRulesTest extends TestCase
 
         self::assertFalse($token->isExpired(new \DateTimeImmutable('2026-09-24 12:29:00')));
         self::assertTrue($token->isExpired(new \DateTimeImmutable('2026-09-24 12:30:00')));
+    }
+
+    public function testANewCardStartsSwitchedOff(): void
+    {
+        self::assertFalse((new LoyaltyProgram('negocio-1'))->isActive());
+    }
+
+    public function testSwitchingOnAgainKeepsTheDate(): void
+    {
+        $program = new LoyaltyProgram('negocio-1');
+        $program->setActive(true);
+        $since = $program->getActivatedAt();
+
+        $program->setActive(true);
+
+        self::assertSame($since, $program->getActivatedAt());
+    }
+
+    public function testItCanOnlyBeSwitchedOnWithTheRightAndARewards(): void
+    {
+        self::assertFalse((new LoyaltyStatus(false, false, true))->canActivate());
+        self::assertFalse((new LoyaltyStatus(true, false, false))->canActivate());
+        self::assertTrue((new LoyaltyStatus(false, true, true))->canActivate());
+    }
+
+    public function testOnlyVisibleWhenSwitchedOn(): void
+    {
+        self::assertFalse((new LoyaltyStatus(true, false, true, active: false))->isAvailable());
+        self::assertTrue((new LoyaltyStatus(true, false, true, active: true))->isAvailable());
     }
 }

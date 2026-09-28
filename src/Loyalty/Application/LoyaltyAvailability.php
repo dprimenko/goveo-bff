@@ -11,8 +11,8 @@ use App\Loyalty\Domain\PlanEligibility;
  * Si un negocio ofrece tarjeta ahora mismo, y por qué.
  *
  * La tiene quien la incluye en su tarifa (PLATINUM o más) o quien la tiene
- * activada a mano desde el panel, **y además** ha puesto al menos un premio:
- * una tarjeta sin premios no promete nada, y enseñarla sólo confundiría.
+ * activada a mano desde el panel, **y además** ha puesto al menos un premio
+ * —una tarjeta sin premios no promete nada— **y** la ha encendido.
  */
 final class LoyaltyAvailability
 {
@@ -26,6 +26,7 @@ final class LoyaltyAvailability
             planIncluded: $this->plans->includesLoyalty($businessId),
             manuallyEnabled: $program?->isManuallyEnabled() ?? false,
             hasRewards: $program?->hasRewards() ?? false,
+            active: $program?->isActive() ?? false,
         );
     }
 }

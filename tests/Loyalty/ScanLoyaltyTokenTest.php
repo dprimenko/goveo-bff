@@ -36,6 +36,7 @@ final class ScanLoyaltyTokenTest extends TestCase
         $program = new LoyaltyProgram(self::BUSINESS);
         $program->setReward(3, 'Café gratis');
         $program->setReward(5, 'Postre + vermut');
+        $program->setActive(true);
         $this->store->programs[self::BUSINESS] = $program;
 
         $this->scanner = new ScanLoyaltyToken(
@@ -164,6 +165,25 @@ final class ScanLoyaltyTokenTest extends TestCase
         $this->store->programs[self::BUSINESS]->setManuallyEnabled(true);
 
         self::assertSame(ScanOutcome::Stamped, $this->scanner->scan($this->stampToken(), self::USER)->outcome);
+    }
+
+    public function testSwitchedOffByTheBusinessThereIsNoCard(): void
+    {
+        $this->store->programs[self::BUSINESS]->setActive(false);
+
+        self::assertSame(ScanOutcome::Unavailable, $this->scanner->scan($this->stampToken(), self::USER)->outcome);
+    }
+
+    public function testSwitchingItOffKeepsTheStamps(): void
+    {
+        $this->scanner->scan($this->stampToken(), self::USER);
+        $this->store->programs[self::BUSINESS]->setActive(false);
+        $this->store->programs[self::BUSINESS]->setActive(true);
+
+        $result = $this->scanner->scan($this->stampToken(), self::USER);
+
+        self::assertSame(ScanOutcome::Stamped, $result->outcome);
+        self::assertSame(2, $result->stamps);
     }
 
     public function testWithoutRewardsThereIsNoCard(): void

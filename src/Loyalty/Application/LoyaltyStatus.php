@@ -10,6 +10,8 @@ final class LoyaltyStatus
         public readonly bool $planIncluded,
         public readonly bool $manuallyEnabled,
         public readonly bool $hasRewards,
+        /** El negocio la tiene encendida (`activated_at`). */
+        public readonly bool $active = false,
     ) {}
 
     /** Si el negocio tiene derecho a la tarjeta, tenga o no premios puestos. */
@@ -18,10 +20,19 @@ final class LoyaltyStatus
         return $this->planIncluded || $this->manuallyEnabled;
     }
 
-    /** Si la tarjeta se enseña y se puede usar. */
-    public function isAvailable(): bool
+    /**
+     * Si puede encenderla: con derecho y al menos un premio. Sin premios no
+     * promete nada, y encenderla sería enseñar una tarjeta vacía.
+     */
+    public function canActivate(): bool
     {
         return $this->isEnabled() && $this->hasRewards;
+    }
+
+    /** Si la tarjeta se enseña y se puede usar: además, encendida. */
+    public function isAvailable(): bool
+    {
+        return $this->canActivate() && $this->active;
     }
 
     /** @return array<string, bool> */
@@ -32,6 +43,9 @@ final class LoyaltyStatus
             'enabled'          => $this->isEnabled(),
             'plan_included'    => $this->planIncluded,
             'manually_enabled' => $this->manuallyEnabled,
+            'has_rewards'      => $this->hasRewards,
+            'active'           => $this->active,
+            'can_activate'     => $this->canActivate(),
         ];
     }
 }
