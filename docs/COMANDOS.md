@@ -123,6 +123,19 @@ borra, para no perder el rastro.
 
 ---
 
+## Seguidores
+
+| Comando | Qué hace |
+|---|---|
+| `goveo:followers:boost --min=N --max=M` | Suma a cada negocio e influencer (no borrados) un número al azar entre `N` y `M` a sus seguidores de relleno (`meta.followers`). **Suma**: lanzarlo dos veces suma dos veces. `--type=business\|influencer`, `--only=<id, slug o usuario>`, `--dry-run` para ver cuánto le toca a cada uno. |
+
+Lo publicado es `meta.followers` **más** los seguidores reales (`FollowerCounter`): esto sólo mueve el
+relleno, los de verdad siguen contando aparte.
+
+```bash
+ssh root@76.13.63.176 'C=$(docker ps --format "{{.Names}}" | grep -E "goveo-compose-.*-php-1" | head -1); docker exec $C php bin/console goveo:followers:boost --min=5 --max=40 --dry-run'
+```
+
 ## Productos
 
 | Comando | Qué hace |
