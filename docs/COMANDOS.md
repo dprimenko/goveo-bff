@@ -145,7 +145,14 @@ goveo:products:fill-missing-images https://goveo.b-cdn.net/resources/goveo_produ
 
 | Comando | Qué hace |
 |---|---|
+| `goveo:business:backfill-postal-codes` | Guarda el código postal de cada negocio en `meta.postal_code`: de la dirección si lo lleva (sin llamar a nadie) y, si no, de Google. Sólo los que no lo tienen; `--force` los recalcula todos, `--dry-run` enseña sin escribir. Cambiar la dirección de un negocio borra el suyo: pasarlo otra vez lo rellena. |
 | `goveo:export:directory` | Excel (`/tmp/goveo-directorio.xlsx`) con dos hojas: **Negocios** (nombre, email, teléfono, enlace, código postal, categoría, dirección, ciudad, validado) e **Influencers** (nombre visible, usuario, email, enlace). Los enlaces son los cortos de Branch que comparte la app, pulsables. `--output=` cambia la ruta, `--no-branch` usa los de la web, `--exclude=` cambia qué emails no salen. |
+
+Rellenar los códigos postales antes (una vez, y de vez en cuando para las altas nuevas):
+
+```bash
+ssh root@76.13.63.176 'C=$(docker ps --format "{{.Names}}" | grep -E "goveo-compose-.*-php-1" | head -1); docker exec $C php bin/console goveo:business:backfill-postal-codes'
+```
 
 Sacarlo del servidor:
 
@@ -158,9 +165,9 @@ scp root@76.13.63.176:/tmp/goveo-directorio.xlsx ~/Downloads/goveo-directorio-$(
   las del equipo** (goveoapp@, globalydigitale@, davidprimenko@, que están en casi todos) ni las
   `@goveo.app`, que son relleno de la importación. Para quitar otra: `--exclude=a@b.com` (sustituye a
   la lista, así que hay que repetir las del equipo).
-- **El código postal** sale de la dirección y, si no lo lleva, se le pregunta a Google por el punto
-  del mapa y, si ahí no hay, por la dirección (`GooglePostalCodeLookup`, con `GOOGLE_MAPS_API_KEY`).
-  No se guarda: son pocos (57 de 460) y se piden en cada export.
+- **El código postal** es el guardado en `meta.postal_code` (ver abajo). Si falta, sale de la
+  dirección y, si no lo lleva, se le pregunta a Google por el punto del mapa y después por la
+  dirección (`GooglePostalCodeLookup`, con `GOOGLE_MAPS_API_KEY`).
 - **El `.xlsx` se escribe a mano** ([`XlsxWriter`](../src/Shared/Infrastructure/Export/XlsxWriter.php)):
   la imagen de PHP no tiene la extensión `zip` y PhpSpreadsheet la necesita.
 - Branch da el mismo enlace para los mismos datos: repetirlo no crea enlaces nuevos.

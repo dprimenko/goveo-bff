@@ -38,8 +38,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * a nadie. No hay un email público
  * de la ficha. **Código postal**: sale de la dirección (el primer número de
  * cinco cifras) y, si no lo lleva, se le pregunta a Google por el punto del
- * mapa y, si ahí no hay, por la dirección (`GooglePostalCodeLookup`). No se guarda: son pocos y se pide al
- * exportar.
+ * mapa y, si ahí no hay, por la dirección (`GooglePostalCodeLookup`). Antes que
+ * todo eso, el guardado por `goveo:business:backfill-postal-codes`: con él
+ * pasado, el export no le pregunta nada a Google.
  *
  *   goveo:export:directory                       # /tmp/goveo-directorio.xlsx
  *   goveo:export:directory --output=/tmp/x.xlsx
@@ -165,7 +166,7 @@ final class ExportDirectoryCommand extends Command
                 $emails !== [] ? implode(', ', $emails) : ($contact($billingEmail) ? $billingEmail : null),
                 ($meta['public_phone'] ?? null) ?: ($billing['phone'] ?? null),
                 $businessLinks[$b['id']],
-                $this->postalCode($address, $b['lat'], $b['lng'], $geocoded, $missing),
+                $this->postalCode($address, $meta['postal_code'] ?? null, $b['lat'], $b['lng'], $geocoded, $missing),
                 $this->category($b['category_slug'], $b['category_name']),
                 $address ?: null,
                 $b['city'],
@@ -287,9 +288,15 @@ final class ExportDirectoryCommand extends Command
         return $links;
     }
 
-    /** El de la dirección escrita y, si no lo lleva, el del punto del mapa. */
-    private function postalCode(string $address, mixed $lat, mixed $lng, int &$geocoded, int &$missing): ?string
+    /**
+     * El guardado (`goveo:business:backfill-postal-codes`), el de la dirección
+     * escrita o, si no hay ninguno, el que diga Google.
+     */
+    private function postalCode(string $address, mixed $stored, mixed $lat, mixed $lng, int &$geocoded, int &$missing): ?string
     {
+        if (is_string($stored) && $stored !== '') {
+            return $stored;
+        }
         if (preg_match('/\b(\d{5})\b/', $address, $m)) {
             return $m[1];
         }

@@ -196,7 +196,13 @@ class MyBusinessController
         }
 
         if (isset($payload['address']['formatted'])) {
-            $meta['address'] = $this->str($payload['address']['formatted']);
+            $address = $this->str($payload['address']['formatted']);
+            // Otra dirección, otro código: el guardado sería el de la anterior.
+            // `goveo:business:backfill-postal-codes` lo vuelve a rellenar.
+            if ($address !== ($meta['address'] ?? null)) {
+                unset($meta['postal_code']);
+            }
+            $meta['address'] = $address;
         }
 
         $business->setMeta($meta === [] ? null : $meta);
