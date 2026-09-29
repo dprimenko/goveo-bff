@@ -257,7 +257,6 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?string $businessId = null,
         ?string $influencerId = null,
         bool $includeUnverified = false,
-        bool $supportsImages = false,
         ?string $subcategory = null,
         ?string $viewerId = null,
     ): array {
@@ -311,14 +310,6 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             // sin validar siguen como estaban, y cambiarlos escondería vídeos ya
             // aprobados de negocios reales que esperan revisión.
             $conditions[] = 'NOT (buss.external_ref IS NOT NULL AND buss.verified_at IS NULL)';
-        }
-
-        // A quien no sabe pintar una foto no se le manda: las apps publicadas
-        // antes de que existieran montan su reproductor sobre lo que llegue, y
-        // una foto se ve ahí como un rectángulo negro. Mejor no enseñarla que
-        // enseñarla rota — y así no hace falta obligar a nadie a actualizar.
-        if (!$supportsImages) {
-            $conditions[] = "geo.media_type = 'video'";
         }
 
         // Lo de las cuentas que ha bloqueado quien mira no sale en ningún

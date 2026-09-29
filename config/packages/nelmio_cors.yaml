@@ -1,7 +1,8 @@
-# `X-Goveo-Supports` es la cabecera con la que un cliente dice qué sabe pintar
-# (`image`): sin ella el BFF sólo manda vídeos. La web la manda desde el
-# navegador, y una cabecera propia fuerza la comprobación previa de CORS: si no
-# está aquí, el navegador corta la petición y el feed de la web sale vacío.
+# `X-Goveo-Supports` era la cabecera con la que un cliente decía qué sabía
+# pintar (`image`). El BFF ya no la mira —las fotos van a todos—, pero la web la
+# sigue mandando desde el navegador, y una cabecera propia fuerza la comprobación
+# previa de CORS: quitarla de aquí cortaría esas peticiones y el feed de la web
+# saldría vacío. Se puede quitar cuando ningún cliente la mande.
 nelmio_cors:
     defaults:
         origin_regex: true

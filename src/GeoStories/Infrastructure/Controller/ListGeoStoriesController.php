@@ -57,20 +57,10 @@ class ListGeoStoriesController
         $includeUnverified = $this->ownership->ownsInfluencer($influencerId)
             || $this->ownership->ownsBusiness($businessId);
 
-        // Quién sabe pintar una foto y quién no.
-        //
-        // Las versiones publicadas antes de que existieran montan su reproductor
-        // sobre lo que llegue, así que una foto se les ve como un rectángulo
-        // negro. Obligarlas a actualizar no se puede —iOS no lo permite y esas
-        // builds tampoco llevan la comprobación—, así que se hace al revés: **se
-        // declara lo que se sabe hacer** y a quien no lo declara se le mandan
-        // sólo vídeos. Es lo mismo que hace el puente del alta de negocio con su
-        // `features: ['image-picker']`.
-        //
-        // Callar cuesta no ver fotos, que se arregla actualizando; dar por hecho
-        // que todo el mundo sabe cuesta pantallas negras en móviles que no se
-        // pueden tocar.
-        $supportsImages = $this->clientSupports($request, 'image');
+        // Las fotos van a todos. Antes sólo a quien mandaba `X-Goveo-Supports:
+        // image`, porque las apps anteriores a las fotos las pintaban como un
+        // rectángulo negro; ya están todas actualizadas, así que la cabecera
+        // sobra (los clientes la siguen mandando y no pasa nada).
 
         // Con sesión, fuera lo de las cuentas que ha bloqueado.
         $viewerId = $this->currentUser->currentId();
@@ -88,7 +78,6 @@ class ListGeoStoriesController
             businessId:    $businessId,
             influencerId:  $influencerId,
             includeUnverified: $includeUnverified,
-            supportsImages: $supportsImages,
             subcategory:   $subcategory,
             viewerId:      $viewerId,
         );
@@ -152,27 +141,6 @@ class ListGeoStoriesController
         }
 
         return $changed;
-    }
-
-    /**
-     * Si el cliente dice saber tratar algo.
-     *
-     * Llega en `X-Goveo-Supports`, separado por comas: `image`, y lo que venga
-     * después. Se mira la cabecera y no la versión porque lo que importa no es
-     * cuál es, sino qué sabe hacer: así la web y la app contestan lo mismo sin
-     * tener que mantener una tabla de versiones por cliente.
-     */
-    private function clientSupports(Request $request, string $capability): bool
-    {
-        $declared = (string) $request->headers->get('X-Goveo-Supports', '');
-
-        foreach (explode(',', $declared) as $item) {
-            if (strtolower(trim($item)) === $capability) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param mixed $meta */

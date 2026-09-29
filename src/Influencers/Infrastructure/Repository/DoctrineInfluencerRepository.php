@@ -7,6 +7,7 @@ namespace App\Influencers\Infrastructure\Repository;
 use App\Influencers\Domain\Influencer;
 use App\Influencers\Domain\InfluencerRepository;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Uid\Uuid;
 
 class DoctrineInfluencerRepository implements InfluencerRepository
 {
@@ -16,6 +17,12 @@ class DoctrineInfluencerRepository implements InfluencerRepository
 
     public function findById(string $id): ?Influencer
     {
+        // Como en los negocios: un id que no es un UUID —el perfil se pide
+        // también por usuario— hacía lanzar a Postgres, y eso era un 500.
+        if (!Uuid::isValid($id)) {
+            return null;
+        }
+
         return $this->em->find(Influencer::class, $id);
     }
 
