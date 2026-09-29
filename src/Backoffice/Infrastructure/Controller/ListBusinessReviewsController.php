@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backoffice\Infrastructure\Controller;
 
+use App\Backoffice\Application\Metrics\BusinessStatus;
 use App\Badges\Domain\BadgeRepository;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -94,30 +95,19 @@ class ListBusinessReviewsController
         // otro sitio, así que la condición de «no borrado» se añade sólo a ésos.
         $condition = match ($status) {
             'rejected' => 'b.deleted_at IS NULL AND b.rejected_at IS NOT NULL',
-            'verified' => 'b.deleted_at IS NULL AND b.verified_at IS NOT NULL',
+            'verified' => BusinessStatus::VERIFIED,
             // **Lo que no está cobrado no se revisa.** Un alta web crea la ficha
             // antes de pagar, así que sin esta condición la cola se llenaba de
             // negocios que quizá abandonaron en la pasarela, y validarlos
-            // significaba publicar a alguien que no ha pagado.
+            // significaba publicar a alguien que no ha pagado. Lo que creó el
+            // scraping va en su pestaña, como sus eventos: entra de golpe y
+            // enterraría las altas de verdad, que tienen a alguien esperando.
             //
-            // Se excluye sólo lo que tiene un cobro **pendiente y ninguno
-            // resuelto**: los importados no tienen suscripción y siguen
-            // apareciendo, y las tarifas gratuitas nacen activas.
-            // Lo que creó el scraping va en su pestaña, como sus eventos: entra
-            // de golpe y enterraría las altas de verdad, que tienen a alguien
-            // esperando.
-            'scraped'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL AND b.external_ref IS NOT NULL',
-            'pending'  => 'b.deleted_at IS NULL AND b.verified_at IS NULL AND b.rejected_at IS NULL AND b.external_ref IS NULL
-                           AND NOT EXISTS (
-                               SELECT 1 FROM business_subscriptions pend
-                                WHERE pend.business_id = b.id
-                                  AND pend.status = \'pending_payment\'
-                                  AND NOT EXISTS (
-                                      SELECT 1 FROM business_subscriptions ok
-                                       WHERE ok.business_id = b.id
-                                         AND ok.status <> \'pending_payment\'
-                                  )
-                           )',
+            // Las condiciones viven en `BusinessStatus` porque las métricas del
+            // panel cuentan lo mismo: la tarjeta y la pestaña tienen que decir
+            // el mismo número.
+            'scraped'  => BusinessStatus::SCRAPED,
+            'pending'  => BusinessStatus::PENDING,
             'removed'  => 'b.deleted_at IS NOT NULL',
             // Cualquiera que no esté borrado: lo usa el selector de dueño de un
             // vídeo, donde da igual si el negocio ya está validado.

@@ -1221,6 +1221,48 @@ como borrar.
 solos— y el fichero en Bunny, que es almacenamiento que se paga por algo que ya no ve nadie. Se borra
 primero en Bunny: al revés, un fallo dejaría un vídeo pagándose allí sin nada que lo nombre.
 
+### Métricas (`GET /api/admin/metrics`)
+
+Las cifras de la pantalla «Métricas» del panel, **sólo recuentos de nuestra base**: la analítica de
+Google (GA4) vendrá después como otro bloque de la misma respuesta, que va partida en
+`businesses`, `users` y `content` justo para eso. Permiso propio, **`metrics.read`**
+(`ROLE_METRICS_READ`): son cifras del negocio y no todo el que modera vídeos tiene por qué verlas.
+Tres consultas agregadas (`count(*) FILTER`), ~50 ms en local; ninguna entidad pasa por memoria.
+
+**Qué es cada estado de un negocio** está escrito una sola vez, en
+[`BusinessStatus`](src/Backoffice/Application/Metrics/BusinessStatus.php), y la cola de revisión
+(`ListBusinessReviewsController`) usa las mismas condiciones: la tarjeta y la pestaña tienen que
+dar el mismo número. Todo excluye lo archivado (`deleted_at`), que es también donde va lo rechazado.
+
+| Cifra | Definición |
+|---|---|
+| **Pendiente** | ni `verified_at` ni `rejected_at`, sin `external_ref` (el scraping va aparte) y sin ser un alta de pago sin pagar — lo mismo que la pestaña |
+| Esperando el pago · Salas del scraping | lo que la pestaña de pendientes deja fuera, contado aparte |
+| **Validado** | `verified_at` puesto |
+| **Completo** (sobre validados) | `name` y `avatar` no vacíos **y** algo publicado: un vídeo o foto validado o un producto con `published_at`, sin borrar. La portada no se exige: la tienen 452 de 454 |
+| **Activo** (sobre validados) | ha subido un vídeo, foto o producto en el mes (`created_at`), aunque se borrara después, **sin lo del scraping** (`external_ref`) |
+| **Usuarios** | filas de `users` **con correo**; el total sin borrados, las altas del mes con ellos |
+| Vídeos y productos del mes | por `created_at`, con el mismo criterio que «activo» |
+| **Eventos vigentes** | Eventos validados, `ready`, sin borrar, que no han terminado (`ended_at >= now()`), fuera los de una sala del scraping sin validar —lo que enseña el feed—; «en curso», los ya empezados |
+
+- **«Completo» y «activo» sólo sobre validados**: un pendiente no sale en la app ni ha tenido
+  ocasión de subir nada, y contarlo sólo bajaría el porcentaje.
+- **El mes es el natural de Madrid** ([`MonthWindow`](src/Backoffice/Application/Metrics/MonthWindow.php)):
+  cortado en UTC, lo subido el día 1 de madrugada caería en el mes anterior. Intervalos
+  `[desde, hasta)`. **El anterior va entero**, no «hasta el mismo día», así que a mitad de mes la
+  comparación le favorece — la pantalla lo dice.
+- ⚠️ **Quien entra por primera vez con Google o Apple no tiene fila en `users`** (sólo existe en
+  Keycloak; `SocialLoginController` no la crea), así que los usuarios se quedan algo cortos. En
+  local, 1.388 en Keycloak frente a 1.369 filas. No se pregunta a Keycloak: su fecha de alta es la
+  de la migración para todo lo importado, y contar altas por mes obligaría a recorrerlo entero.
+- ⚠️ **Una importación infla su mes**: los 13.010 productos del import de agosto cuentan como
+  subidos en agosto y hacen «activos» a sus negocios. Y lo que el equipo sube desde el panel en
+  nombre de un negocio cuenta como suyo: la base no guarda quién lo subió.
+
+Alta del rol: `configure-backoffice.sh` crea `metrics.read` y lo mete en `backoffice-admin`.
+**Hay que relanzar el script en demo y producción** al desplegar (o crear el rol a mano en el
+cliente `goveo-backoffice` y añadirlo al grupo), y quien tenga sesión abierta, volver a entrar.
+
 ### La firma del token sí se comprueba
 
 [`KeycloakTokenVerifier`](src/Security/KeycloakTokenVerifier.php) valida cada access token contra las
