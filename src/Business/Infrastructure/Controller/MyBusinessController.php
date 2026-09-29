@@ -63,7 +63,7 @@ class MyBusinessController
             return new JsonResponse(['error' => 'invalid_payload'], Response::HTTP_BAD_REQUEST);
         }
 
-        $errors = $this->validate($payload);
+        $errors = $this->validate($payload, $business);
         if ($errors !== []) {
             return new JsonResponse(
                 ['error' => 'validation_failed', 'fields' => $errors],
@@ -209,7 +209,7 @@ class MyBusinessController
     }
 
     /** @return array<string,string> */
-    private function validate(array $p): array
+    private function validate(array $p, Business $business): array
     {
         $errors = [];
 
@@ -220,7 +220,12 @@ class MyBusinessController
         if (array_key_exists('category_id', $p)) {
             if (trim((string) $p['category_id']) === '') {
                 $errors['category_id'] = 'required';
-            } elseif (!$this->category->isAssignable((string) $p['category_id'])) {
+            } elseif (
+                // La que ya tiene vale aunque sea de las que sólo pone el equipo
+                // (Restaurantes Top): reenviarla no es elegirla.
+                (string) $p['category_id'] !== $business->getCategoryId()
+                && !$this->category->isSelfAssignable((string) $p['category_id'])
+            ) {
                 $errors['category_id'] = 'invalid';
             }
         }

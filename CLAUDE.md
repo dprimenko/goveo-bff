@@ -1400,6 +1400,13 @@ Experiencias.
   grupo, un grupo (por clasificar) o una suelta de primer nivel (ibiza, Comercio Centenario). Ni las
   sólo de influencer ni los tipos de evento. Lo validan el alta, el `PATCH` del gestor y el panel;
   antes valía cualquier texto no vacío.
+- **`admin_only`: las que sólo pone el equipo** (`Version20260929100000`, hoy sólo
+  `restaurants-top`). Es un reconocimiento, no algo que el negocio elija. Se lista igual —el público
+  la ve y el panel la asigna— y viene en cada categoría de `/public/categories`; el alta web y la
+  edición (web y app) la quitan de las opciones. **El alta y el `PATCH` del gestor la rechazan**
+  (`BusinessCategory::isSelfAssignable`), salvo que el negocio ya la tenga: reenviarla no es
+  elegirla. El panel sigue con `isAssignable`. Se marca por SQL: el panel todavía no tiene el
+  interruptor.
 - **«Turismo» en listados y feeds** = grupos de turismo y lo que cuelga, el partner ibiza y las de
   influencer de siempre (`place`, `culture`, `nature`, `events`) — `CategoryRepository::tourismIds`
   y la misma condición en el feed. **«Comercio local» es todo lo demás**, para que una categoría

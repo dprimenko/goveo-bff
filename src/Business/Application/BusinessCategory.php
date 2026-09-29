@@ -14,6 +14,9 @@ use Doctrine\DBAL\Connection;
  * - Sólo se acepta una a la que pueda pertenecer un negocio (ver
  *   `CategoryRepository::isAssignableToBusiness`): antes valía cualquier
  *   texto no vacío, y un id inventado dejaba el negocio fuera de todo filtro.
+ * - El negocio no puede ponerse una que sólo asigna el equipo (`admin_only`,
+ *   Restaurantes Top): `isSelfAssignable` es lo que miran el alta y su propia
+ *   edición; el panel sigue con `isAssignable`.
  * - Sus productos van con él: llevan siempre la categoría del negocio (ver
  *   Version20260926121000), así que moverlo es moverlos.
  */
@@ -27,6 +30,13 @@ class BusinessCategory
     public function isAssignable(string $categoryId): bool
     {
         return $this->categories->isAssignableToBusiness($categoryId);
+    }
+
+    /** Lo que puede elegir el propio negocio: asignable y no reservada al equipo. */
+    public function isSelfAssignable(string $categoryId): bool
+    {
+        return $this->isAssignable($categoryId)
+            && !$this->db->fetchOne('SELECT admin_only FROM categories WHERE id = ?', [$categoryId]);
     }
 
     /** Tras guardar el negocio: iguala la de sus productos. */

@@ -103,6 +103,15 @@ class Category
     #[ORM\Column(type: 'boolean', options: ['default' => true])]
     private bool $active = true;
 
+    /**
+     * Sólo la asigna el equipo desde el panel: no se ofrece en el alta ni en la
+     * edición del negocio, y si llega por ahí se rechaza. Es el caso de
+     * «Restaurantes Top», que es un reconocimiento y no algo que se elija. Al
+     * público se le enseña igual que las demás.
+     */
+    #[ORM\Column(name: 'admin_only', type: 'boolean', options: ['default' => false])]
+    private bool $adminOnly = false;
+
     #[ORM\Column(name: 'created_at', type: 'datetimetz_immutable', options: ['default' => 'CURRENT_TIMESTAMP'])]
     private \DateTimeImmutable $createdAt;
 
@@ -174,6 +183,7 @@ class Category
     public function getSection(): ?string { return $this->section; }
     public function isGroup(): bool { return $this->section !== null; }
     public function isActive(): bool { return $this->active; }
+    public function isAdminOnly(): bool { return $this->adminOnly; }
 
     public function setActive(bool $active): self
     {

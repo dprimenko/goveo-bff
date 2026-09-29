@@ -36,6 +36,9 @@ use Symfony\Component\Routing\Attribute\Route;
  *   negocio o subir un vídeo — las hojas, no los grupos, estén encendidas o no:
  *   que una subcategoría no se enseñe todavía no impide usarla. Cada una trae
  *   `parent_id` para agruparlas en el selector.
+ * - `admin_only` en cada una: las que sólo asigna el equipo (Restaurantes
+ *   Top). Se listan igual —el público las ve y el panel las asigna—, y quien
+ *   ofrece elegir categoría al negocio (alta, edición) las quita.
  * - `?types=` y `?partner=` como siempre (ibiza tiene catálogo propio). Con
  *   `types` y sin `section` ni `mode` es **la petición de la app publicada**
  *   antes de los grupos (sus círculos de Comercio local y el mapa). Qué ve la
@@ -48,7 +51,7 @@ use Symfony\Component\Routing\Attribute\Route;
 class ListCategoriesController
 {
     private const COLUMNS = 'c.id::text AS id, c.slug, c.name, c.image, c."order", c.mode,
-                             c.parent_id::text AS parent_id, c.section, c.active';
+                             c.parent_id::text AS parent_id, c.section, c.active, c.admin_only';
 
     public function __construct(
         private readonly Connection $db,
@@ -212,15 +215,16 @@ class ListCategoriesController
     {
         $shape = function (array $row) use ($counts, &$shape): ?array {
             $out = [
-                'id'        => $row['id'],
-                'slug'      => $row['slug'],
-                'name'      => $row['name'],
-                'image'     => $row['image'],
-                'order'     => $row['order'] === null ? null : (int) $row['order'],
-                'mode'      => $row['mode'],
-                'parent_id' => $row['parent_id'],
-                'section'   => $row['section'],
-                'active'    => (bool) $row['active'],
+                'id'         => $row['id'],
+                'slug'       => $row['slug'],
+                'name'       => $row['name'],
+                'image'      => $row['image'],
+                'order'      => $row['order'] === null ? null : (int) $row['order'],
+                'mode'       => $row['mode'],
+                'parent_id'  => $row['parent_id'],
+                'section'    => $row['section'],
+                'active'     => (bool) $row['active'],
+                'admin_only' => (bool) $row['admin_only'],
             ];
 
             if ($counts !== null) {

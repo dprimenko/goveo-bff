@@ -187,7 +187,7 @@ class PublicRegisterBusinessController
             $errors['email'] = 'invalid';
         }
 
-        if (!isset($errors['category_id']) && !$this->category->isAssignable((string) $p['category_id'])) {
+        if (!isset($errors['category_id']) && !$this->category->isSelfAssignable((string) $p['category_id'])) {
             $errors['category_id'] = 'invalid';
         }
 
