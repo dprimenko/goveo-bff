@@ -157,7 +157,10 @@ ssh root@76.13.63.176 'C=$(docker ps --format "{{.Names}}" | grep -E "goveo-comp
 Sacarlo del servidor:
 
 ```bash
-ssh root@76.13.63.176 'C=$(docker ps --format "{{.Names}}" | grep -E "goveo-compose-.*-php-1" | head -1); docker exec $C php bin/console goveo:export:directory --output=/tmp/goveo-directorio.xlsx && docker cp $C:/tmp/goveo-directorio.xlsx /tmp/goveo-directorio.xlsx'
+ssh root@76.13.63.176 'C=$(docker ps --format "{{.Names}}" | grep -E "goveo-compose-.*-php-1" | head -1); docker exec $C php bin/console goveo:export:directory --output=/tmp/goveo-directorio.xlsx --exclude=goveoapp@gmail.com --exclude=globalydigitale@gmail.com --exclude=davidprimenko@gmail.com --exclude=davidruso6@gmail.com --exclude=guillermo.gmoraga@gmail.com && docker cp $C:/tmp/goveo-directorio.xlsx /tmp/goveo-directorio.xlsx'
+```
+
+```bash
 scp root@76.13.63.176:/tmp/goveo-directorio.xlsx ~/Downloads/goveo-directorio-$(date +%F).xlsx
 ```
 
