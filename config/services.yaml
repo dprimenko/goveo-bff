@@ -166,6 +166,12 @@ services:
             $fromAddress: '%env(EMAIL_FROM)%'
             $webUrl: '%env(WEB_URL)%'
 
+    # Excel de negocios e influencers (goveo:export:directory): los enlaces
+    # caen a la web pública cuando no se abren en la app.
+    App\Shared\Infrastructure\Command\ExportDirectoryCommand:
+        arguments:
+            $webUrl: '%env(WEB_URL)%'
+
     # El enlace de pago de Stripe (alta pública y cambio de tarifa desde el
     # panel): a dónde devolver al pagar y qué descuento lleva puesto.
     App\Billing\Application\PaymentLinkCreator:

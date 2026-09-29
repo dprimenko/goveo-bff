@@ -141,6 +141,28 @@ goveo:products:fill-missing-images https://goveo.b-cdn.net/resources/goveo_produ
 - **Queda marcada como imagen por defecto**, no como una foto más: en cuanto el negocio sube una de
   verdad, la por defecto se quita sola, y quitarla no borra el fichero compartido de Bunny.
 
+## Exportar
+
+| Comando | Qué hace |
+|---|---|
+| `goveo:export:directory` | Excel (`/tmp/goveo-directorio.xlsx`) con dos hojas: **Negocios** (nombre, email, teléfono, enlace, código postal, categoría, dirección, ciudad, validado) e **Influencers** (nombre visible, usuario, email, enlace). Los enlaces son los cortos de Branch que comparte la app, pulsables. `--output=` cambia la ruta, `--no-branch` usa los de la web, `--exclude=` cambia qué emails no salen. |
+
+Sacarlo del servidor:
+
+```bash
+ssh root@76.13.63.176 'C=$(docker ps --format "{{.Names}}" | grep -E "goveo-compose-.*-php-1" | head -1); docker exec $C php bin/console goveo:export:directory --output=/tmp/goveo-directorio.xlsx && docker cp $C:/tmp/goveo-directorio.xlsx /tmp/goveo-directorio.xlsx'
+scp root@76.13.63.176:/tmp/goveo-directorio.xlsx ~/Downloads/goveo-directorio-$(date +%F).xlsx
+```
+
+- **El email del negocio** es el de las cuentas que lo gestionan y, si no hay, el de facturación. **Sin
+  las del equipo** (goveoapp@, globalydigitale@, davidprimenko@, que están en casi todos) ni las
+  `@goveo.app`, que son relleno de la importación. Para quitar otra: `--exclude=a@b.com` (sustituye a
+  la lista, así que hay que repetir las del equipo).
+- **El código postal** sale de la dirección: no se guarda aparte.
+- **El `.xlsx` se escribe a mano** ([`XlsxWriter`](../src/Shared/Infrastructure/Export/XlsxWriter.php)):
+  la imagen de PHP no tiene la extensión `zip` y PhpSpreadsheet la necesita.
+- Branch da el mismo enlace para los mismos datos: repetirlo no crea enlaces nuevos.
+
 ## Migraciones de datos heredados
 
 Traen datos del sistema antiguo. **Ya se ejecutaron**; están aquí para poder
