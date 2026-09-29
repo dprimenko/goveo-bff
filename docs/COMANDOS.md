@@ -158,7 +158,9 @@ scp root@76.13.63.176:/tmp/goveo-directorio.xlsx ~/Downloads/goveo-directorio-$(
   las del equipo** (goveoapp@, globalydigitale@, davidprimenko@, que están en casi todos) ni las
   `@goveo.app`, que son relleno de la importación. Para quitar otra: `--exclude=a@b.com` (sustituye a
   la lista, así que hay que repetir las del equipo).
-- **El código postal** sale de la dirección: no se guarda aparte.
+- **El código postal** sale de la dirección y, si no lo lleva, se le pregunta a Google por el punto
+  del mapa y, si ahí no hay, por la dirección (`GooglePostalCodeLookup`, con `GOOGLE_MAPS_API_KEY`).
+  No se guarda: son pocos (57 de 460) y se piden en cada export.
 - **El `.xlsx` se escribe a mano** ([`XlsxWriter`](../src/Shared/Infrastructure/Export/XlsxWriter.php)):
   la imagen de PHP no tiene la extensión `zip` y PhpSpreadsheet la necesita.
 - Branch da el mismo enlace para los mismos datos: repetirlo no crea enlaces nuevos.

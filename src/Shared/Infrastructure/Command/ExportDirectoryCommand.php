@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Shared\Infrastructure\Command;
 
+use App\Business\Infrastructure\Geocoding\GooglePostalCodeLookup;
 use App\Shared\Infrastructure\Export\XlsxWriter;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -36,7 +37,9 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  * las `@goveo.app`/`@goveo.test`, que son relleno de la importación y no llegan
  * a nadie. No hay un email público
  * de la ficha. **Código postal**: sale de la dirección (el primer número de
- * cinco cifras); no se guarda aparte.
+ * cinco cifras) y, si no lo lleva, se le pregunta a Google por el punto del
+ * mapa y, si ahí no hay, por la dirección (`GooglePostalCodeLookup`). No se guarda: son pocos y se pide al
+ * exportar.
  *
  *   goveo:export:directory                       # /tmp/goveo-directorio.xlsx
  *   goveo:export:directory --output=/tmp/x.xlsx
@@ -100,6 +103,7 @@ final class ExportDirectoryCommand extends Command
     public function __construct(
         private readonly Connection $db,
         private readonly HttpClientInterface $http,
+        private readonly GooglePostalCodeLookup $postalCodes,
         private readonly string $webUrl,
     ) {
         parent::__construct();
@@ -125,6 +129,7 @@ final class ExportDirectoryCommand extends Command
 
         $businesses = $this->db->fetchAllAssociative(
             "SELECT b.id, b.name, b.city, b.meta, b.verified_at, c.slug AS category_slug, c.name AS category_name,
+                    ST_Y(b.location) AS lat, ST_X(b.location) AS lng,
                     (SELECT string_agg(DISTINCT u.email, ',')
                        FROM business_managers m JOIN users u ON u.id = m.user_id
                       WHERE m.business_id = b.id AND m.deleted_at IS NULL AND u.email IS NOT NULL) AS emails
@@ -145,6 +150,8 @@ final class ExportDirectoryCommand extends Command
         $influencerLinks = $this->links('influencer', $influencers, $web, $noBranch, $io);
 
         $businessRows = [];
+        $geocoded     = 0;
+        $missing      = 0;
         foreach ($businesses as $b) {
             $meta    = json_decode((string) ($b['meta'] ?? ''), true) ?: [];
             $billing = is_array($meta['billing'] ?? null) ? $meta['billing'] : [];
@@ -158,7 +165,7 @@ final class ExportDirectoryCommand extends Command
                 $emails !== [] ? implode(', ', $emails) : ($contact($billingEmail) ? $billingEmail : null),
                 ($meta['public_phone'] ?? null) ?: ($billing['phone'] ?? null),
                 $businessLinks[$b['id']],
-                preg_match('/\b(\d{5})\b/', $address, $m) ? $m[1] : null,
+                $this->postalCode($address, $b['lat'], $b['lng'], $geocoded, $missing),
                 $this->category($b['category_slug'], $b['category_name']),
                 $address ?: null,
                 $b['city'],
@@ -174,6 +181,17 @@ final class ExportDirectoryCommand extends Command
                 $contact($i['email']) ? $i['email'] : null,
                 $influencerLinks[$i['id']],
             ];
+        }
+
+        if ($geocoded > 0 || $missing > 0) {
+            $io->writeln(sprintf(
+                'Códigos postales: %d buscados en Google%s.',
+                $geocoded,
+                $missing > 0 ? sprintf(', %d sin código', $missing) : '',
+            ));
+        }
+        if ($missing > 0 && !$this->postalCodes->isConfigured()) {
+            $io->note('Sin GOOGLE_MAPS_API_KEY no se buscan los códigos que faltan.');
         }
 
         (new XlsxWriter())
@@ -267,6 +285,23 @@ final class ExportDirectoryCommand extends Command
         }
 
         return $links;
+    }
+
+    /** El de la dirección escrita y, si no lo lleva, el del punto del mapa. */
+    private function postalCode(string $address, mixed $lat, mixed $lng, int &$geocoded, int &$missing): ?string
+    {
+        if (preg_match('/\b(\d{5})\b/', $address, $m)) {
+            return $m[1];
+        }
+
+        $code = $this->postalCodes->postalCodeFor(
+            $lat !== null ? (float) $lat : null,
+            $lng !== null ? (float) $lng : null,
+            $address,
+        );
+        $code !== null ? $geocoded++ : $missing++;
+
+        return $code;
     }
 
     private function category(?string $slug, ?string $name): ?string
