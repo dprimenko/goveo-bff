@@ -38,6 +38,11 @@ use Symfony\Component\Uid\Uuid;
  * 4. **Los correos del alta**, al cliente: la bienvenida (con «crea tu
  *    contraseña» si la cuenta es nueva, o sin ella si ya tenía) y, si hay que
  *    pagar, el de «termina el alta» con el enlace.
+ *
+ * **De invitación** (`$invited`): la tarifa se da sin cobrarla por aquí —el
+ * cliente la pagó por un enlace externo, o se le regala—. Se activa ya, como
+ * una gratuita, aunque sea de pago; no toca Stripe ni manda el correo del pago.
+ * Queda marcada en `invited_at`.
  */
 final class PlanOffer
 {
@@ -52,18 +57,24 @@ final class PlanOffer
     ) {}
 
     /**
+     * @param bool $invited de invitación: activa ya, sin cobro ni correo de pago
+     *
      * @return array{subscription: BusinessSubscription, payment_url: ?string, account_created: bool, manager_added: bool, removed_user: ?string, needs_password: bool}
      *
      * @throws \RuntimeException si la tarifa de pago no está en Stripe
      * @throws \Stripe\Exception\ApiErrorException si Stripe no responde
      */
-    public function offer(Business $business, BillingPlan $plan, string $email, string $firstName = '', string $lastName = ''): array
+    public function offer(Business $business, BillingPlan $plan, string $email, string $firstName = '', string $lastName = '', bool $invited = false): array
     {
         $businessId = $business->getId();
         $name       = $business->getName() ?? $business->getSlug();
 
-        // El enlace, lo primero: si Stripe falla no se ha tocado nada.
-        $checkout = $this->paymentLinks->create($businessId, $name, $plan, $email);
+        // El enlace, lo primero: si Stripe falla no se ha tocado nada. Una
+        // invitación no se cobra: no hay enlace.
+        $checkout = $invited
+            ? ['price_id' => null, 'link_id' => null, 'url' => null]
+            : $this->paymentLinks->create($businessId, $name, $plan, $email);
+        // Se activa ya y cierra la que hubiera: gratuita o de invitación.
         $free     = $checkout['url'] === null;
 
         $account = $this->accounts->forEmail($email, $firstName, $lastName);
@@ -105,7 +116,9 @@ final class PlanOffer
             $this->subscriptions->save($previous);
         }
 
-        $subscription = $free
+        $subscription = $invited
+            ? BusinessSubscription::invitation(Uuid::v4()->toRfc4122(), $businessId, $plan->getId())
+            : ($free
             ? new BusinessSubscription(
                 id: Uuid::v4()->toRfc4122(),
                 businessId: $businessId,
@@ -122,7 +135,7 @@ final class PlanOffer
                 $checkout['price_id'],
                 $checkout['link_id'],
                 $checkout['url'],
-            );
+            ));
         $subscription->offeredTo($user->getId());
         $this->subscriptions->save($subscription);
 

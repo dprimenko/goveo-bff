@@ -20,10 +20,12 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * panel. Lo mismo que `goveo:billing:offer-plan`; ver `PlanOffer`.
  *
  * POST /api/admin/businesses/{id}/plan-offer
- * Body: {"plan": "platinum-anual", "email": "cliente@…", "first_name"?, "last_name"?}
+ * Body: {"plan": "platinum-anual", "email": "cliente@…", "first_name"?, "last_name"?, "invited"?: true}
  *
  * Devuelve el enlace de pago de Stripe para pasárselo al cliente (nulo si la
- * tarifa es gratuita), y si la cuenta es nueva y si ya lo gestionaba.
+ * tarifa es gratuita o de invitación), y si la cuenta es nueva y si ya lo
+ * gestionaba. `invited`: la tarifa se da sin cobro —pagó por fuera— y se
+ * activa ya.
  */
 #[IsGranted('ROLE_BUSINESS_EDIT')]
 class OfferBusinessPlanController
@@ -62,6 +64,7 @@ class OfferBusinessPlanController
                 $email,
                 trim((string) ($payload['first_name'] ?? '')),
                 trim((string) ($payload['last_name'] ?? '')),
+                ($payload['invited'] ?? false) === true,
             );
         } catch (ApiErrorException $e) {
             $this->logger->error('Stripe no pudo crear el enlace de pago: {message}', ['message' => $e->getMessage()]);
@@ -74,6 +77,7 @@ class OfferBusinessPlanController
 
         return new JsonResponse([
             'payment_url'     => $result['payment_url'],
+            'invited'         => $result['subscription']->isInvitation(),
             'account_created' => $result['account_created'],
             'needs_password'  => $result['needs_password'],
             'manager_added'   => $result['manager_added'],

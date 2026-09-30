@@ -63,6 +63,14 @@ class BusinessSubscription
     #[ORM\Column(name: 'offered_user_id', type: 'guid', nullable: true)]
     private ?string $offeredUserId = null;
 
+    /**
+     * Tarifa **de invitación**: la da el equipo sin cobrarla por aquí —el cliente
+     * pagó por un enlace externo, o se le regala—. Nula en el resto; si no, la
+     * fecha en que se dio. Activa desde el primer momento y sin nada en Stripe.
+     */
+    #[ORM\Column(name: 'invited_at', type: 'datetimetz_immutable', nullable: true)]
+    private ?\DateTimeImmutable $invitedAt = null;
+
     /** Cliente de Stripe, que aparece al pagar y no antes. */
     #[ORM\Column(name: 'stripe_customer_id', type: 'string', length: 255, nullable: true)]
     private ?string $stripeCustomerId = null;
@@ -143,6 +151,26 @@ class BusinessSubscription
     public function getStripePaymentLinkId(): ?string        { return $this->stripePaymentLinkId; }
     public function getPaymentUrl(): ?string                 { return $this->paymentUrl; }
     public function getOfferedUserId(): ?string              { return $this->offeredUserId; }
+    public function getInvitedAt(): ?\DateTimeImmutable      { return $this->invitedAt; }
+    public function isInvitation(): bool                     { return $this->invitedAt !== null; }
+
+    /**
+     * Activa ya y sin cobro: la tarifa se regala o se cobró fuera. No tiene
+     * periodo que vencer, igual que la gratuita.
+     */
+    public static function invitation(string $id, string $businessId, string $billingPlanId): self
+    {
+        $subscription = new self(
+            $id,
+            $businessId,
+            $billingPlanId,
+            SubscriptionStatus::Active,
+            currentPeriodStart: new \DateTimeImmutable(),
+        );
+        $subscription->invitedAt = new \DateTimeImmutable();
+
+        return $subscription;
+    }
 
     public function offeredTo(string $userId): self
     {

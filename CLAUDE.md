@@ -623,8 +623,8 @@ El caso del comercial: da de alta el negocio **con la cuenta de Goveo** (goveoap
 tarifa FREE para enseñárselo al cliente, y cuando éste dice que sí hay que **cambiarle la tarifa y
 pasárselo**. [`PlanOffer`](src/Billing/Application/PlanOffer.php), por dos caminos:
 
-- `goveo:billing:offer-plan NEGOCIO TARIFA CORREO [--first-name] [--last-name]` (id, slug o código).
-- `POST /api/admin/businesses/{id}/plan-offer` `{plan, email, first_name?, last_name?}`, con
+- `goveo:billing:offer-plan NEGOCIO TARIFA CORREO [--first-name] [--last-name] [--invited]` (id, slug o código).
+- `POST /api/admin/businesses/{id}/plan-offer` `{plan, email, first_name?, last_name?, invited?}`, con
   `ROLE_BUSINESS_EDIT` — lo que usa el panel para que el comercial lo haga solo.
 
 Hace lo mismo que el alta: crea la cuenta si no existe (`AccountProvisioner`, sin contraseña), la
@@ -647,6 +647,14 @@ el del enlace. Devuelve el enlace para pasárselo por WhatsApp o donde sea.
   negocio entero.
 - **El enlace lleva el correo ya escrito** (`prefilled_email`), en el alta y aquí: quien paga no lo
   teclea, y Stripe usa ése para las facturas.
+- **De invitación** (`invited`, casilla «Es de invitación» del panel; 30-09-2026): para quien ya pagó
+  por un enlace de pago externo, o a quien se le regala. La tarifa, **aunque sea de pago, se activa en
+  el momento** como una gratuita —cierra la que hubiera sin Stripe y los enlaces sin pagar—, **sin tocar
+  Stripe** y **sin el correo del pago**: sólo le llega la bienvenida o «crea tu contraseña», y el correo
+  pasa a gestionar el negocio igual. Queda marcada en `business_subscriptions.invited_at` (`null` o la
+  fecha en que se dio), para distinguirla de lo cobrado al contar ingresos.
+  ⚠️ Si el negocio ya pagaba por Stripe, esa suscripción **no se cancela**: seguiría cobrando.
+  Cancelarla es a mano, en Stripe o con `SubscriptionCanceller`.
 
 ### Imágenes: Bunny Storage
 
@@ -1796,6 +1804,7 @@ con `doctrine:schema:validate --skip-sync` (mapping) + `doctrine:migrations:diff
 | `geostories.description` | **preexistente** | — (ya en el esquema; el flujo de subida solo la rellena) |
 | `categories.mode` | columna nueva | `Version20260812113346` (`ADD mode` + backfill por slug) · import: `ImportCategoriesFromSupabaseCommand` (`modeForSlug` en INSERT y `ON CONFLICT … mode = EXCLUDED.mode`) |
 | `products` / `product_subcategories` / `default_subcategories` | **tablas preexistentes** | — (mapeadas por entidades; datos vía `goveo:migrate:*`) |
+| `business_subscriptions.invited_at` | columna nueva | `Version20260930100000` |
 | subcategorías de tienda (nombres) | — | `goveo:migrate:subcategories` (`stores.subCategories` → `product_subcategories`, id UUID v5) |
 
 `mode` se deriva **por slug** (no por id) en migración e import → robusto contra los datos reales, sin

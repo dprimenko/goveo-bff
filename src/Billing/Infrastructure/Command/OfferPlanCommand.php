@@ -46,6 +46,7 @@ final class OfferPlanCommand extends Command
         $this->addArgument('email', InputArgument::REQUIRED, 'Correo de quien va a gestionarlo');
         $this->addOption('first-name', null, InputOption::VALUE_REQUIRED, 'Nombre, si la cuenta es nueva', '');
         $this->addOption('last-name', null, InputOption::VALUE_REQUIRED, 'Apellidos, si la cuenta es nueva', '');
+        $this->addOption('invited', null, InputOption::VALUE_NONE, 'De invitación: activa ya, sin cobro ni correo de pago (pagó por fuera)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -81,13 +82,18 @@ final class OfferPlanCommand extends Command
             $email,
             (string) $input->getOption('first-name'),
             (string) $input->getOption('last-name'),
+            (bool) $input->getOption('invited'),
         );
 
         $io->success(sprintf('%s → %s, gestionado por %s.', $business->getName(), $plan->getName(), $email));
         $io->listing([
             $result['needs_password'] ? 'Sin contraseña todavía: le llega el correo para crearla.' : 'Ya tenía cuenta con contraseña: le llega la bienvenida.',
             $result['manager_added'] ? 'Ahora gestiona el negocio.' : 'Ya lo gestionaba.',
-            $result['payment_url'] !== null ? 'También el correo con el enlace de pago.' : 'Tarifa gratuita: activa ya, sin pago.',
+            match (true) {
+                $result['subscription']->isInvitation() => 'De invitación: activa ya, sin pago ni correo de pago.',
+                $result['payment_url'] !== null         => 'También el correo con el enlace de pago.',
+                default                                 => 'Tarifa gratuita: activa ya, sin pago.',
+            },
             ...($result['removed_user'] !== null ? ['Al correo del ofrecimiento anterior se le ha quitado el acceso.'] : []),
         ]);
         if ($result['payment_url'] !== null) {
