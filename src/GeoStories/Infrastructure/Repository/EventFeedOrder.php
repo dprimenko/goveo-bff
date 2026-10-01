@@ -1,0 +1,79 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\GeoStories\Infrastructure\Repository;
+
+/**
+ * El orden de la pestaña de Eventos: los de hoy delante, y los **recurrentes**
+ * intercalados para que no copen el principio de la lista.
+ *
+ * Un recurrente es un evento que **ya ha empezado y dura más de dos semanas**:
+ * el mercadillo de todos los domingos o la exposición de enero a diciembre,
+ * cargados con una sola fecha de inicio y otra de fin. Por fecha de inicio iban
+ * siempre los primeros —empezaron hace meses— y tapaban lo que pasa hoy, que es
+ * lo que busca quien abre la pestaña.
+ *
+ * Así que van en dos colas:
+ *  - **normales**, como siempre: lo que antes empieza, primero;
+ *  - **recurrentes**, lo que antes termina, primero (el mercadillo que acaba
+ *    este mes antes que la exposición que sigue hasta diciembre);
+ *
+ * y se reparten **5 normales, 1 recurrente, 5 normales, 1 recurrente…** Si se
+ * acaba una cola, la otra sigue sin huecos.
+ *
+ * Se hace en la consulta y no al pintar: la lista va por páginas, y repartir en
+ * la app haría que cada página tuviera su propio patrón y que el scroll infinito
+ * repitiera o se saltara eventos. Aquí cada evento tiene su puesto fijo y
+ * `LIMIT/OFFSET` corta donde toca. Por eso la app no cambia.
+ *
+ * Los tres números se cambian aquí.
+ */
+final class EventFeedOrder
+{
+    /** Normales seguidos antes de cada tanda de recurrentes. */
+    public const NORMAL_RUN = 5;
+
+    /** Recurrentes en cada tanda. */
+    public const RECURRING_RUN = 1;
+
+    /** A partir de cuántos días de duración un evento ya empezado es recurrente. */
+    public const RECURRING_MIN_DAYS = 14;
+
+    /**
+     * El puesto de un evento en la lista (base 0), según su cola y su orden en
+     * ella. Es la misma cuenta que hace `orderBy()` en SQL; está aquí para
+     * poder probarla.
+     */
+    public static function position(bool $recurring, int $index): int
+    {
+        if (!$recurring) {
+            return $index + intdiv($index, self::NORMAL_RUN) * self::RECURRING_RUN;
+        }
+
+        $run = intdiv($index, self::RECURRING_RUN);
+
+        return ($run + 1) * self::NORMAL_RUN + $run * self::RECURRING_RUN + $index % self::RECURRING_RUN;
+    }
+
+    /** El `ORDER BY` de la consulta del feed (alias `geo`). */
+    public static function orderBy(): string
+    {
+        $recurring = sprintf(
+            "(geo.started_at < NOW() AND geo.ended_at - geo.started_at > INTERVAL '%d days')",
+            self::RECURRING_MIN_DAYS,
+        );
+        // Orden dentro de cada cola, base 0.
+        $index = "(ROW_NUMBER() OVER (
+                PARTITION BY {$recurring}
+                ORDER BY CASE WHEN {$recurring} THEN geo.ended_at ELSE geo.started_at END, geo.id
+            ) - 1)";
+        $normal    = self::NORMAL_RUN;
+        $recRun    = self::RECURRING_RUN;
+
+        return "CASE WHEN {$recurring}
+                THEN ({$index} / {$recRun} + 1) * {$normal} + ({$index} / {$recRun}) * {$recRun} + {$index} % {$recRun}
+                ELSE {$index} + ({$index} / {$normal}) * {$recRun}
+            END, geo.id";
+    }
+}

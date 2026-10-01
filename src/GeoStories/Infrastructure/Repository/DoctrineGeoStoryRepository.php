@@ -372,8 +372,9 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         if ($feedType === 'events' && $categoryId === null) {
             $conditions[] = "cat.slug = 'events'";
             // Lo que antes empieza, primero: en un feed de eventos la fecha
-            // manda sobre la cercanía.
-            $orderBy = 'geo.started_at ASC';
+            // manda sobre la cercanía. Los recurrentes, intercalados: ver
+            // `EventFeedOrder`.
+            $orderBy = EventFeedOrder::orderBy();
         } elseif ($feedType === 'geostories' && $categoryId === null) {
             $conditions[] = "cat.slug = 'news'";
         } elseif ($feedType === 'tourism') {
