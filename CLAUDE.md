@@ -975,6 +975,12 @@ si es de otro, porque un 403 confirmaría que ese id está dado de alta.
 subir una imagen de negocio —desde el panel **y desde la app**— subía el fichero a Bunny y moría al
 guardarlo en la ficha. Se vio al usar el editor del panel; llevaba una semana fallando en silencio.
 
+**Facturación** (`PATCH /api/admin/businesses/{id}/billing`, 01-10-2026): empresa, NIF, correo, teléfono
+y dirección fiscal (`meta.billing`, lo que se pidió en el alta), sólo desde el panel y sólo lo que se
+manda; vacío borra el campo. El NIF se guarda sin espacios ni guiones y en mayúsculas, y el correo se
+valida ([`BillingDetails`](src/Business/Domain/BillingDetails.php)). **No toca Stripe**: las facturas
+salen con los datos que el cliente puso al pagar.
+
 ### Cola de vídeos: filtros
 
 `GET /api/admin/geostories?status=&business=&q=&city=&category=&sort=&dir=&page=&size=`, con las
@@ -1376,7 +1382,7 @@ business `c91efd77-dc56-5c54-8c52-38b9aaed3f1a` (251 productos, 9 subcategorías
 ## Orden de la pestaña de Eventos: recurrentes intercalados
 
 `feedType=events` ordena por fecha de inicio (lo que antes empieza, primero), **salvo los
-recurrentes**: eventos que **ya han empezado y duran más de 14 días** —el mercadillo de todos los
+recurrentes**: eventos que **ya han empezado y duran 5 días o más** (eran más de 14 hasta el 01-10-2026) —el mercadillo de todos los
 domingos, la exposición de enero a diciembre—. Por fecha de inicio iban siempre los primeros, porque
 empezaron hace meses, y tapaban lo de hoy. Desde el 01-10-2026 van en su propia cola —**los que antes
 terminan, primero**— y se intercalan: **5 normales, 1 recurrente, 5 normales, 1 recurrente…** Si se
@@ -1385,7 +1391,7 @@ acaba una cola, la otra sigue sin huecos.
 Lo hace la consulta ([`EventFeedOrder`](src/GeoStories/Infrastructure/Repository/EventFeedOrder.php),
 `ROW_NUMBER()` por cola y un puesto calculado): cada evento tiene un sitio fijo y `LIMIT/OFFSET` corta
 donde toca, así que el scroll infinito no repite ni salta. **La app y la web no cambian.** Los tres
-números (5, 1, 14 días) son constantes de esa clase.
+números (5 normales, 1 recurrente, 5 días) son constantes de esa clase.
 
 ## Subcategorías de Eventos (`categories.parent_id`)
 
