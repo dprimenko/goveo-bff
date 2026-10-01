@@ -195,13 +195,32 @@ final class BunnyVideoService
      */
     public function getVideoStatus(string $videoId): ?int
     {
+        return $this->getVideoState($videoId)['status'] ?? null;
+    }
+
+    /**
+     * Estado y avance de la codificación (`encodeProgress`, 0-100) de un vídeo,
+     * o `null` si Bunny no responde. El avance es lo que enseña la tarjeta de un
+     * vídeo propio mientras se procesa («Procesando… 45 %»).
+     *
+     * @return array{status: int, progress: ?int}|null
+     */
+    public function getVideoState(string $videoId): ?array
+    {
         try {
             $res = $this->http->request('GET', sprintf('%s/library/%s/videos/%s', self::API_URL, $this->bunnyLibraryId, $videoId), [
                 'headers' => ['AccessKey' => $this->bunnyApiKey, 'accept' => 'application/json'],
             ]);
             $data = $res->toArray(false);
 
-            return isset($data['status']) ? (int) $data['status'] : null;
+            if (!isset($data['status'])) {
+                return null;
+            }
+
+            return [
+                'status'   => (int) $data['status'],
+                'progress' => isset($data['encodeProgress']) ? max(0, min(100, (int) $data['encodeProgress'])) : null,
+            ];
         } catch (\Throwable $e) {
             $this->logger->warning('Bunny: status fetch failed', ['videoId' => $videoId, 'error' => $e->getMessage()]);
 

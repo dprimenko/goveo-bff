@@ -27,6 +27,9 @@ class ListGeoStoriesController
     private const BUNNY_FINISHED = 4;
     private const BUNNY_FAILED   = 5;
 
+    /** Avance de codificación por vídeo de Bunny, de la última consulta. */
+    private array $progress = [];
+
     public function __construct(
         private readonly GeoStoryRepository $repository,
         private readonly BunnyVideoService $bunny,
@@ -116,13 +119,19 @@ class ListGeoStoriesController
     private function reconcileProcessing(array $items): bool
     {
         $changed = false;
+        $this->progress = [];
         foreach ($items as $s) {
             if ($s->status !== 'processing' || $s->providerVideoId === null) {
                 continue;
             }
-            $bunnyStatus = $this->bunny->getVideoStatus($s->providerVideoId);
-            if ($bunnyStatus === null) {
+            $state = $this->bunny->getVideoState($s->providerVideoId);
+            if ($state === null) {
                 continue;
+            }
+            $bunnyStatus = $state['status'];
+            // Lo que lleva codificado, para la tarjeta: «Procesando… 45 %».
+            if ($state['progress'] !== null) {
+                $this->progress[$s->providerVideoId] = $state['progress'];
             }
             $entity = $this->repository->findByProviderVideoId($s->providerVideoId);
             if ($entity === null) {
@@ -181,6 +190,11 @@ class ListGeoStoriesController
             'thumbnail'        => $s->thumbnail,
             'url'              => $s->url,
             'status'           => $s->status,
+            // Cuánto lleva Bunny codificándolo (0-100), sólo mientras se procesa
+            // y en la vista de su dueño, que es quien lo ve en «Procesando».
+            'processing_progress' => $s->status === 'processing' && $s->providerVideoId !== null
+                ? ($this->progress[$s->providerVideoId] ?? null)
+                : null,
             // Qué es esto: un vídeo con reproductor o una foto. La tarjeta lo
             // necesita antes de montar nada.
             'media_type'       => $s->mediaType,
