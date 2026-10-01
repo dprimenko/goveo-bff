@@ -1395,7 +1395,8 @@ números (5 normales, 1 recurrente, 5 y 1 días) son constantes de esa clase.
 
 **Otro día que hoy** (`date=2026-10-04` y, opcional, `time=20:00`, en hora de Madrid; 01-10-2026): la
 pestaña de Eventos enseña lo que **está en marcha en algún momento de ese día**, también los largos que
-empezaron antes; con hora, lo que sigue en marcha o empieza desde esa hora hasta que acaba el día. Sin
+empezaron antes —pero **un evento de menos de 24 h cuenta sólo para el día en que empieza**: el concierto
+del día 2 de 21:00 a 00:00 es la noche del 2, no un plan del 3—; con hora, lo que sigue en marcha o empieza desde esa hora hasta que acaba el día. Sin
 el «mes vista» del feed: quien elige diciembre ve diciembre. Sólo hacia delante (un día pasado, o hoy
 sin hora, es el feed de siempre) y aparte de la caducidad, que puede estar apagada. Los recurrentes
 cuentan «antes de hoy» como «antes del día elegido». Ver [`EventDay`](src/GeoStories/Domain/EventDay.php).

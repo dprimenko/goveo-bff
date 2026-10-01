@@ -373,9 +373,14 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         // elegir un día tiene que filtrar siempre.
         $eventWindow = "{$eventLeadIn} AND NOW() <= geo.ended_at";
         if ($eventDay !== null && $feedType === 'events') {
-            $conditions[] = 'geo.started_at < :ev_day_end AND geo.ended_at >= :ev_from';
-            $params['ev_day_end'] = $eventDay->dayEnd->format('Y-m-d H:i:sP');
-            $params['ev_from']    = $eventDay->from->format('Y-m-d H:i:sP');
+            // Un evento de menos de 24 h es del día en que empieza: el concierto
+            // del día 2 de 21:00 a 00:00 (o a las 02:00) es la noche del 2, no
+            // un plan del 3. Los de 24 h o más salen todos los días que abarcan.
+            $conditions[] = "geo.started_at < :ev_day_end AND geo.ended_at >= :ev_from
+                AND (geo.ended_at - geo.started_at >= INTERVAL '24 hours' OR geo.started_at >= :ev_day_start)";
+            $params['ev_day_end']   = $eventDay->dayEnd->format('Y-m-d H:i:sP');
+            $params['ev_from']      = $eventDay->from->format('Y-m-d H:i:sP');
+            $params['ev_day_start'] = $eventDay->dayStart->format('Y-m-d H:i:sP');
             $eventWindow = 'TRUE';
         }
 
