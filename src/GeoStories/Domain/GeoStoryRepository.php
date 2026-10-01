@@ -75,6 +75,11 @@ interface GeoStoryRepository
          * que ha bloqueado (ver `App\Moderation`).
          */
         ?string $viewerId = null,
+        /**
+         * `events`: fuera los eventos. La fila de vídeos de un perfil, que los
+         * eventos tienen la suya (con `feedType=events`).
+         */
+        ?string $exclude = null,
     ): array;
 
     /**

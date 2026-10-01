@@ -1393,6 +1393,12 @@ Lo hace la consulta ([`EventFeedOrder`](src/GeoStories/Infrastructure/Repository
 donde toca, así que el scroll infinito no repite ni salta. **La app y la web no cambian.** Los tres
 números (5 normales, 1 recurrente, 5 y 1 días) son constantes de esa clase.
 
+**En los perfiles, los eventos van en su propia fila** (01-10-2026): `feedType=events` con
+`businessId`/`influencerId` da los eventos de ese creador con el orden y el filtro de la pestaña, y
+`exclude=events` el resto de sus vídeos. Quien visita ve los eventos como en el feed (a un mes vista);
+**su dueño los ve todos**, o el evento que acaba de subir para dentro de seis meses no estaría en
+ningún sitio de su perfil. Sin `exclude`, la lista del perfil sigue trayéndolo todo (apps anteriores).
+
 ## Subcategorías de Eventos (`categories.parent_id`)
 
 Las subcategorías son **categorías hijas** (`categories.parent_id`), no una tabla aparte: es el

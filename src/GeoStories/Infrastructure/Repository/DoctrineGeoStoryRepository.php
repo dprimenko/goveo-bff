@@ -259,6 +259,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         bool $includeUnverified = false,
         ?string $subcategory = null,
         ?string $viewerId = null,
+        ?string $exclude = null,
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
@@ -353,7 +354,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         // Las noticias sí conservan el respaldo: quedan 71 importadas sin
         // fechas, y ahí `created_at` es la única referencia de cuándo fueron
         // noticia.
-        $eventLeadIn = $isOwnerScoped
+        //
+        // La fila de Eventos de un perfil (`feedType=events` con el creador)
+        // sigue la regla del feed para quien lo visita: lo mismo que vería en la
+        // pestaña. Su dueño, en cambio, los ve todos, o el evento que acaba de
+        // subir para dentro de seis meses desaparecería de su perfil.
+        $ownerView   = $isOwnerScoped && ($feedType !== 'events' || $includeUnverified);
+        $eventLeadIn = $ownerView
             ? 'TRUE'
             : "NOW() >= geo.started_at - INTERVAL '1 month'";
 
@@ -394,6 +401,11 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 $conditions[] = 'cat.slug != :not_cat';
                 $params['not_cat'] = $notCategoryId;
             }
+        }
+
+        // La fila de vídeos de un perfil, sin los eventos: van en la suya.
+        if ($exclude === 'events') {
+            $conditions[] = "cat.slug IS DISTINCT FROM 'events'";
         }
 
         // Explicit category filter: accepts a UUID (from the category picker) or a slug.

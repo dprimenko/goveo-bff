@@ -49,6 +49,8 @@ class ListGeoStoriesController
         $subcategory = $request->query->get('subcategory');
         $businessId  = $request->query->get('businessId');
         $influencerId = $request->query->get('influencerId');
+        // `events`: sin eventos (la fila de vídeos de un perfil).
+        $exclude      = $request->query->get('exclude');
 
         // Los vídeos pendientes de validar sólo los ve su dueño, y para eso hay
         // que identificarse: la ruta es pública, pero si llega un token se lee.
@@ -80,6 +82,7 @@ class ListGeoStoriesController
             includeUnverified: $includeUnverified,
             subcategory:   $subcategory,
             viewerId:      $viewerId,
+            exclude:       $exclude,
         );
 
         $result = $findFeed();
