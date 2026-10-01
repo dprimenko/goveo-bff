@@ -1382,7 +1382,7 @@ business `c91efd77-dc56-5c54-8c52-38b9aaed3f1a` (251 productos, 9 subcategorías
 ## Orden de la pestaña de Eventos: recurrentes intercalados
 
 `feedType=events` ordena por fecha de inicio (lo que antes empieza, primero), **salvo los
-recurrentes**: eventos que **ya han empezado y duran 5 días o más** (eran más de 14 hasta el 01-10-2026) —el mercadillo de todos los
+recurrentes**: eventos que **empezaron antes de hoy (día de Madrid) y duran más de 5 días** (eran más de 14 hasta el 01-10-2026) —el mercadillo de todos los
 domingos, la exposición de enero a diciembre—. Por fecha de inicio iban siempre los primeros, porque
 empezaron hace meses, y tapaban lo de hoy. Desde el 01-10-2026 van en su propia cola —**los que antes
 terminan, primero**— y se intercalan: **5 normales, 1 recurrente, 5 normales, 1 recurrente…** Si se

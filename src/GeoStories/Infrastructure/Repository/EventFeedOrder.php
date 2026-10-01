@@ -8,7 +8,7 @@ namespace App\GeoStories\Infrastructure\Repository;
  * El orden de la pestaña de Eventos: los de hoy delante, y los **recurrentes**
  * intercalados para que no copen el principio de la lista.
  *
- * Un recurrente es un evento que **ya ha empezado y dura 5 días o más**:
+ * Un recurrente es un evento que **empezó antes de hoy y dura más de 5 días**:
  * el mercadillo de todos los domingos o la exposición de enero a diciembre,
  * cargados con una sola fecha de inicio y otra de fin. Por fecha de inicio iban
  * siempre los primeros —empezaron hace meses— y tapaban lo que pasa hoy, que es
@@ -37,8 +37,14 @@ final class EventFeedOrder
     /** Recurrentes en cada tanda. */
     public const RECURRING_RUN = 1;
 
-    /** Días de duración (o más) desde los que un evento ya empezado es recurrente. */
+    /**
+     * Un evento que empezó antes de hoy es recurrente si dura **más** de estos
+     * días.
+     */
     public const RECURRING_MIN_DAYS = 5;
+
+    /** «Hoy» es el día de Madrid: el feed es de aquí, no de UTC. */
+    private const TIMEZONE = 'Europe/Madrid';
 
     /**
      * El puesto de un evento en la lista (base 0), según su cola y su orden en
@@ -59,8 +65,12 @@ final class EventFeedOrder
     /** El `ORDER BY` de la consulta del feed (alias `geo`). */
     public static function orderBy(): string
     {
+        // Antes de hoy y no antes de ahora: lo que empieza esta mañana es de
+        // hoy, y va con los normales.
         $recurring = sprintf(
-            "(geo.started_at < NOW() AND geo.ended_at - geo.started_at >= INTERVAL '%d days')",
+            "(geo.started_at < (date_trunc('day', NOW() AT TIME ZONE '%1\$s') AT TIME ZONE '%1\$s')"
+            ." AND geo.ended_at - geo.started_at > INTERVAL '%2\$d days')",
+            self::TIMEZONE,
             self::RECURRING_MIN_DAYS,
         );
         // Orden dentro de cada cola, base 0.
