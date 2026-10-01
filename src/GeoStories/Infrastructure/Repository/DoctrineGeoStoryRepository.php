@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\GeoStories\Infrastructure\Repository;
 
+use App\GeoStories\Domain\EventDay;
 use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
@@ -260,6 +261,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?string $subcategory = null,
         ?string $viewerId = null,
         ?string $exclude = null,
+        ?EventDay $eventDay = null,
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
@@ -364,9 +366,22 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             ? 'TRUE'
             : "NOW() >= geo.started_at - INTERVAL '1 month'";
 
+        // Con un día elegido en la pestaña de Eventos, lo que está en marcha ese
+        // día (desde la hora, si la hay) y no lo de hoy. Sin el «mes vista»:
+        // quien elige un día de diciembre quiere ver diciembre. Ver `EventDay`.
+        // Va aparte de la caducidad, que puede estar apagada (en local lo está):
+        // elegir un día tiene que filtrar siempre.
+        $eventWindow = "{$eventLeadIn} AND NOW() <= geo.ended_at";
+        if ($eventDay !== null && $feedType === 'events') {
+            $conditions[] = 'geo.started_at < :ev_day_end AND geo.ended_at >= :ev_from';
+            $params['ev_day_end'] = $eventDay->dayEnd->format('Y-m-d H:i:sP');
+            $params['ev_from']    = $eventDay->from->format('Y-m-d H:i:sP');
+            $eventWindow = 'TRUE';
+        }
+
         if ($this->expiryEnabled) {
             $conditions[] = "(CASE cat.slug
-                WHEN 'events' THEN {$eventLeadIn} AND NOW() <= geo.ended_at
+                WHEN 'events' THEN {$eventWindow}
                 WHEN 'news' THEN NOW() BETWEEN COALESCE(geo.started_at, geo.created_at)
                     AND COALESCE(
                         geo.ended_at,
@@ -381,7 +396,11 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             // Lo que antes empieza, primero: en un feed de eventos la fecha
             // manda sobre la cercanía. Los recurrentes, intercalados: ver
             // `EventFeedOrder`.
-            $orderBy = EventFeedOrder::orderBy();
+            // «Antes de hoy» de los recurrentes es «antes del día elegido».
+            if ($eventDay !== null) {
+                $params['ev_day_start'] = $eventDay->dayStart->format('Y-m-d H:i:sP');
+            }
+            $orderBy = EventFeedOrder::orderBy($eventDay !== null ? ':ev_day_start' : null);
         } elseif ($feedType === 'geostories' && $categoryId === null) {
             $conditions[] = "cat.slug = 'news'";
         } elseif ($feedType === 'tourism') {

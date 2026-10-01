@@ -80,6 +80,8 @@ interface GeoStoryRepository
          * eventos tienen la suya (con `feedType=events`).
          */
         ?string $exclude = null,
+        /** Pestaña de Eventos: el día (y hora) elegido en vez de hoy. */
+        ?EventDay $eventDay = null,
     ): array;
 
     /**

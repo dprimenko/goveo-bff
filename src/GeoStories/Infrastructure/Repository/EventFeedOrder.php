@@ -64,16 +64,25 @@ final class EventFeedOrder
         return ($run + 1) * self::NORMAL_RUN + $run * self::RECURRING_RUN + $index % self::RECURRING_RUN;
     }
 
-    /** El `ORDER BY` de la consulta del feed (alias `geo`). */
-    public static function orderBy(): string
+    /**
+     * El `ORDER BY` de la consulta del feed (alias `geo`).
+     *
+     * @param ?string $dayStart parámetro SQL con el principio del día elegido
+     *                          (`:ev_day_start`); sin él, el de hoy en Madrid
+     */
+    public static function orderBy(?string $dayStart = null): string
     {
+        $today = $dayStart ?? sprintf(
+            "(date_trunc('day', NOW() AT TIME ZONE '%1\$s') AT TIME ZONE '%1\$s')",
+            self::TIMEZONE,
+        );
         // «Antes de hoy» y no «antes de ahora»: lo que empieza esta mañana es
         // de hoy, y va con los normales.
         $recurring = sprintf(
             "(geo.ended_at - geo.started_at > INTERVAL '%2\$d days'"
-            ." OR (geo.started_at < (date_trunc('day', NOW() AT TIME ZONE '%1\$s') AT TIME ZONE '%1\$s')"
+            ." OR (geo.started_at < %1\$s"
             ." AND geo.ended_at - geo.started_at > INTERVAL '%3\$d days'))",
-            self::TIMEZONE,
+            $today,
             self::RECURRING_MIN_DAYS,
             self::ONGOING_MIN_DAYS,
         );

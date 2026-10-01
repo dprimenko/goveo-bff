@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\GeoStories\Infrastructure\Controller;
 
 use App\Backoffice\Application\ReviewQueueNotifier;
+use App\GeoStories\Domain\EventDay;
 use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
@@ -51,6 +52,8 @@ class ListGeoStoriesController
         $influencerId = $request->query->get('influencerId');
         // `events`: sin eventos (la fila de vídeos de un perfil).
         $exclude      = $request->query->get('exclude');
+        // Pestaña de Eventos: otro día que hoy, y la hora si se quiere.
+        $eventDay     = EventDay::fromQuery($request->query->get('date'), $request->query->get('time'));
 
         // Los vídeos pendientes de validar sólo los ve su dueño, y para eso hay
         // que identificarse: la ruta es pública, pero si llega un token se lee.
@@ -83,6 +86,7 @@ class ListGeoStoriesController
             subcategory:   $subcategory,
             viewerId:      $viewerId,
             exclude:       $exclude,
+            eventDay:      $eventDay,
         );
 
         $result = $findFeed();

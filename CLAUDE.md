@@ -1393,6 +1393,13 @@ Lo hace la consulta ([`EventFeedOrder`](src/GeoStories/Infrastructure/Repository
 donde toca, así que el scroll infinito no repite ni salta. **La app y la web no cambian.** Los tres
 números (5 normales, 1 recurrente, 5 y 1 días) son constantes de esa clase.
 
+**Otro día que hoy** (`date=2026-10-04` y, opcional, `time=20:00`, en hora de Madrid; 01-10-2026): la
+pestaña de Eventos enseña lo que **está en marcha en algún momento de ese día**, también los largos que
+empezaron antes; con hora, lo que sigue en marcha o empieza desde esa hora hasta que acaba el día. Sin
+el «mes vista» del feed: quien elige diciembre ve diciembre. Sólo hacia delante (un día pasado, o hoy
+sin hora, es el feed de siempre) y aparte de la caducidad, que puede estar apagada. Los recurrentes
+cuentan «antes de hoy» como «antes del día elegido». Ver [`EventDay`](src/GeoStories/Domain/EventDay.php).
+
 **En los perfiles, los eventos van en su propia fila** (01-10-2026): `feedType=events` con
 `businessId`/`influencerId` da los eventos de ese creador con el orden y el filtro de la pestaña, y
 `exclude=events` el resto de sus vídeos. Quien visita ve los eventos como en el feed (a un mes vista);
