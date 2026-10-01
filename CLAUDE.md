@@ -1382,7 +1382,7 @@ business `c91efd77-dc56-5c54-8c52-38b9aaed3f1a` (251 productos, 9 subcategorías
 ## Orden de la pestaña de Eventos: recurrentes intercalados
 
 `feedType=events` ordena por fecha de inicio (lo que antes empieza, primero), **salvo los
-recurrentes**: eventos que **empezaron antes de hoy (día de Madrid) y duran más de 5 días** (eran más de 14 hasta el 01-10-2026) —el mercadillo de todos los
+recurrentes**: eventos que **duran más de 5 días, o que empezaron antes de hoy (día de Madrid) y duran más de 1** —el concierto de anoche que aún no ha terminado no cuenta— (hasta el 01-10-2026 eran los ya empezados de más de 14 días) —el mercadillo de todos los
 domingos, la exposición de enero a diciembre—. Por fecha de inicio iban siempre los primeros, porque
 empezaron hace meses, y tapaban lo de hoy. Desde el 01-10-2026 van en su propia cola —**los que antes
 terminan, primero**— y se intercalan: **5 normales, 1 recurrente, 5 normales, 1 recurrente…** Si se
@@ -1391,7 +1391,7 @@ acaba una cola, la otra sigue sin huecos.
 Lo hace la consulta ([`EventFeedOrder`](src/GeoStories/Infrastructure/Repository/EventFeedOrder.php),
 `ROW_NUMBER()` por cola y un puesto calculado): cada evento tiene un sitio fijo y `LIMIT/OFFSET` corta
 donde toca, así que el scroll infinito no repite ni salta. **La app y la web no cambian.** Los tres
-números (5 normales, 1 recurrente, 5 días) son constantes de esa clase.
+números (5 normales, 1 recurrente, 5 y 1 días) son constantes de esa clase.
 
 ## Subcategorías de Eventos (`categories.parent_id`)
 

@@ -8,7 +8,9 @@ namespace App\GeoStories\Infrastructure\Repository;
  * El orden de la pestaña de Eventos: los de hoy delante, y los **recurrentes**
  * intercalados para que no copen el principio de la lista.
  *
- * Un recurrente es un evento que **empezó antes de hoy y dura más de 5 días**:
+ * Un recurrente es un evento que **dura más de 5 días, o que empezó antes de
+ * hoy y dura más de 1** (sigue vivo desde otro día). Lo de «más de 1 día» deja
+ * fuera el concierto de anoche que todavía no ha terminado:
  * el mercadillo de todos los domingos o la exposición de enero a diciembre,
  * cargados con una sola fecha de inicio y otra de fin. Por fecha de inicio iban
  * siempre los primeros —empezaron hace meses— y tapaban lo que pasa hoy, que es
@@ -37,11 +39,11 @@ final class EventFeedOrder
     /** Recurrentes en cada tanda. */
     public const RECURRING_RUN = 1;
 
-    /**
-     * Un evento que empezó antes de hoy es recurrente si dura **más** de estos
-     * días.
-     */
+    /** Un evento es recurrente si dura **más** de estos días… */
     public const RECURRING_MIN_DAYS = 5;
+
+    /** …o si empezó antes de hoy y dura más de éstos. */
+    public const ONGOING_MIN_DAYS = 1;
 
     /** «Hoy» es el día de Madrid: el feed es de aquí, no de UTC. */
     private const TIMEZONE = 'Europe/Madrid';
@@ -65,13 +67,15 @@ final class EventFeedOrder
     /** El `ORDER BY` de la consulta del feed (alias `geo`). */
     public static function orderBy(): string
     {
-        // Antes de hoy y no antes de ahora: lo que empieza esta mañana es de
-        // hoy, y va con los normales.
+        // «Antes de hoy» y no «antes de ahora»: lo que empieza esta mañana es
+        // de hoy, y va con los normales.
         $recurring = sprintf(
-            "(geo.started_at < (date_trunc('day', NOW() AT TIME ZONE '%1\$s') AT TIME ZONE '%1\$s')"
-            ." AND geo.ended_at - geo.started_at > INTERVAL '%2\$d days')",
+            "(geo.ended_at - geo.started_at > INTERVAL '%2\$d days'"
+            ." OR (geo.started_at < (date_trunc('day', NOW() AT TIME ZONE '%1\$s') AT TIME ZONE '%1\$s')"
+            ." AND geo.ended_at - geo.started_at > INTERVAL '%3\$d days'))",
             self::TIMEZONE,
             self::RECURRING_MIN_DAYS,
+            self::ONGOING_MIN_DAYS,
         );
         // Orden dentro de cada cola, base 0.
         $index = "(ROW_NUMBER() OVER (
