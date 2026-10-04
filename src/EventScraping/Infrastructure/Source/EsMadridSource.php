@@ -124,7 +124,7 @@ final class EsMadridSource implements EventSource
             'Inmersivo'   => 'events-art-immersive',
             'Arte'        => 'events-art',
             'Gastronomía' => 'events-experiences-gastronomy',
-            'Cine'        => 'events-experiences-cinema',
+            'Cine'        => 'events-cinema',
             'Compras'     => 'events-markets',
             'Moda'        => 'events-markets',
         ]],
@@ -153,7 +153,9 @@ final class EsMadridSource implements EventSource
 
     public function fetch(): iterable
     {
-        $raw = $this->web->get(self::FEED, 20 * 1024 * 1024);
+        // Desde el servidor, esMadrid tarda a veces más de 30 s en empezar a
+        // responder («Idle timeout» dos pasadas seguidas): margen de sobra.
+        $raw = $this->web->get(self::FEED, 20 * 1024 * 1024, 120);
         $xml = $raw !== null ? @simplexml_load_string($raw, options: \LIBXML_NOCDATA) : false;
         if ($xml === false || !isset($xml->service)) {
             throw new \RuntimeException('No se pudo leer la agenda de datos abiertos de esMadrid');
@@ -373,7 +375,7 @@ final class EsMadridSource implements EventSource
     /** `events-art-immersive` → `events-art`; un tipo se devuelve tal cual. */
     private function parentOf(string $slug): string
     {
-        foreach (['events-small-concerts', 'events-nightlife', 'events-stage', 'events-flamenco', 'events-art', 'events-markets', 'events-festivities', 'events-experiences'] as $parent) {
+        foreach (['events-small-concerts', 'events-nightlife', 'events-stage', 'events-flamenco', 'events-art', 'events-markets', 'events-festivities', 'events-experiences', 'events-kids', 'events-cinema'] as $parent) {
             if ($slug === $parent || str_starts_with($slug, $parent . '-')) {
                 return $parent;
             }

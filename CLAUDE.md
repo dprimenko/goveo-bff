@@ -1422,6 +1422,9 @@ la app publicada no tiene esa traducción y pintaría el slug. Sus subniveles: t
 talleres, cuentacuentos y planes en familia. El Ayuntamiento manda ahí lo que su `audience` dice
 «Niños» o sólo «Familias» y los cuentacuentos y títeres (también los talleres infantiles, que del
 resto de cursos siguen fuera); esMadrid, su categoría «Niños».
+**Cine** (`events-cinema`, `Version20261004120000`) también es tipo propio desde el 04-10-2026, con el
+nombre en español como Niños: antes era el subnivel `events-experiences-cinema`, que se retiró y cuyo
+contenido pasó a Cine. Las fuentes mandan ahí lo que antes iba a ese subnivel.
 «Conciertos grandes» no entra por ahora.
 
 - **`geostories.subcategory_id`, aparte de `category_id`**: la vigencia, el feed de Eventos y el

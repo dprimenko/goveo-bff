@@ -156,7 +156,7 @@ final class TeatroRealSource implements EventSource
         return match (true) {
             str_contains($category, 'danza')    => ['events-stage', 'events-stage-dance'],
             str_contains($category, 'flamenco') => ['events-flamenco', 'events-flamenco-show'],
-            preg_match('/\bcine/u', $title) === 1 => ['events-experiences', 'events-experiences-cinema'],
+            preg_match('/\bcine/u', $title) === 1 => ['events-cinema', null],
             preg_match('/\btaller/u', $title) === 1 => ['events-experiences', 'events-experiences-workshops'],
             str_contains($category, 'también en el real') => ['events-small-concerts', null],
             default => ['events-stage', null],

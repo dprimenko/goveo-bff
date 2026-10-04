@@ -154,7 +154,7 @@ final class FundacionTelefonicaSource implements EventSource
             in_array('taller', $categories, true)     => in_array('seniors', $categories, true) || preg_match('/estudiantes|bachillerato|escolar/u', $title)
                 ? null
                 : ['events-experiences', 'events-experiences-workshops'],
-            (bool) preg_match('/\bcine\b|proyecci|película|todopoderosos/u', $title) => ['events-experiences', 'events-experiences-cinema'],
+            (bool) preg_match('/\bcine\b|proyecci|película|todopoderosos/u', $title) => ['events-cinema', null],
             (bool) preg_match('/concierto|música/u', $title)                         => ['events-small-concerts', null],
             (bool) preg_match('/visita/u', $title)                                   => ['events-experiences', 'events-experiences-guided-tours'],
             default                                   => null,

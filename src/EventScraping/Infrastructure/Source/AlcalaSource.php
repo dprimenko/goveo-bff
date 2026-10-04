@@ -126,7 +126,7 @@ final class AlcalaSource extends MunicipalJsonLdSource
             (bool) preg_match('/\bmercado|\bferia\b/u', $text)     => ['events-markets', 'events-markets-fairs'],
             str_contains($type, 'exposiciones')                    => ['events-art', 'events-art-temporary'],
             str_contains($type, 'talleres')                        => ['events-experiences', 'events-experiences-workshops'],
-            str_contains($type, 'cine')                            => ['events-experiences', 'events-experiences-cinema'],
+            str_contains($type, 'cine')                            => ['events-cinema', null],
             str_contains($type, 'teatro')                          => ['events-stage', match (true) {
                 (bool) preg_match('/\bmusical\b/u', $text)                    => 'events-stage-musicals',
                 (bool) preg_match('/\b(mon[oó]logo|humor|comedia)\b/u', $text) => 'events-stage-comedy',

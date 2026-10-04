@@ -35,7 +35,7 @@ final class AteneoMadridSource extends TribeEventsSource
     /** Categoría de la web (en minúsculas) → tipo y subnivel. La primera que case. */
     private const TYPES = [
         'exposición'             => ['events-art', 'events-art-temporary'],
-        'cine'                   => ['events-experiences', 'events-experiences-cinema'],
+        'cine'                   => ['events-cinema', null],
         'visita'                 => ['events-experiences', 'events-experiences-guided-tours'],
         'espectáculo'            => ['events-stage', null],
         'lectura dramatizada'    => ['events-stage', 'events-stage-theater'],
@@ -110,7 +110,7 @@ final class AteneoMadridSource extends TribeEventsSource
             return [null, null];
         }
         if (in_array('ciclo', $categories, true) && str_contains($title, 'cine')) {
-            return ['events-experiences', 'events-experiences-cinema'];
+            return ['events-cinema', null];
         }
 
         foreach (self::TYPES as $category => $type) {

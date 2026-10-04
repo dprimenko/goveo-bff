@@ -41,16 +41,21 @@ final class WebPage
         private readonly LoggerInterface $logger,
     ) {}
 
-    public function get(string $url, int $maxBytes = 5 * 1024 * 1024): ?string
+    /**
+     * @param int $timeout segundos sin recibir nada antes de rendirse. Lo
+     *                     normal basta; esMadrid tarda a ratos más de 30 s en
+     *                     empezar a mandar su fichero.
+     */
+    public function get(string $url, int $maxBytes = 5 * 1024 * 1024, int $timeout = 30): ?string
     {
-        $body = $this->fetch($url, $maxBytes);
+        $body = $this->fetch($url, $maxBytes, $timeout);
 
         // Un fallo pasajero —la agenda de esMadrid o de la Red de Teatros
         // tirando de vez en cuando desde el servidor— no puede dejar fuera
         // una fuente entera hasta la pasada siguiente: se prueba otra vez.
         if ($body === null && $this->transient) {
             usleep(self::RETRY_DELAY);
-            $body = $this->fetch($url, $maxBytes);
+            $body = $this->fetch($url, $maxBytes, $timeout);
         }
 
         return $body;
@@ -66,7 +71,7 @@ final class WebPage
         return $this->lastError;
     }
 
-    private function fetch(string $url, int $maxBytes): ?string
+    private function fetch(string $url, int $maxBytes, int $timeout): ?string
     {
         $this->waitTurn($url);
         $this->lastError = null;
@@ -75,7 +80,7 @@ final class WebPage
         try {
             $response = $this->httpClient->request('GET', $url, [
                 'headers'       => ['User-Agent' => self::USER_AGENT, 'Accept-Language' => 'es-ES,es;q=0.9'],
-                'timeout'       => 30,
+                'timeout'       => $timeout,
                 'max_redirects' => 5,
             ]);
 

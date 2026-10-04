@@ -81,7 +81,7 @@ final class ComunidadMadridCentrosSource implements EventSource
         'Danza/Baile'      => ['events-stage', 'events-stage-dance'],
         'Comedia/Humor'    => ['events-stage', 'events-stage-comedy'],
         'Exposición/Museo' => ['events-art', 'events-art-temporary'],
-        'Cine/Vídeo'       => ['events-experiences', 'events-experiences-cinema'],
+        'Cine/Vídeo'       => ['events-cinema', null],
         'Mercado/Feria'    => ['events-markets', 'events-markets-fairs'],
         'Festival'         => [null, null],
     ];

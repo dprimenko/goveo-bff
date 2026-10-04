@@ -220,7 +220,7 @@ abstract class MinisterioCulturaAgendaSource implements EventSource
             (bool) preg_match('/visita|recorrido|itinerario|pieza del mes|mediaci[oó]n/u', $text) => ['events-experiences', 'events-experiences-guided-tours'],
             (bool) preg_match('/taller/u', $text)                                               => ['events-experiences', 'events-experiences-workshops'],
             (bool) preg_match('/concierto|m[uú]sica|cuarteto|trío|recital|jazz|piano|[oó]rgano/u', $text) => ['events-small-concerts', null],
-            (bool) preg_match('/\bcine\b|pel[ií]cula|proyecci[oó]n|documental/u', $text)        => ['events-experiences', 'events-experiences-cinema'],
+            (bool) preg_match('/\bcine\b|pel[ií]cula|proyecci[oó]n|documental/u', $text)        => ['events-cinema', null],
             (bool) preg_match('/\bdanza\b/u', $text)                                            => ['events-stage', 'events-stage-dance'],
             (bool) preg_match('/teatro/u', $text) && !str_contains($text, 'teatro real')        => ['events-stage', 'events-stage-theater'],
             default                                                                             => ['events-other', null],

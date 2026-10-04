@@ -236,7 +236,7 @@ final class CirculoBellasArtesSource implements EventSource
                 return ['events-art', preg_match('/fotograf/u', $title) ? 'events-art-photography' : 'events-art-temporary'];
 
             case 'películas':
-                return ['events-experiences', 'events-experiences-cinema'];
+                return ['events-cinema', null];
 
             case 'eventos':
                 return preg_match(self::TALKS, $title) ? null : ['events-small-concerts', null];
@@ -265,7 +265,7 @@ final class CirculoBellasArtesSource implements EventSource
     {
         $now = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Madrid'));
 
-        if ($event->subtype === 'events-experiences-cinema') {
+        if ($event->subcategory === 'events-cinema') {
             preg_match_all('#\b(\d{1,2})/(\d{1,2}),\s*(\d{1,2}):(\d{2})#', $text, $sessions, \PREG_SET_ORDER);
             foreach ($sessions as $s) {
                 $at = SpanishDate::build((int) $s[1], (int) $s[2], $s[3] . ':' . $s[4]);

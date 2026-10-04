@@ -59,7 +59,7 @@ final class MadridOpenDataSource implements EventSource
         'Arte'                                   => ['events-art', null],
         'Fiestas'                                => ['events-festivities', 'events-festivities-neighborhood'],
         'Ferias'                                 => ['events-markets', 'events-markets-fairs'],
-        'CineActividadesAudiovisuales'           => ['events-experiences', 'events-experiences-cinema'],
+        'CineActividadesAudiovisuales'           => ['events-cinema', null],
         'ExcursionesItinerariosVisitas'          => ['events-experiences', 'events-experiences-guided-tours'],
         'ItinerariosOtrasActividadesAmbientales' => ['events-experiences', 'events-experiences-guided-tours'],
         'ActividadesDeportivas'                  => ['events-experiences', 'events-experiences-sport'],

@@ -27,7 +27,7 @@ final class ThyssenSource extends JsonLdEventSource
     /** Tipo de la tarjeta (en minúsculas) → tipo y subnivel de Goveo. */
     private const KINDS = [
         'concierto'     => ['events-small-concerts', null],
-        'cine'          => ['events-experiences', 'events-experiences-cinema'],
+        'cine'          => ['events-cinema', null],
         'taller'        => ['events-experiences', 'events-experiences-workshops'],
         'visita guiada' => ['events-experiences', 'events-experiences-guided-tours'],
         // Performances de artistas en las salas: arte, no escena.

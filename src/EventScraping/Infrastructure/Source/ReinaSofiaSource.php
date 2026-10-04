@@ -237,7 +237,7 @@ final class ReinaSofiaSource implements EventSource
         }
 
         return match (true) {
-            in_array('cine y vídeo', $categories, true)     => ['events-experiences', 'events-experiences-cinema'],
+            in_array('cine y vídeo', $categories, true)     => ['events-cinema', null],
             in_array('taller', $categories, true)           => ['events-experiences', 'events-experiences-workshops'],
             in_array('visita comentada', $categories, true) => ['events-experiences', 'events-experiences-guided-tours'],
             // «Artes en vivo» es casi siempre un concierto (Ana Curra, Los

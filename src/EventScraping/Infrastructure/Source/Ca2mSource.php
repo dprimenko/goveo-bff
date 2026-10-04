@@ -41,7 +41,7 @@ final class Ca2mSource implements EventSource
         'concierto'   => ['events-small-concerts', null],
         'conciertos'  => ['events-small-concerts', null],
         'música'      => ['events-small-concerts', null],
-        'cine'        => ['events-experiences', 'events-experiences-cinema'],
+        'cine'        => ['events-cinema', null],
         'performance' => ['events-art', null],
         'danza'       => ['events-stage', 'events-stage-dance'],
     ];

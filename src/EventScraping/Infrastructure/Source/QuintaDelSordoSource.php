@@ -207,7 +207,7 @@ final class QuintaDelSordoSource implements EventSource
             str_contains($text, 'exposici')                                                     => ['events-art', 'events-art-temporary'],
             $kids                                                                               => ['events-kids', 'events-kids-workshops'],
             (bool) preg_match('/taller|workshop|laboratorio|p[íi]ldora|curso/u', $text)         => ['events-experiences', 'events-experiences-workshops'],
-            str_contains($text, 'cine')                                                         => ['events-experiences', 'events-experiences-cinema'],
+            str_contains($text, 'cine')                                                         => ['events-cinema', null],
             (bool) preg_match('/feria|fanzine|mercad/u', $text)                                 => ['events-markets', 'events-markets-vintage-crafts'],
             (bool) preg_match('/fest\b|concierto/u', $text)                                     => ['events-small-concerts', null],
             default                                                                             => ['events-experiences', null],

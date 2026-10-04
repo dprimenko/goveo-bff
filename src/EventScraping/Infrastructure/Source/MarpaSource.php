@@ -209,7 +209,7 @@ final class MarpaSource implements EventSource
             (bool) preg_match('/taller/u', $title)                          => ['events-experiences', 'events-experiences-workshops'],
             (bool) preg_match('/concierto|m[uú]sica/u', $title)             => ['events-small-concerts', null],
             (bool) preg_match('/danza/u', $title)                           => ['events-stage', 'events-stage-dance'],
-            (bool) preg_match('/proyecci[oó]n|documental|cine/u', $title)   => ['events-experiences', 'events-experiences-cinema'],
+            (bool) preg_match('/proyecci[oó]n|documental|cine/u', $title)   => ['events-cinema', null],
             default                                                         => ['events-other', null],
         };
     }
