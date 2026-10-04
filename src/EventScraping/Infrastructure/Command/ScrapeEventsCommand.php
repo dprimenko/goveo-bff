@@ -46,9 +46,9 @@ final class ScrapeEventsCommand extends Command
         $this
             ->addOption('city', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sólo las fuentes de estas ciudades (Madrid, Málaga…). Sin tildes ni mayúsculas también vale.')
             ->addOption('source', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sólo estas fuentes (madrid-datos, berlin, clamores, calderon).')
-            ->addOption('days', null, InputOption::VALUE_REQUIRED, 'Cuántos días hacia delante.', '30')
+            ->addOption('days', null, InputOption::VALUE_REQUIRED, 'Cuántos días hacia delante.', '60')
             ->addOption('weekdays', null, InputOption::VALUE_REQUIRED, 'Días aceptados, ISO (1 lunes … 7 domingo).', '4,5,6')
-            ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Máximo de eventos nuevos por fuente.', '150')
+            ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Máximo de eventos nuevos por fuente.', '300')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Enseña lo que haría sin subir ni guardar nada.')
             ->addOption('details', null, InputOption::VALUE_NONE, 'Lista también los descartados y por qué.');
     }
@@ -65,6 +65,7 @@ final class ScrapeEventsCommand extends Command
         $window   = EventWindow::nextDays(max(1, (int) $input->getOption('days')), $weekdays);
         $limit    = max(1, (int) $input->getOption('limit'));
         $failed   = false;
+        $errors   = [];
 
         foreach ($this->sources as $source) {
             if ($only !== [] && !in_array($source->name(), $only, true)) {
@@ -93,7 +94,8 @@ final class ScrapeEventsCommand extends Command
             } catch (\Throwable $e) {
                 // Una web caída no tumba las demás: se cuenta y se sigue.
                 $io->error(sprintf('%s: %s', $source->name(), $e->getMessage()));
-                $failed = true;
+                $failed                  = true;
+                $errors[$source->name()] = $e->getMessage();
                 continue;
             }
 
@@ -110,6 +112,15 @@ final class ScrapeEventsCommand extends Command
             $io->error('Ninguna fuente coincide con --city / --source.');
 
             return Command::INVALID;
+        }
+
+        // Al final y juntas: en una pasada de ochenta fuentes, el error de una
+        // se perdía cientos de líneas más arriba y sólo quedaba «Command failed».
+        if ($errors !== []) {
+            $io->section(sprintf('Fuentes con error (%d) — las demás se han importado igual', count($errors)));
+            foreach ($errors as $name => $message) {
+                $io->writeln(sprintf('  <error>✗</error> %s: %s', $name, $message));
+            }
         }
 
         return $failed ? Command::FAILURE : Command::SUCCESS;

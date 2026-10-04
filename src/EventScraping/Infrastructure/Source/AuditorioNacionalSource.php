@@ -32,10 +32,10 @@ final class AuditorioNacionalSource implements EventSource
     private const LIST = self::HOME . '/es/programacion?b_start:int=%d';
 
     private const PER_PAGE  = 12;
-    private const MAX_PAGES = 12;
+    private const MAX_PAGES = 20;
 
     /** Hasta dónde se leen páginas: algo más que la ventana del comando. */
-    private const HORIZON = '+45 days';
+    private const HORIZON = '+65 days';
 
     private const VENUE = [
         'name'    => 'Auditorio Nacional de Música',

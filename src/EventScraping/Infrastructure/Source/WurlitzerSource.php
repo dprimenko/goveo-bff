@@ -36,8 +36,8 @@ final class WurlitzerSource implements EventSource
     private const LNG     = -3.7025532;
     private const ADDRESS = 'Calle de las Tres Cruces, 12, 28013 Madrid';
 
-    /** Fichas que se abren: el cron pide 30 días, con margen. */
-    private const HORIZON_DAYS = 40;
+    /** Fichas que se abren: el cron pide 60 días, con margen. */
+    private const HORIZON_DAYS = 65;
 
     public function __construct(private readonly WebPage $web) {}
 

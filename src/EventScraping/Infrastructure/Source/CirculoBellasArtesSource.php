@@ -40,7 +40,7 @@ final class CirculoBellasArtesSource implements EventSource
     private const ADDRESS = 'Calle de Alcalá, 42, 28014 Madrid';
 
     /** Días que se piden a la agenda: los 30 de la ventana del cron y hoy. */
-    private const HORIZON = 31;
+    private const HORIZON = 62;
 
     /** «Escénicas» más largo que esto es un ciclo de temporada (ver arriba). */
     private const MAX_STAGE_DAYS = 14;

@@ -100,7 +100,7 @@ final class ComunidadMadridCentrosSource implements EventSource
     /** Más que esto abierto no es una exposición: es la colección del centro. */
     private const MAX_RANGE_DAYS = 180;
 
-    private const LOOKAHEAD_DAYS = 45;
+    private const LOOKAHEAD_DAYS = 65;
 
     public function __construct(private readonly WebPage $web) {}
 

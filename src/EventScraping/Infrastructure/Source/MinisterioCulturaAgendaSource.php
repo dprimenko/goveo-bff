@@ -28,7 +28,7 @@ use App\EventScraping\Infrastructure\WebPage;
 abstract class MinisterioCulturaAgendaSource implements EventSource
 {
     /** Días que se preguntan: los 30 de la pasada y un margen. */
-    private const DAYS = 31;
+    private const DAYS = 62;
 
     /**
      * Una actividad que no es exposición y sale más de esta fracción de los

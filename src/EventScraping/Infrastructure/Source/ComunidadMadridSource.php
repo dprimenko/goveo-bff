@@ -32,7 +32,7 @@ final class ComunidadMadridSource implements EventSource
     private const MAP  = 'https://www.comunidad.madrid/api/events-map';
     private const HOME = 'https://www.comunidad.madrid';
 
-    private const LOOKAHEAD_DAYS = 45;
+    private const LOOKAHEAD_DAYS = 65;
 
     /**
      * Tipo de actividad del buscador → tipo y subnivel de Goveo. Los que no

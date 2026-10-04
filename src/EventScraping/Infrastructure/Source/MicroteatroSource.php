@@ -37,7 +37,7 @@ final class MicroteatroSource implements EventSource
     private const ADDRESS = 'Calle de Loreto y Chicote, 9, 28004 Madrid';
 
     /** Días que se miran: el cron pide 30, con margen. */
-    private const HORIZON_DAYS = 35;
+    private const HORIZON_DAYS = 62;
 
     /** Lo que dura cada obra, para cerrar el día tras el último pase. */
     private const PLAY_MINUTES = 15;

@@ -1580,7 +1580,11 @@ y `category.group`.
 `php bin/console goveo:events:scrape` importa la cartelera de salas y agendas como **geostories de
 foto** en la categoría `events`, **sin validar**, y el panel las enseña en su propia pestaña
 («Sin validar (Scraping)», `status=scraped`). Nace de la cartelera que el socio preparaba a mano en
-Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 30 días**.
+Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 60 días** (`--days`; eran 30 hasta
+el 04-10-2026, se amplió a dos meses). Hasta 300 eventos nuevos por fuente (`--limit`). Las fuentes
+que miran día a día o pasan páginas tienen su propio tope (`HORIZON`, `LOOKAHEAD_DAYS`, `DAYS`…), ya
+subido por encima de 60: si se amplía `--days`, hay que subirlo también. Al final la pasada lista las
+**fuentes con error**: «Command failed» sólo dice que alguna falló, no que se parara.
 
 | Fuente (`--source`) | Qué lee | Trampa |
 |---|---|---|

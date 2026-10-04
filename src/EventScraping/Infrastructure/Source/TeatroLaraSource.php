@@ -34,8 +34,8 @@ final class TeatroLaraSource implements EventSource
     private const LNG     = -3.7044668;
     private const ADDRESS = 'Corredera Baja de San Pablo, 15, 28004 Madrid';
 
-    /** Hasta dónde se pasan páginas: el cron mira 30 días, con margen. */
-    private const HORIZON_DAYS = 45;
+    /** Hasta dónde se pasan páginas: el cron mira 60 días, con margen. */
+    private const HORIZON_DAYS = 65;
     private const MAX_PAGES    = 40;
 
     private const MONTHS = [
