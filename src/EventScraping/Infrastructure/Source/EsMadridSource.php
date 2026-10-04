@@ -60,7 +60,19 @@ final class EsMadridSource implements EventSource
         'teatro principe gran via', 'sala el sol', 'auditorio nacional', 'teatro de la comedia',
         'teatro lope de vega', 'coliseum', 'teatro apolo', 'nuevo teatro alcala', 'teatro rialto',
         'teatro amaya', 'teatro infanta isabel', 'gran teatro pavon', 'el sotano', 'sala but',
-        'hangar 48', 'tempo club', 'cafe la palma', 'honky tonk',
+        'hangar 48', 'tempo club', 'cafe la palma', 'honky tonk', 'galeria elvira gonzalez', 'ateneo',
+        'mercado de motores', 'quinta del sordo', 'teatro lara', 'microteatro', 'espacio abierto quinta de los molinos',
+        'teseo', 'wurlitzer', 'intruso', 'zielo', 'zoo aquarium', 'tren de felipe ii', 'tren de la fresa',
+        'museo de las ilusiones', 'museo arqueologico nacional', 'museo cerralbo', 'museo del romanticismo',
+        'museo lazaro galdiano', 'centro de arte dos de mayo', 'ca2m', 'casa museo lope de vega',
+        'museo arqueologico y paleontologico', 'marpa', 'casa natal de cervantes', 'centro cultural paco rabal',
+        'centro cultural pilar miro', 'real coliseo de carlos iii', 'sala alcala 31', 'sala de arte joven',
+        'centro comarcal de humanidades sierra norte', 'teatro salon cervantes', 'corral de comedias',
+        'santa maria la rica', 'capilla del oidor', 'gilitos', 'auditorio municipal paco de lucia',
+        'museo picasso',
+        // Círculo de Bellas Artes y Fundación Canal tienen fuente, pero esMadrid
+        // trae de ellos cosas que su agenda no publica: no se saltan, y lo que
+        // salga dos veces se descarta al validar.
         // Gruposmedia.
         'teatro alcazar', 'capitol gran via', 'teatro gran via', 'teatro maravillas', 'teatro figaro',
     ];

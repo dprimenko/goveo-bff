@@ -1621,6 +1621,16 @@ Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 30 días
 | `teatro-pavon` | las sesiones que la portada lleva para su calendario | Una petición. Sólo lo que está a la venta (~5 semanas). |
 | `el-sotano`, `hangar-48`, `sala-but`, `honky-tonk` | HTML de la agenda | Sala But sin horas y sin sus sesiones (Mondo Disko ya las lee). Hangar 48: la parte de clubbing estaba vacía al escribirla. |
 | `tempo`, `cafe-la-palma` | The Events Calendar + `TribeShows` | `TribeShows` junta la sesión semanal por el título. La Palma a veces tarda más de 30 s: alguna pasada fallará. |
+| `red-teatros`, `red-teatros-municipios` | madrid.org/clas_artes/red: la programación familiar y la de adultos de la Red de Teatros (~75 municipios) | Se reparten lo familiar (a Niños) y lo de adultos. Se saltan Madrid capital (`madrid-datos`) y Alcalá (`alcala`). Año sacado de la cabecera («2º Semestre 2026»). |
+| `comunidad-madrid-centros` | los centros de la Comunidad fuera de la agenda de Madrid capital (Paco Rabal, Pilar Miró, Real Coliseo, Alcalá 31, Arte Joven, Sierra Norte, Museo Picasso) | Mismo JSON que `comunidad-madrid`, restando lo que ya trae esa. |
+| `alcala`, `corral-alcala`, `marpa`, `casa-natal-cervantes` | Alcalá de Henares: CulturAlcalá (datos estructurados, base `MunicipalJsonLdSource`), Corral de Comedias, MARPA, Casa Natal | Con su municipio de verdad; agenda de Madrid. El Corral, fechas escritas a mano. |
+| `museo-arqueologico`, `museo-cerralbo`, `museo-romanticismo` | agenda del Ministerio de Cultura, día a día (base `MinisterioCulturaAgendaSource`) | 31 peticiones cada uno. Lo que sale en más del 60 % de los días es oferta fija y no entra. Cerralbo y Romanticismo, sin horas. |
+| `lazaro-galdiano`, `casa-museo-lope-de-vega`, `ca2m` | JSON de su agenda; calendario por cuatrimestre; exposiciones + calendario mensual | Algún concierto del Lázaro también llega por `madrid-datos`: se descarta al validar. |
+| `circulo-bellas-artes`, `fundacion-canal`, `elvira-gonzalez` | agenda día a día; exposiciones; exposición actual | **No están en `COVERED` de esMadrid a propósito**: esMadrid trae de ellos cosas que su web no publica. |
+| `ateneo-madrid`, `quinta-del-sordo`, `mercado-motores`, `mercado-encanto` | The Events Calendar; fichas; texto de portada; The Events Calendar | Ateneo sin conferencias ni los conciertos del Café Central. Quinta del Sordo, la más frágil. Encanto sin sala propia (el recinto cambia). |
+| `teatro-lara`, `microteatro`, `teseo-teatro`, `espacio-abierto-qm` | calendario en lista; su taquilla día a día; cartelera escrita; API de WordPress + fechas del texto | Lo infantil, a Niños. Espacio Abierto, todo a Niños. |
+| `wurlitzer`, `intruso-bar` | fichas con datos estructurados; JSON de su propio backend (~2,5 MB) | El cartel del Wurlitzer caduca a las 24 h: sirve porque se descarga en la pasada. |
+| `zielo`, `zoo-madrid`, `museo-ilusiones`, `tren-felipe-ii`, `tren-de-la-fresa` | talleres y actividades con fecha, no la atracción | Todo a Niños. Fechas en texto: frágiles. |
 | `shoko`, `specka`, `mondo-disko`, `fabrik` | Shopify, datos estructurados, HTML, API propia | Fabrik está en Humanes y la terraza de Mondo en Alcorcón: van con su municipio, pero son de la agenda de Madrid (`city()`), que es con lo que las lanza el cron. |
 
 Añadir una sala es añadir una clase que implemente `EventSource`: se registra sola por la etiqueta.
@@ -1648,7 +1658,12 @@ vez con la geocodificación de Google y van fijas en cada clase.
   (todo en Fever, sesiones cargadas por su API privada), Galileo (bloquea bots), Centro Dramático
   Nacional (antibots de Imperva en todas sus páginas), Sala Cocó, Lula Club y Nazca (su agenda sólo
   está en Fourvenues), Gabana (carteles fijos por día de la semana, sin fechas), Cadavra (sin cartel
-  ni hora en su web: está en RA y DICE). **No se leen
+  ni hora en su web: está en RA y DICE). Del Excel de octubre (04-10-2026): La Casa Encendida, La
+  Fiambrera y Mercado de Diseño (antibots), Getafe (su web no manda el certificado intermedio de la
+  FNMT: haría falta añadirlo a la imagen; su teatro entra por la Red), atracciones permanentes sin
+  actividades con fecha (IKONO, Museo de la Luz, Nomad, Sweet Space, WAH, SENSAS, escape rooms,
+  Faunia, Micropolix…), webs cerradas o inexistentes (una docena entre colectivos, talleres y
+  librerías) y agendas que sólo están en PDF o Instagram (Red Itiner, Mad Improv). **No se leen
   webs de ticketeras** (Fever, Fourvenues, Dice…), sólo lo que publica la propia sala.
 - **Fuentes del Excel del socio** (`GOVEO_fuentes_eventos_Madrid3_completado.xlsx`, 25-09-2026): de
   82, unas 20 tienen una web que no existe (dominio inventado, hay que buscar la real), madrid.es,

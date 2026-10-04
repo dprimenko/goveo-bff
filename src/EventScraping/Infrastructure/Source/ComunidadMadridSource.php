@@ -50,6 +50,9 @@ final class ComunidadMadridSource implements EventSource
         'Cine/Vídeo'       => ['events-experiences', 'events-experiences-cinema'],
         'Mercado/Feria'    => ['events-markets', 'events-markets-fairs'],
         'Festival'         => [null, null],
+        // Lo infantil, a Niños: casi todo son cuentacuentos en bibliotecas.
+        'Cuentacuentos'    => ['events-kids', 'events-kids-storytelling'],
+        'Infantil'         => ['events-kids', 'events-kids-family-plans'],
     ];
 
     /**
@@ -60,9 +63,13 @@ final class ComunidadMadridSource implements EventSource
         . 'sala villanos|la riviera|calder[oó]n|clamores|caf[eé] central|caf[eé] berl[ií]n|cardamomo|corral de la morer[ií]a|'
         . 'torres bermejas|fabrik|independance|moby dick|siroco|specka|teatro flamenco madrid|fundaci[oó]n telef[oó]nica|'
         . 'abad[ií]a|teatro la latina|teatro marquina|teatro pr[ií]ncipe gran v[ií]a|teatro espa[nñ]ol|naves del espa|fern[aá]n g[oó]mez|conde duque|matadero|circo price|centrocentro|'
-        . 'sala el sol|auditorio nacional|teatro de la comedia|lope de vega|coliseum|teatro apolo|teatro alcal[aá]|rialto|'
+        . 'sala el sol|auditorio nacional|teatro de la comedia|teatro lope de vega|coliseum|teatro apolo|teatro alcal[aá]|rialto|'
         . 'teatro amaya|infanta isabel|pav[oó]n|'
-        . 'el s[oó]tano|sala but|hangar 48|tempo club|caf[eé] la palma|honky tonk/iu';
+        . 'el s[oó]tano|sala but|hangar 48|tempo club|caf[eé] la palma|honky tonk|'
+        . 'elvira gonz[aá]lez|ateneo|mercado de motores|quinta del sordo|'
+        . 'teatro lara|microteatro|espacio abierto|teseo|wurlitzer|intruso|zielo|zoo aquarium|'
+        . 'arqueol[oó]gico nacional|cerralbo|romanticismo|l[aá]zaro galdiano|dos de mayo|ca2m|casa museo lope de vega|'
+        . 'arqueol[oó]gico y paleontol[oó]gico|marpa|casa natal de cervantes/iu';
 
     /** Escenarios al aire libre: allí, lo de la Hispanidad son sus fiestas. */
     private const OUTDOORS = '/^(plaza|puerta del sol|parque|jardines|paseo|calle)\b/iu';
