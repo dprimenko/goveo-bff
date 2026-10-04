@@ -42,6 +42,8 @@ class GetGeoStoryController
             'id'                => $s->id,
             'title'             => $s->title,
             'url'               => $s->url,
+            // Como en el listado: sin él, la app tomaba una foto por un vídeo.
+            'media_type'        => $s->mediaType,
             'meta'              => $s->meta,
             'likes'             => $s->likes,
             'lat'               => $s->lat,

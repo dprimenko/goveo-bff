@@ -12,6 +12,7 @@ use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use App\GeoStories\Infrastructure\Service\StorySchedule;
+use App\EventScraping\Infrastructure\PosterFrame;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use App\Shared\Infrastructure\Storage\StorageException;
 use App\Influencers\Domain\InfluencerRepository;
@@ -61,6 +62,7 @@ class CreateGeoStoryController
         private readonly BunnyStorageService $storage,
         private readonly ReviewQueueNotifier $reviewQueue,
         private readonly Subcategories $subcategories,
+        private readonly PosterFrame $frame,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -288,13 +290,26 @@ class CreateGeoStoryController
      */
     private function uploadImage(UploadedFile $file, string $storyId): array
     {
-        $url = $this->storage->upload(
+        $contents = (string) file_get_contents($file->getPathname());
+        $url      = $this->storage->upload(
             fn (string $ext): string => sprintf('geostories/%s/%d.%s', $storyId, time(), $ext),
-            (string) file_get_contents($file->getPathname()),
+            // Un cartel cuadrado u horizontal, con el marco del scraping: la
+            // app llena la pantalla y lo recortaba por los lados.
+            $this->framed($contents),
         );
 
         // La miniatura es la propia foto: no hay fotograma que sacar.
         return ['videoId' => null, 'url' => $url, 'thumbnail' => $url];
+    }
+
+    /** La foto con marco si es ancha; tal cual si no, o si no se puede abrir. */
+    private function framed(string $contents): string
+    {
+        try {
+            return $this->frame->fitIfWide($contents) ?? $contents;
+        } catch (\RuntimeException) {
+            return $contents;
+        }
     }
 
     /**

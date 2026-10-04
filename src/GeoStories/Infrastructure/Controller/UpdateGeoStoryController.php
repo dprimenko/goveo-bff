@@ -10,6 +10,7 @@ use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
 use App\GeoStories\Infrastructure\Service\StorySchedule;
 use App\GeoStories\Infrastructure\Service\GeoStoryOwnership;
+use App\EventScraping\Infrastructure\PosterFrame;
 use App\Shared\Infrastructure\Storage\BunnyStorageService;
 use App\Shared\Infrastructure\Storage\StorageException;
 use App\Security\GoveoUser;
@@ -56,6 +57,7 @@ class UpdateGeoStoryController
         private readonly BusinessRepository $businesses,
         private readonly BunnyStorageService $storage,
         private readonly Subcategories $subcategories,
+        private readonly PosterFrame $frame,
     ) {}
 
     public function __invoke(string $id, Request $request): Response
@@ -192,9 +194,15 @@ class UpdateGeoStoryController
 
             $anterior = $story->getUrl();
             try {
+                $contents = (string) file_get_contents($image->getPathname());
+                try {
+                    // Como al publicar: un cartel ancho, con el marco.
+                    $contents = $this->frame->fitIfWide($contents) ?? $contents;
+                } catch (\RuntimeException) {
+                }
                 $url = $this->storage->upload(
                     fn (string $ext): string => sprintf('geostories/%s/%d.%s', $story->getId(), time(), $ext),
-                    (string) file_get_contents($image->getPathname()),
+                    $contents,
                 );
             } catch (StorageException $e) {
                 return new JsonResponse(['error' => 'invalid_image', 'detail' => $e->getMessage()], Response::HTTP_UNPROCESSABLE_ENTITY);

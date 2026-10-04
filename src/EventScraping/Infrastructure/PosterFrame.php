@@ -28,6 +28,30 @@ final class PosterFrame
     /** Negro a cada lado, en fracción del ancho del lienzo. */
     private const SIDE_MARGIN = 0.08;
 
+    /** Más ancha que esto (ancho / alto) se enmarca en `fitIfWide`: 9:16 con un 15 % de holgura. */
+    private const WIDE_RATIO = 9 / 16 * 1.15;
+
+    /**
+     * Lo mismo, pero sólo si la imagen es **más ancha que vertical**; si no,
+     * `null` y se queda como está.
+     *
+     * Para las fotos que suben negocios e influencers: la app las pinta para
+     * llenar la pantalla, y un cartel cuadrado u horizontal salía recortado por
+     * los lados —justo donde van el título y la fecha—. Una foto vertical de
+     * móvil ya la llena bien, y con marco quedaría más pequeña sin necesidad.
+     */
+    public function fitIfWide(string $contents): ?string
+    {
+        $size = @getimagesizefromstring($contents);
+        if ($size === false || $size[1] <= 0) {
+            return null;
+        }
+
+        // Un poco de holgura sobre 9:16: lo que casi llena la pantalla, la app
+        // lo recorta tan poco que no merece bandas.
+        return $size[0] / $size[1] > self::WIDE_RATIO ? $this->fit($contents) : null;
+    }
+
     /**
      * @return string JPEG ya encuadrado
      *

@@ -74,6 +74,17 @@ final class PosterFrameTest extends TestCase
         self::assertFalse($this->isBlack($img, (int) ($w / 2), 5), 'sin bandas arriba');
     }
 
+    public function testAWidePhotoIsFramedOnlyWhenItWouldBeCropped(): void
+    {
+        $frame = new PosterFrame();
+
+        self::assertNotNull($frame->fitIfWide($this->image(1181, 1181)), 'un cartel cuadrado, con marco');
+        self::assertNotNull($frame->fitIfWide($this->image(1200, 800)), 'una foto horizontal, con marco');
+        self::assertNull($frame->fitIfWide($this->image(900, 1600)), 'una vertical 9:16 se queda como está');
+        self::assertNull($frame->fitIfWide($this->image(1080, 1920)), 'un cartel ya enmarcado no se vuelve a enmarcar');
+        self::assertNull($frame->fitIfWide('no es una imagen'));
+    }
+
     public function testAHugePosterIsScaledDown(): void
     {
         [, $w, $h] = $this->framed(4000, 3000);

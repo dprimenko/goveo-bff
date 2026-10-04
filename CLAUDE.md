@@ -1683,6 +1683,10 @@ vez con la geocodificación de Google y van fijas en cada clase.
 - **El cartel se encaja en vertical** (9:16, [`PosterFrame`](src/EventScraping/Infrastructure/PosterFrame.php)):
   entero y centrado, con bandas negras arriba y abajo si es horizontal o a los lados si es muy alto, y
   siempre un 8 % de margen a cada lado (`SIDE_MARGIN`): pegado a los bordes se leía peor.
+  **También las fotos que se suben desde la app** (04-10-2026), pero sólo si son más anchas que
+  vertical (`fitIfWide`): la app pinta las fotos llenando la pantalla y un cartel cuadrado salía
+  recortado y ampliado. Lo hace el BFF al publicar y al cambiar la foto, así que no hace falta app
+  nueva. Las de antes: `goveo:geostories:frame <enlace de compartir o id>… [--apply]`.
   No se amplía —un cartel de 630 px estirado sale borroso— y se reduce lo que pase de 1080×1920.
   Usa la extensión `gd` (JPEG, PNG, WebP, AVIF), instalada en `Dockerfile` y `Dockerfile.prod`.
 - **No se duplica**: `geostories.external_ref` (`fuente:id`) con índice único que **no excluye lo
