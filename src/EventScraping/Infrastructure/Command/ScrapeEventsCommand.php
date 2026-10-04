@@ -8,6 +8,7 @@ use App\EventScraping\Application\EventImporter;
 use App\EventScraping\Application\EventWindow;
 use App\EventScraping\Domain\EventSource;
 use App\EventScraping\Domain\ScrapedEvent;
+use App\EventScraping\Infrastructure\WebPage;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -37,6 +38,9 @@ final class ScrapeEventsCommand extends Command
         private readonly EventImporter $importer,
         #[AutowireIterator('goveo.event_source')]
         private readonly iterable $sources,
+        // La misma instancia que usan las fuentes (servicio compartido): de
+        // ella sale el motivo de la última descarga fallida.
+        private readonly WebPage $web,
     ) {
         parent::__construct();
     }
@@ -93,9 +97,13 @@ final class ScrapeEventsCommand extends Command
                 });
             } catch (\Throwable $e) {
                 // Una web caída no tumba las demás: se cuenta y se sigue.
-                $io->error(sprintf('%s: %s', $source->name(), $e->getMessage()));
+                // Con el motivo de la descarga, si lo hay: «no se pudo leer» no
+                // dice si la web nos bloquea o si fue un corte.
+                $reason = $this->web->lastError();
+                $message = $e->getMessage() . ($reason !== null ? " — {$reason}" : '');
+                $io->error(sprintf('%s: %s', $source->name(), $message));
                 $failed                  = true;
-                $errors[$source->name()] = $e->getMessage();
+                $errors[$source->name()] = $message;
                 continue;
             }
 

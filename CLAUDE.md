@@ -1584,7 +1584,10 @@ Excel; el criterio es el suyo: **de jueves a sábado y en los próximos 60 días
 el 04-10-2026, se amplió a dos meses). Hasta 300 eventos nuevos por fuente (`--limit`). Las fuentes
 que miran día a día o pasan páginas tienen su propio tope (`HORIZON`, `LOOKAHEAD_DAYS`, `DAYS`…), ya
 subido por encima de 60: si se amplía `--days`, hay que subirlo también. Al final la pasada lista las
-**fuentes con error**: «Command failed» sólo dice que alguna falló, no que se parara.
+**fuentes con error**: «Command failed» sólo dice que alguna falló, no que se parara. Cada error lleva el
+motivo de la descarga (`WebPage::lastError`): un `HTTP 403` es que la web nos bloquea; un corte de
+red o un 502/503/504 se reintenta una vez a los 5 s antes de darlo por perdido (04-10-2026: esMadrid y
+la Red de Teatros fallaron en producción y desde local respondían bien).
 
 | Fuente (`--source`) | Qué lee | Trampa |
 |---|---|---|

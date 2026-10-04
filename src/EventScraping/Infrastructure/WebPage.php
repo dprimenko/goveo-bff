@@ -24,8 +24,17 @@ final class WebPage
     /** Pausa entre peticiones al mismo dominio, en microsegundos. */
     private const POLITE_DELAY = 400_000;
 
+    /** Un segundo intento tras un corte de red o un 502/503/504, con esta pausa. */
+    private const RETRY_DELAY = 5_000_000;
+
     /** @var array<string, float> */
     private array $lastHit = [];
+
+    /** Por qué falló la última descarga (`HTTP 403`, el tiempo agotado…), o `null`. */
+    private ?string $lastError = null;
+
+    /** Si ese fallo puede ser pasajero (corte de red, 502/503/504) y merece otro intento. */
+    private bool $transient = false;
 
     public function __construct(
         private readonly HttpClientInterface $httpClient,
@@ -34,7 +43,34 @@ final class WebPage
 
     public function get(string $url, int $maxBytes = 5 * 1024 * 1024): ?string
     {
+        $body = $this->fetch($url, $maxBytes);
+
+        // Un fallo pasajero —la agenda de esMadrid o de la Red de Teatros
+        // tirando de vez en cuando desde el servidor— no puede dejar fuera
+        // una fuente entera hasta la pasada siguiente: se prueba otra vez.
+        if ($body === null && $this->transient) {
+            usleep(self::RETRY_DELAY);
+            $body = $this->fetch($url, $maxBytes);
+        }
+
+        return $body;
+    }
+
+    /**
+     * Por qué falló la última descarga. Las fuentes sólo dicen «no se pudo
+     * leer»; con esto el comando dice también si fue un 403 —la web nos
+     * bloquea— o un corte —volverá sola—.
+     */
+    public function lastError(): ?string
+    {
+        return $this->lastError;
+    }
+
+    private function fetch(string $url, int $maxBytes): ?string
+    {
         $this->waitTurn($url);
+        $this->lastError = null;
+        $this->transient = false;
 
         try {
             $response = $this->httpClient->request('GET', $url, [
@@ -43,17 +79,27 @@ final class WebPage
                 'max_redirects' => 5,
             ]);
 
-            if ($response->getStatusCode() !== 200) {
-                $this->logger->info('event-scraping: {status} en {url}', ['status' => $response->getStatusCode(), 'url' => $url]);
+            $status = $response->getStatusCode();
+            if ($status !== 200) {
+                $this->logger->info('event-scraping: {status} en {url}', ['status' => $status, 'url' => $url]);
+                $this->lastError = sprintf('HTTP %d en %s', $status, $url);
+                $this->transient = in_array($status, [502, 503, 504], true);
 
                 return null;
             }
 
             $body = $response->getContent();
+            if (strlen($body) > $maxBytes) {
+                $this->lastError = sprintf('%s pesa %d MB, más del máximo', $url, intdiv(strlen($body), 1048576));
 
-            return strlen($body) > $maxBytes ? null : $body;
+                return null;
+            }
+
+            return $body;
         } catch (\Throwable $e) {
             $this->logger->info('event-scraping: no se pudo descargar {url}: {error}', ['url' => $url, 'error' => $e->getMessage()]);
+            $this->lastError = sprintf('%s (%s)', $e->getMessage(), $url);
+            $this->transient = true;
 
             return null;
         }
