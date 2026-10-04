@@ -52,7 +52,8 @@ final class MadridOpenDataSource implements EventSource
         'Flamenco'                               => ['events-flamenco', 'events-flamenco-show'],
         'TeatroPerformance'                      => ['events-stage', 'events-stage-theater'],
         'DanzaBaile'                             => ['events-stage', 'events-stage-dance'],
-        'CircoMagia'                             => ['events-stage', 'events-stage-magic'],
+        // Circo y magia vienen juntos: lo de magia se separa por el título.
+        'CircoMagia'                             => ['events-circus', null],
         'ComediaMonologo'                        => ['events-stage', 'events-stage-comedy'],
         'CuentacuentosTiteresMarionetas'         => ['events-stage', 'events-stage-theater'],
         'Exposiciones'                           => ['events-art', 'events-art-temporary'],
@@ -129,9 +130,11 @@ final class MadridOpenDataSource implements EventSource
             if ((in_array($type, self::EXCLUDED_TYPES, true) || $isWorkshop) && !($kids && $isWorkshop)) {
                 continue;
             }
-            [$subcategory, $subtype] = $kids
-                ? ['events-kids', $this->kidsSubtype($type, $title)]
-                : [self::TYPES[$type][0] ?? null, self::TYPES[$type][1] ?? null];
+            [$subcategory, $subtype] = match (true) {
+                $kids => ['events-kids', $this->kidsSubtype($type, $title)],
+                $type === 'CircoMagia' && preg_match('/\b(magia|m[aá]gic[oa]|mago|maga|ilusion)/iu', $title) === 1 => ['events-stage', 'events-stage-magic'],
+                default => [self::TYPES[$type][0] ?? null, self::TYPES[$type][1] ?? null],
+            };
 
             $end  = $this->date($e['dtend'] ?? null, $tz);
             $time = trim((string) ($e['time'] ?? ''));

@@ -99,7 +99,7 @@ final class EsMadridSource implements EventSource
             'Comedia'       => 'events-stage-comedy',
             'Danza moderna' => 'events-stage-dance',
             'Ballet'        => 'events-stage-dance',
-            'Circo'         => 'events-stage-magic',
+            'Circo'         => 'events-circus',
             'Magia'         => 'events-stage-magic',
             '*'             => 'events-stage-theater',
         ]],
@@ -365,7 +365,13 @@ final class EsMadridSource implements EventSource
                 $slug = $subtypes[$sub];
                 // «Eventos de ciudad» no tiene tipo propio: lo decide la subcategoría,
                 // que a veces es ya un tipo y a veces un subnivel.
-                return $type === '' ? [$this->parentOf($slug), $slug === $this->parentOf($slug) ? null : $slug] : [$type, $slug];
+                // Y un tipo propio dentro de otro (Circo, que esMadrid pone en
+                // «Teatro y danza») va como tipo, sin subnivel.
+                if ($type === '' || ($slug === $this->parentOf($slug) && $slug !== $type)) {
+                    return [$this->parentOf($slug), $slug === $this->parentOf($slug) ? null : $slug];
+                }
+
+                return [$type, $slug];
             }
         }
 
@@ -375,7 +381,7 @@ final class EsMadridSource implements EventSource
     /** `events-art-immersive` → `events-art`; un tipo se devuelve tal cual. */
     private function parentOf(string $slug): string
     {
-        foreach (['events-small-concerts', 'events-nightlife', 'events-stage', 'events-flamenco', 'events-art', 'events-markets', 'events-festivities', 'events-experiences', 'events-kids', 'events-cinema'] as $parent) {
+        foreach (['events-small-concerts', 'events-nightlife', 'events-stage', 'events-flamenco', 'events-art', 'events-markets', 'events-festivities', 'events-experiences', 'events-kids', 'events-cinema', 'events-circus'] as $parent) {
             if ($slug === $parent || str_starts_with($slug, $parent . '-')) {
                 return $parent;
             }

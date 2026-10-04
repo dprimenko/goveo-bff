@@ -391,7 +391,8 @@ final class RedTeatrosMunicipiosSource implements EventSource
         return match (true) {
             str_contains($title, 'flamenc')                                  => ['events-flamenco', 'events-flamenco-show'],
             str_contains($genre, 'danza')                                    => ['events-stage', 'events-stage-dance'],
-            (bool) preg_match('/circo|magia/u', $genre)                      => ['events-stage', 'events-stage-magic'],
+            str_contains($genre, 'circo')                                    => ['events-circus', null],
+            str_contains($genre, 'magia')                                    => ['events-stage', 'events-stage-magic'],
             str_contains($genre, 'música')                                   => ['events-small-concerts', null],
             (bool) preg_match('/\bmusical\b/u', $title)                      => ['events-stage', 'events-stage-musicals'],
             (bool) preg_match('/\b(mon[oó]logo|humor|comedia|c[oó]mic)/u', $title) => ['events-stage', 'events-stage-comedy'],

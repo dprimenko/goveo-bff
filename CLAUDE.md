@@ -1424,7 +1424,9 @@ talleres, cuentacuentos y planes en familia. El Ayuntamiento manda ahí lo que s
 resto de cursos siguen fuera); esMadrid, su categoría «Niños».
 **Cine** (`events-cinema`, `Version20261004120000`) también es tipo propio desde el 04-10-2026, con el
 nombre en español como Niños: antes era el subnivel `events-experiences-cinema`, que se retiró y cuyo
-contenido pasó a Cine. Las fuentes mandan ahí lo que antes iba a ese subnivel.
+contenido pasó a Cine. Las fuentes mandan ahí lo que antes iba a ese subnivel. Igual **Circo**
+(`events-circus`, `Version20261004130000`): antes iba con la magia en Escena › Magia; la magia se
+queda ahí y el circo infantil sigue en Niños.
 «Conciertos grandes» no entra por ahora.
 
 - **`geostories.subcategory_id`, aparte de `category_id`**: la vigencia, el feed de Eventos y el

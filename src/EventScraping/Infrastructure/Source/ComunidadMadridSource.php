@@ -242,7 +242,8 @@ final class ComunidadMadridSource implements EventSource
         return match (true) {
             str_contains($title, 'flamenco')                          => ['events-flamenco', 'events-flamenco-show'],
             (bool) preg_match('/\bvisitas? (guiada|teatralizada)/u', $title) => ['events-experiences', 'events-experiences-guided-tours'],
-            (bool) preg_match('/\b(circo|magia|mago)\b/u', $title)    => ['events-stage', 'events-stage-magic'],
+            (bool) preg_match('/\bcirco\b/u', $title)                => ['events-circus', null],
+            (bool) preg_match('/\b(magia|mago)\b/u', $title)         => ['events-stage', 'events-stage-magic'],
             default                                                   => self::TYPES[$type] ?? [null, null],
         };
     }
