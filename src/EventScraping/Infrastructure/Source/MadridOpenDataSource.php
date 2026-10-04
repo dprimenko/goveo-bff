@@ -122,9 +122,16 @@ final class MadridOpenDataSource implements EventSource
             }
 
             $type = substr(strrchr('/' . (string) ($e['@type'] ?? ''), '/'), 1);
-            if (in_array($type, self::EXCLUDED_TYPES, true) || preg_match('/^(curso|taller)\b/iu', $title)) {
+            $kids = $this->forKids($type, (string) ($e['audience'] ?? ''));
+            // Los talleres sí, si son para niños: es de lo que más piden las
+            // familias, y el resto de cursos sigue fuera.
+            $isWorkshop = $type === 'CursosTalleres' || preg_match('/^(curso|taller)\b/iu', $title);
+            if ((in_array($type, self::EXCLUDED_TYPES, true) || $isWorkshop) && !($kids && $isWorkshop)) {
                 continue;
             }
+            [$subcategory, $subtype] = $kids
+                ? ['events-kids', $this->kidsSubtype($type, $title)]
+                : [self::TYPES[$type][0] ?? null, self::TYPES[$type][1] ?? null];
 
             $end  = $this->date($e['dtend'] ?? null, $tz);
             $time = trim((string) ($e['time'] ?? ''));
@@ -163,10 +170,34 @@ final class MadridOpenDataSource implements EventSource
                 detailUrl: $this->https($e['link'] ?? null),
                 weekdays: $weekdays ?: null,
                 venueAddress: $this->address($e['address']['area'] ?? null),
-                subcategory: self::TYPES[$type][0] ?? null,
-                subtype: self::TYPES[$type][1] ?? null,
+                subcategory: $subcategory,
+                subtype: $subtype,
             );
         }
+    }
+
+    /**
+     * Es para niños si su público dice «Niños», sólo «Familias», o es de
+     * cuentacuentos y títeres. Con «Jóvenes» o «Mayores» al lado de «Familias»
+     * es un plan para todos y se queda en su tipo.
+     */
+    private function forKids(string $type, string $audience): bool
+    {
+        $audience = array_map('trim', explode(',', $audience));
+
+        return $type === 'CuentacuentosTiteresMarionetas'
+            || in_array('Niños', $audience, true)
+            || $audience === ['Familias'];
+    }
+
+    private function kidsSubtype(string $type, string $title): string
+    {
+        return match (true) {
+            (bool) preg_match('/cuentacuento|cuento|narraci[oó]n oral|bebeteca|bebécuentos/iu', $title) => 'events-kids-storytelling',
+            $type === 'CursosTalleres' || (bool) preg_match('/^(curso|taller)\b|taller/iu', $title)       => 'events-kids-workshops',
+            in_array($type, ['TeatroPerformance', 'CuentacuentosTiteresMarionetas', 'CircoMagia', 'DanzaBaile'], true) => 'events-kids-theater',
+            default => 'events-kids-family-plans',
+        };
     }
 
     public function enrich(ScrapedEvent $event): ScrapedEvent

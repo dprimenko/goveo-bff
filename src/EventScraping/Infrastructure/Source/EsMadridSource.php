@@ -100,9 +100,11 @@ final class EsMadridSource implements EventSource
             'Arte, antigüedades y artesanía' => 'events-markets-vintage-crafts',
             '*'                              => 'events-markets-fairs',
         ]],
-        'Niños'             => ['events-stage', [
-            'Circo' => 'events-stage-magic',
-            '*'     => 'events-stage-theater',
+        'Niños'             => ['events-kids', [
+            'Talleres' => 'events-kids-workshops',
+            'Teatro'   => 'events-kids-theater',
+            'Circo'    => 'events-kids-theater',
+            '*'        => 'events-kids-family-plans',
         ]],
         'Deporte'           => ['events-experiences', ['*' => 'events-experiences-sport']],
         'Eventos de ciudad' => ['', [

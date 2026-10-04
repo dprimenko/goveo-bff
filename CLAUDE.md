@@ -1416,7 +1416,12 @@ Hoy sólo las tiene Eventos (migración `Version20260926090000`), un nivel:
 `events-small-concerts` Conciertos pequeños · `events-nightlife` Noche y fiesta · `events-stage`
 Escena · `events-flamenco` Flamenco · `events-art` Arte y exposiciones · `events-markets` Mercados
 y ferias · `events-festivities` Fiestas de Madrid · `events-experiences` Planes y experiencias ·
-`events-other` Otros. El `name` es la clave de traducción `category.<slug>`, como el resto.
+`events-kids` Niños · `events-other` Otros. El `name` es la clave de traducción `category.<slug>`,
+como el resto, **salvo Niños** (04-10-2026, `Version20261004100000`), que va con el nombre en español:
+la app publicada no tiene esa traducción y pintaría el slug. Sus subniveles: teatro y títeres,
+talleres, cuentacuentos y planes en familia. El Ayuntamiento manda ahí lo que su `audience` dice
+«Niños» o sólo «Familias» y los cuentacuentos y títeres (también los talleres infantiles, que del
+resto de cursos siguen fuera); esMadrid, su categoría «Niños».
 «Conciertos grandes» no entra por ahora.
 
 - **`geostories.subcategory_id`, aparte de `category_id`**: la vigencia, el feed de Eventos y el
