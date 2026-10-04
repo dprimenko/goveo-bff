@@ -23,8 +23,14 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  *     php bin/console goveo:geostories:frame https://links.goveo.app/D6oMkWcNX6b          # dice qué haría
  *     php bin/console goveo:geostories:frame https://links.goveo.app/D6oMkWcNX6b --apply  # lo hace
  *     php bin/console goveo:geostories:frame <id> <otro enlace> … --apply
+ *     php bin/console goveo:geostories:frame --all --apply   # todas las subidas desde la app
  *
  * Acepta el enlace de compartir de la app (Branch), uno de goveo.app o el id.
+ *
+ * `--all` es para la tarea de Dokploy, que no admite argumentos: repasa las
+ * fotos subidas desde la app (las del scraping ya nacen enmarcadas) y anota en
+ * cada una `meta.frame_checked_at`, para no volver a descargarla en la pasada
+ * siguiente. En seco no anota nada.
  *
  * Desde el 04-10-2026 el BFF enmarca solo las fotos anchas al publicarlas; esto
  * es para las de antes. La app las pinta para llenar la pantalla y un cartel
@@ -52,7 +58,8 @@ final class FramePhotoCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('refs', InputArgument::IS_ARRAY | InputArgument::REQUIRED, 'Enlaces de compartir o ids de las publicaciones.')
+            ->addArgument('refs', InputArgument::IS_ARRAY, 'Enlaces de compartir o ids de las publicaciones.')
+            ->addOption('all', null, InputOption::VALUE_NONE, 'Todas las fotos subidas desde la app que no se hayan revisado ya.')
             ->addOption('apply', null, InputOption::VALUE_NONE, 'Sube la foto enmarcada; sin esto sólo dice qué haría.');
     }
 
@@ -61,8 +68,16 @@ final class FramePhotoCommand extends Command
         $io    = new SymfonyStyle($input, $output);
         $apply = (bool) $input->getOption('apply');
         $fails = 0;
+        $all   = (bool) $input->getOption('all');
 
-        foreach ((array) $input->getArgument('refs') as $ref) {
+        $refs = $all ? $this->pending() : (array) $input->getArgument('refs');
+        if ($refs === []) {
+            $io->text($all ? 'No hay fotos sin revisar.' : 'Pásale un enlace de compartir o un id, o --all.');
+
+            return $all ? Command::SUCCESS : Command::INVALID;
+        }
+
+        foreach ($refs as $ref) {
             $id = $this->resolve((string) $ref);
             if ($id === null) {
                 $io->text(sprintf('  ✗ %s — no encuentro ninguna publicación ahí', $ref));
@@ -93,6 +108,9 @@ final class FramePhotoCommand extends Command
 
             if ($framed === null) {
                 $io->text(sprintf('  · «%s» — ya es vertical: se queda como está', $story->getTitle()));
+                if ($apply) {
+                    $this->markChecked($story->getId());
+                }
                 continue;
             }
 
@@ -112,6 +130,7 @@ final class FramePhotoCommand extends Command
             if ($old !== $url) {
                 $this->storage->deleteByUrl($old);
             }
+            $this->markChecked($story->getId());
 
             $io->text(sprintf('  ✓ «%s» — enmarcada: %s', $story->getTitle(), $url));
         }
@@ -121,6 +140,34 @@ final class FramePhotoCommand extends Command
         }
 
         return $fails > 0 ? Command::FAILURE : Command::SUCCESS;
+    }
+
+    /**
+     * Las fotos subidas desde la app (sin `external_ref`, que es lo del
+     * scraping) que nadie ha revisado aún.
+     *
+     * @return list<string>
+     */
+    private function pending(): array
+    {
+        return $this->db->fetchFirstColumn(
+            "SELECT id FROM geostories
+              WHERE media_type = 'image'
+                AND external_ref IS NULL
+                AND deleted_at IS NULL
+                AND COALESCE(meta->>'frame_checked_at', '') = ''
+              ORDER BY created_at DESC",
+        );
+    }
+
+    private function markChecked(string $id): void
+    {
+        $this->db->executeStatement(
+            "UPDATE geostories
+                SET meta = jsonb_set(COALESCE(meta::jsonb, '{}'::jsonb), '{frame_checked_at}', to_jsonb(NOW()))::json
+              WHERE id = ?",
+            [$id],
+        );
     }
 
     /**
