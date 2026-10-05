@@ -1464,6 +1464,9 @@ apuntarlo ahí** (`BIG_SOURCES` / `HALL_SOURCES`), o caerá en centros culturale
   defecto** (`Subcategories::resolveSubtype`): uno que no sea del tipo se queda en nada, y cambiar
   de tipo lo quita. Va en columna aparte para no tocar el filtro ni las apps publicadas.
   `?parent=events&tree=1` devuelve los tipos con sus subniveles (`children`) de una vez.
+- **Orden** (05-10-2026): lo decide el panel, en Categorías → «Eventos» (`GET /api/admin/categories/events`
+  y `PUT /api/admin/categories/order` `{ids}`, de una vez y en una transacción). La web y la app ya
+  ordenan por `order`, así que lo aplican solas. «Otros» va siempre el último (99) y no se mueve.
   `subtypeId` al subir y editar; `subtype {id, slug, name}` en la lista del panel.
 - **Subida y edición**: `subcategoryId` (id o slug) en `POST /api/geostories` y en
   `POST /api/geostories/{id}`.
