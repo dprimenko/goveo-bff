@@ -6,10 +6,10 @@ namespace App\GeoStories\Infrastructure\Controller;
 
 use App\Backoffice\Application\ReviewQueueNotifier;
 use App\GeoStories\Domain\EventDay;
-use App\GeoStories\Domain\GeoStory;
 use App\GeoStories\Domain\GeoStoryRepository;
 use App\GeoStories\Domain\GeoStoryWithDistance;
 use App\GeoStories\Infrastructure\Service\BunnyVideoService;
+use App\GeoStories\Infrastructure\Service\GeoStoryFeedSerializer;
 use App\Shared\Application\ProfileOwnership;
 use App\Users\Infrastructure\Service\LocalUserResolver;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -58,6 +58,9 @@ class ListGeoStoriesController
         $exclude      = $request->query->get('exclude');
         // Pestaña de Eventos: otro día que hoy, y la hora si se quiere.
         $eventDay     = EventDay::fromQuery($request->query->get('date'), $request->query->get('time'));
+        // «Siguiendo»: sólo lo de las cuentas que sigue quien mira. Sin sesión
+        // sale vacío, no un 401: la app pinta su propio mensaje.
+        $following    = $request->query->getBoolean('following');
 
         // Los vídeos pendientes de validar sólo los ve su dueño, y para eso hay
         // que identificarse: la ruta es pública, pero si llega un token se lee.
@@ -71,7 +74,8 @@ class ListGeoStoriesController
         // rectángulo negro; ya están todas actualizadas, así que la cabecera
         // sobra (los clientes la siguen mandando y no pasa nada).
 
-        // Con sesión, fuera lo de las cuentas que ha bloqueado.
+        // Con sesión, fuera lo de las cuentas que ha bloqueado (y, con
+        // `following`, sólo lo de las que sigue).
         $viewerId = $this->currentUser->currentId();
 
         $findFeed = fn () => $this->repository->findFeed(
@@ -92,6 +96,7 @@ class ListGeoStoriesController
             exclude:       $exclude,
             eventDay:      $eventDay,
             subtype:       $subtype,
+            following:     $following,
         );
 
         $result = $findFeed();
@@ -106,7 +111,13 @@ class ListGeoStoriesController
         }
 
         return new JsonResponse([
-            'items' => array_map(fn (GeoStoryWithDistance $s) => $this->serialize($s), $result['items']),
+            'items' => array_map(
+                fn (GeoStoryWithDistance $s) => GeoStoryFeedSerializer::serialize(
+                    $s,
+                    $s->providerVideoId !== null ? ($this->progress[$s->providerVideoId] ?? null) : null,
+                ),
+                $result['items'],
+            ),
             'total' => $result['total'],
         ]);
     }
@@ -159,73 +170,5 @@ class ListGeoStoriesController
         }
 
         return $changed;
-    }
-
-    /** @param mixed $meta */
-    private static function linkUrl($meta): ?string
-    {
-        $url = is_array($meta) ? ($meta['link_url'] ?? null) : null;
-
-        return is_string($url) && $url !== '' ? $url : null;
-    }
-
-    /** @param mixed $meta */
-    private static function linkAction($meta): ?string
-    {
-        if (self::linkUrl($meta) === null) {
-            return null;
-        }
-
-        $action = is_array($meta) ? ($meta['link_action'] ?? null) : null;
-
-        // Sin acción guardada el botón sigue teniendo que decir algo, y de un
-        // vídeo lo que casi siempre se quiere es ampliar información.
-        return in_array($action, GeoStory::LINK_ACTIONS, true) ? $action : 'info';
-    }
-
-    private function serialize(GeoStoryWithDistance $s): array
-    {
-        return [
-            'id'               => $s->id,
-            'title'            => $s->title,
-            'description'      => $s->description,
-            'thumbnail'        => $s->thumbnail,
-            'url'              => $s->url,
-            'status'           => $s->status,
-            // Cuánto lleva Bunny codificándolo (0-100), sólo mientras se procesa
-            // y en la vista de su dueño, que es quien lo ve en «Procesando».
-            'processing_progress' => $s->status === 'processing' && $s->providerVideoId !== null
-                ? ($this->progress[$s->providerVideoId] ?? null)
-                : null,
-            // Qué es esto: un vídeo con reproductor o una foto. La tarjeta lo
-            // necesita antes de montar nada.
-            'media_type'       => $s->mediaType,
-            // Enlace externo, plano como en el producto: vive en `meta` porque
-            // no es de nuestro dominio, pero el cliente no tiene que bucear.
-            'link_url'         => self::linkUrl($s->meta),
-            'link_action'      => self::linkAction($s->meta),
-            'meta'             => $s->meta,
-            'likes'            => $s->likes,
-            'lat'              => $s->lat,
-            'long'             => $s->long,
-            'dist_meters'      => $s->distMeters,
-            'started_at'       => $s->startedAt?->format(\DateTimeInterface::ATOM),
-            'ended_at'         => $s->endedAt?->format(\DateTimeInterface::ATOM),
-            'created_at'       => $s->createdAt?->format(\DateTimeInterface::ATOM),
-            'verified_at'      => $s->verifiedAt?->format(\DateTimeInterface::ATOM),
-            'influencer_id'    => $s->influencerId,
-            'influencer_name'  => $s->influencerName,
-            'influencer_avatar' => $s->influencerAvatar,
-            'business_id'      => $s->businessId,
-            'business_name'    => $s->businessName,
-            'business_avatar'  => $s->businessAvatar,
-            'business_meta'    => $s->businessMeta,
-            'category_id'      => $s->categoryId,
-            'category_name'    => $s->categoryName,
-            'category_slug'    => $s->categorySlug,
-            'subcategory_id'   => $s->subcategoryId,
-            'subcategory_slug' => $s->subcategorySlug,
-            'subcategory_name' => $s->subcategoryName,
-        ];
     }
 }

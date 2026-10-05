@@ -29,7 +29,8 @@ nginx en `:8080`, Postgres/PostGIS en `goveo-db`, DB `goveo`/`goveo`).
   `publishedOnly=true` fijo (no expone borradores).
 - `GET /public/influencers?q=&page=&size=` — listado/búsqueda de creadores por nombre **o**
   username: `{items:[{id,name,username,avatar}], total, page, size}`.
-- `GET /public/geostories?...`, `/public/categories?...`, `/public/influencers/{id}`.
+- `GET /public/geostories?...`, `/public/categories?...`, `/public/influencers/{id}`. En el feed,
+  `following=1` deja sólo lo de quien sigue el usuario (ver «Siguiendo» en [Follows y likes](#follows-y-likes)).
 
 **Búsqueda por texto** (`q` en negocios e influencers): `unaccent(lower(...)) LIKE` para que
 "jamoneria" encuentre "Jamonería" — imprescindible en español. La extensión `unaccent` se activa en
@@ -196,6 +197,33 @@ MeController, CreateGeoStoryController y GeoStoryOwnership — no se tocaron).
 
 `GET /public/businesses/{id}` ahora incluye `followers` de primer nivel (además de `meta`), y
 `GET /public/influencers/{id}` lo calcula con la misma regla.
+
+### «Siguiendo», lista de seguidos y «Guardados» (05-10-2026)
+
+- **Feed «Siguiendo»** — `GET /public/geostories?following=1`: sólo los vídeos de negocios e
+  influencers que sigue quien mira (un `EXISTS` sobre `user_follows`, simétrico al `NOT EXISTS` de
+  los bloqueos). Se suma a todo lo demás (`feedType`, `subcategory`, `subtype`, `date`, distancia…).
+  **Sin sesión devuelve `{items: [], total: 0}`**, no un 401: la ruta es pública y la app pinta su
+  propio mensaje.
+- **A quién sigo** — `GET /api/follows/list` → `{business: [{id, name, avatar, slug, city}],
+  influencer: [{id, name, username, avatar}]}`, el último seguido primero y **sin lo borrado** (no
+  hay perfil al que llevar). `GET /api/follows` se queda con los ids: es lo que la app carga al
+  arrancar.
+- **Guardados** (como en Instagram), tabla `saved_geostories` (`Version20261005150000`), clave
+  `(user_id, geostory_id)`, `user_id` local:
+  - `PUT /api/geostories/{id}/save` → `{saved: true}` (idempotente; 404 si el vídeo no existe o está
+    borrado) · `DELETE /api/geostories/{id}/save` → `{saved: false}` (idempotente, **sin 404**: así se
+    limpia un guardado que apunta a algo ya borrado). Un id que no es UUID da 404 de rutas.
+  - `GET /api/geostories/saved/ids` → `{ids: [...]}`, todos, el último primero: la app lo carga una vez
+    y pinta el marcador sin pedir nada por vídeo, como los likes.
+  - `GET /api/geostories/saved?page=&size=&lat=&lng=` → `{items, total}` con **la misma forma que
+    `/public/geostories`** (`GeoStoryFeedSerializer` y el mismo `SELECT` del feed), page **base 0**,
+    el último guardado primero. Lo que el feed enseñaría —listo, validado, sin bloquear, sin borrar—
+    pero **sin caducidad**: un evento guardado que ya terminó sigue en Guardados. Si se retira o se
+    borra en blando, desaparece de la lista y vuelve si se restaura (la fila no se toca).
+  - Sin clave ajena, como `geostory_likes`: los borrados definitivos (`PurgeGeoStoryController`,
+    `BusinessPurger`, `InfluencerPurger`, `goveo:events:purge`) borran también sus guardados. Borrar la
+    cuenta no los toca, igual que los likes: eso es del purgado posterior.
 
 ## Tarjeta de fidelización (`App\Loyalty`)
 

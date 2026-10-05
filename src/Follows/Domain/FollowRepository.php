@@ -15,6 +15,17 @@ interface FollowRepository
      */
     public function findIdsByUser(string $userId): array;
 
+    /**
+     * A quién sigue el usuario, con lo que hace falta para pintar la lista
+     * («Siguiendo» en Mi cuenta): el último seguido primero, sin lo borrado.
+     *
+     * @return array{
+     *     business: array<array{id: string, name: ?string, avatar: ?string, slug: string, city: ?string}>,
+     *     influencer: array<array{id: string, name: string, username: string, avatar: ?string}>,
+     * }
+     */
+    public function findByUserWithDetails(string $userId): array;
+
     /** Nº de seguidores reales de un destino. */
     public function countFollowers(FollowTarget $type, string $targetId): int;
 

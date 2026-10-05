@@ -46,6 +46,37 @@ final class DoctrineFollowRepository implements FollowRepository
         return $grouped;
     }
 
+    public function findByUserWithDetails(string $userId): array
+    {
+        $db = $this->em->getConnection();
+
+        // Dos consultas y no un LEFT JOIN doble como en los bloqueos: aquí lo
+        // borrado no sale (no hay perfil al que llevar), y cada tipo trae sus
+        // propias columnas.
+        $business = $db->fetchAllAssociative(
+            "SELECT b.id::text AS id, b.name, b.avatar, b.slug, b.city
+               FROM user_follows uf
+               JOIN business b ON b.id = uf.target_id
+              WHERE uf.user_id = ? AND uf.target_type = 'business' AND b.deleted_at IS NULL
+              ORDER BY uf.created_at DESC",
+            [$userId],
+        );
+
+        $influencer = $db->fetchAllAssociative(
+            "SELECT i.id::text AS id, i.name, i.username, i.avatar
+               FROM user_follows uf
+               JOIN influencers i ON i.id = uf.target_id
+              WHERE uf.user_id = ? AND uf.target_type = 'influencer' AND i.deleted_at IS NULL
+              ORDER BY uf.created_at DESC",
+            [$userId],
+        );
+
+        return [
+            FollowTarget::Business->value   => $business,
+            FollowTarget::Influencer->value => $influencer,
+        ];
+    }
+
     public function countFollowers(FollowTarget $type, string $targetId): int
     {
         return (int) $this->em->createQueryBuilder()

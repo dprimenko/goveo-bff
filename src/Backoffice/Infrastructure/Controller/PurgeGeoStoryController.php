@@ -80,8 +80,10 @@ class PurgeGeoStoryController
             }
         }
 
-        // Los likes no tienen clave ajena declarada, así que no se van solos.
+        // Los likes y los guardados no tienen clave ajena declarada, así que
+        // no se van solos.
         $this->db->executeStatement('DELETE FROM geostory_likes WHERE geostory_id = ?', [$id]);
+        $this->db->executeStatement('DELETE FROM saved_geostories WHERE geostory_id = ?', [$id]);
 
         $this->geoStories->delete($story);
 

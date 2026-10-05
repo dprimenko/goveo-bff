@@ -12,6 +12,57 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class DoctrineGeoStoryRepository implements GeoStoryRepository
 {
+    /**
+     * Columnas y joins del feed, compartidos con Guardados: los dos devuelven
+     * `GeoStoryWithDistance` y la app los pasa por el mismo mapper.
+     * `:lat`/`:lng` son siempre parámetros de la consulta.
+     */
+    private const FEED_SELECT = <<<'SQL'
+            SELECT
+                geo.id,
+                geo.title,
+                geo.description,
+                geo.thumbnail,
+                geo.url,
+                geo.status,
+                geo.media_type,
+                geo.provider_video_id,
+                geo.meta,
+                (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
+                geo.started_at,
+                geo.ended_at,
+                geo.created_at,
+                geo.verified_at,
+                geo.deleted_at,
+                ST_Y(geo.location::geometry)                                                        AS lat,
+                ST_X(geo.location::geometry)                                                        AS long,
+                ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography)   AS dist_meters,
+                influ.id     AS influencer_id,
+                influ.name   AS influencer_name,
+                influ.avatar AS influencer_avatar,
+                buss.id      AS business_id,
+                buss.name    AS business_name,
+                buss.avatar  AS business_avatar,
+                buss.meta    AS business_meta,
+                cat.id       AS category_id,
+                cat.name     AS category_name,
+                cat.slug     AS category_slug,
+                sub.id       AS subcategory_id,
+                sub.slug     AS subcategory_slug,
+                sub.name     AS subcategory_name,
+                COUNT(*) OVER() AS total_count
+            FROM geostories geo
+            LEFT JOIN influencers influ ON geo.influencer_id = influ.id
+            LEFT JOIN business    buss  ON geo.business_id   = buss.id
+            LEFT JOIN categories  cat   ON geo.category_id   = cat.id
+            LEFT JOIN categories  sub   ON geo.subcategory_id = sub.id
+            LEFT JOIN categories  grp   ON cat.parent_id     = grp.id
+            -- likes = base heredada del import + likes nuevos con usuario
+            LEFT JOIN (
+                SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id
+            ) gl ON gl.geostory_id = geo.id
+        SQL;
+
     public function __construct(
         private readonly EntityManagerInterface $em,
         /**
@@ -263,7 +314,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?string $exclude = null,
         ?EventDay $eventDay = null,
         ?string $subtype = null,
+        bool $following = false,
     ): array {
+        // «Siguiendo» sin sesión no tiene a quién seguir: vacío, sin consultar.
+        if ($following && $viewerId === null) {
+            return ['items' => [], 'total' => 0];
+        }
+
         $conditions = [
             'geo.deleted_at IS NULL',
         ];
@@ -326,6 +383,16 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                    AND ((ub.target_type = 'business'   AND ub.target_id = geo.business_id)
                      OR (ub.target_type = 'influencer' AND ub.target_id = geo.influencer_id)))";
             $params['viewer_id'] = $viewerId;
+
+            // «Siguiendo»: el mismo cruce que el bloqueo, al revés. Se suma a
+            // todo lo demás (tipo de feed, tipo de evento, día, distancia…).
+            if ($following) {
+                $conditions[] = "EXISTS (
+                    SELECT 1 FROM user_follows uf
+                     WHERE uf.user_id::text = :viewer_id
+                       AND ((uf.target_type = 'business'   AND uf.target_id = geo.business_id)
+                         OR (uf.target_type = 'influencer' AND uf.target_id = geo.influencer_id)))";
+            }
         }
 
         // Feed-type category filters use cat.slug via the categories JOIN.
@@ -457,50 +524,10 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
 
         $where = implode(' AND ', $conditions);
 
+        $select = self::FEED_SELECT;
+
         $sql = <<<SQL
-            SELECT
-                geo.id,
-                geo.title,
-                geo.description,
-                geo.thumbnail,
-                geo.url,
-                geo.status,
-                geo.media_type,
-                geo.provider_video_id,
-                geo.meta,
-                (geo.likes + COALESCE(gl.c, 0))                                          AS likes,
-                geo.started_at,
-                geo.ended_at,
-                geo.created_at,
-                geo.verified_at,
-                geo.deleted_at,
-                ST_Y(geo.location::geometry)                                                        AS lat,
-                ST_X(geo.location::geometry)                                                        AS long,
-                ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography)   AS dist_meters,
-                influ.id     AS influencer_id,
-                influ.name   AS influencer_name,
-                influ.avatar AS influencer_avatar,
-                buss.id      AS business_id,
-                buss.name    AS business_name,
-                buss.avatar  AS business_avatar,
-                buss.meta    AS business_meta,
-                cat.id       AS category_id,
-                cat.name     AS category_name,
-                cat.slug     AS category_slug,
-                sub.id       AS subcategory_id,
-                sub.slug     AS subcategory_slug,
-                sub.name     AS subcategory_name,
-                COUNT(*) OVER() AS total_count
-            FROM geostories geo
-            LEFT JOIN influencers influ ON geo.influencer_id = influ.id
-            LEFT JOIN business    buss  ON geo.business_id   = buss.id
-            LEFT JOIN categories  cat   ON geo.category_id   = cat.id
-            LEFT JOIN categories  sub   ON geo.subcategory_id = sub.id
-            LEFT JOIN categories  grp   ON cat.parent_id     = grp.id
-            -- likes = base heredada del import + likes nuevos con usuario
-            LEFT JOIN (
-                SELECT geostory_id, COUNT(*)::int AS c FROM geostory_likes GROUP BY geostory_id
-            ) gl ON gl.geostory_id = geo.id
+            $select
             WHERE $where
             ORDER BY $orderBy
             LIMIT :limit OFFSET :offset
@@ -515,6 +542,51 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         return [
             'items' => array_map(GeoStoryWithDistance::fromRow(...), $rows),
             'total' => $total,
+        ];
+    }
+
+    public function findSavedBy(
+        string $userId,
+        float $latitude,
+        float $longitude,
+        int $page = 0,
+        int $size = 10,
+    ): array {
+        // Lo mismo que vería en el feed —listo, validado, sin las salas del
+        // scraping pendientes, sin lo bloqueado— pero sin caducidad: un evento
+        // que ya pasó y se guardó sigue siendo suyo. Si se borra o se retira,
+        // desaparece de aquí también (la fila se queda y vuelve si se restaura).
+        $select = self::FEED_SELECT;
+
+        $sql = <<<SQL
+            $select
+            JOIN saved_geostories sg ON sg.geostory_id = geo.id AND sg.user_id::text = :viewer_id
+            WHERE geo.deleted_at IS NULL
+              AND geo.status = 'ready'
+              AND geo.verified_at IS NOT NULL
+              AND NOT (buss.external_ref IS NOT NULL AND buss.verified_at IS NULL)
+              AND NOT EXISTS (
+                SELECT 1 FROM user_blocks ub
+                 WHERE ub.user_id::text = :viewer_id
+                   AND ((ub.target_type = 'business'   AND ub.target_id = geo.business_id)
+                     OR (ub.target_type = 'influencer' AND ub.target_id = geo.influencer_id)))
+            ORDER BY sg.created_at DESC, geo.id
+            LIMIT :limit OFFSET :offset
+        SQL;
+
+        $rows = $this->em->getConnection()
+            ->executeQuery($sql, [
+                'lat'       => $latitude,
+                'lng'       => $longitude,
+                'viewer_id' => $userId,
+                'limit'     => $size,
+                'offset'    => $page * $size,
+            ])
+            ->fetchAllAssociative();
+
+        return [
+            'items' => array_map(GeoStoryWithDistance::fromRow(...), $rows),
+            'total' => empty($rows) ? 0 : (int) $rows[0]['total_count'],
         ];
     }
 

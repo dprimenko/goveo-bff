@@ -30,7 +30,7 @@ final class InfluencerPurger
         private readonly LoggerInterface $logger,
     ) {}
 
-    /** @return array{videos: int, likes: int, follows: int, blocks: int, reports: int, storage_deleted: bool} */
+    /** @return array{videos: int, likes: int, saved: int, follows: int, blocks: int, reports: int, storage_deleted: bool} */
     public function purge(Influencer $influencer): array
     {
         $id = $influencer->getId();
@@ -61,6 +61,11 @@ final class InfluencerPurger
         $counts = [
             'likes' => $this->db->executeStatement(
                 'DELETE FROM geostory_likes
+                  WHERE geostory_id IN (SELECT id FROM geostories WHERE influencer_id = ?)',
+                [$id],
+            ),
+            'saved' => $this->db->executeStatement(
+                'DELETE FROM saved_geostories
                   WHERE geostory_id IN (SELECT id FROM geostories WHERE influencer_id = ?)',
                 [$id],
             ),

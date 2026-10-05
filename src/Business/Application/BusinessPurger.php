@@ -42,7 +42,7 @@ final class BusinessPurger
     /**
      * @return array{
      *     products: int, videos: int, subcategories: int, managers: int,
-     *     subscriptions: int, follows: int, likes: int, loyalty_cards: int,
+     *     subscriptions: int, follows: int, likes: int, saved: int, loyalty_cards: int,
      *     storage_deleted: bool, subscription: string
      * }
      */
@@ -89,6 +89,12 @@ final class BusinessPurger
             // apuntando a vídeos que ya no existen.
             'likes' => $this->db->executeStatement(
                 'DELETE FROM geostory_likes
+                  WHERE geostory_id IN (SELECT id FROM geostories WHERE business_id = ?)',
+                [$id],
+            ),
+            // Los guardados, igual: sin clave ajena.
+            'saved' => $this->db->executeStatement(
+                'DELETE FROM saved_geostories
                   WHERE geostory_id IN (SELECT id FROM geostories WHERE business_id = ?)',
                 [$id],
             ),

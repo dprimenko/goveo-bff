@@ -185,6 +185,7 @@ final class PurgeScrapedEventsCommand extends Command
                     // Los likes no tienen clave ajena declarada, así que no se
                     // van solos.
                     $db->executeStatement('DELETE FROM geostory_likes WHERE geostory_id = ?', [$video['id']]);
+                    $db->executeStatement('DELETE FROM saved_geostories WHERE geostory_id = ?', [$video['id']]);
                     $db->executeStatement('DELETE FROM geostories WHERE id = ?', [$video['id']]);
                 });
 

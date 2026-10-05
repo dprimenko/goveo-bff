@@ -84,6 +84,27 @@ interface GeoStoryRepository
         ?EventDay $eventDay = null,
         /** Subnivel de un evento (Musicales, Música clásica…), por slug o id. */
         ?string $subtype = null,
+        /**
+         * «Siguiendo»: sólo lo de los negocios e influencers que sigue
+         * `$viewerId`. Sin quien mira, lista vacía.
+         */
+        bool $following = false,
+    ): array;
+
+    /**
+     * Los vídeos que ha guardado el usuario, el último guardado primero, con la
+     * misma forma que el feed. Sólo lo que el feed enseñaría (listo, validado,
+     * sin bloquear), pero **sin caducidad**: un evento guardado que ya pasó se
+     * queda en Guardados.
+     *
+     * @return array{items: GeoStoryWithDistance[], total: int}
+     */
+    public function findSavedBy(
+        string $userId,
+        float $latitude,
+        float $longitude,
+        int $page = 0,
+        int $size = 10,
     ): array;
 
     /**
