@@ -1415,7 +1415,7 @@ Hoy sólo las tiene Eventos (migración `Version20260926090000`), un nivel:
 
 `events-small-concerts` Conciertos pequeños · `events-nightlife` Noche y fiesta · `events-stage`
 Escena · `events-flamenco` Flamenco · `events-art` Arte y exposiciones · `events-markets` Mercados
-y ferias · `events-festivities` Fiestas de Madrid · `events-experiences` Planes y experiencias ·
+y ferias · `events-festivities` Fiestas populares (era «Fiestas de Madrid» hasta el 05-10-2026) · `events-experiences` Planes y experiencias ·
 `events-kids` Niños · `events-other` Otros. El `name` es la clave de traducción `category.<slug>`,
 como el resto, **salvo Niños** (04-10-2026, `Version20261004100000`), que va con el nombre en español:
 la app publicada no tiene esa traducción y pintaría el slug. Sus subniveles: teatro y títeres,
