@@ -161,7 +161,13 @@ final class EventImporter
             // El tipo que diga la fuente (tablao → Flamenco…), o «Otros» si no
             // lo sabe; y su subnivel, si lo hay. Se corrige en el panel.
             $story->setSubcategoryId($this->subcategories->resolve($this->eventsCategoryId(), $event->subcategory));
-            $story->setSubtypeId($this->subcategories->resolveSubtype($story->getSubcategoryId(), $event->subtype));
+            // Un concierto sin subnivel: clásica o moderna por el texto (ver
+            // `ConcertKind`), para no repetir la regla en cada fuente.
+            $subtype = $event->subtype;
+            if ($subtype === null && $event->subcategory === 'events-small-concerts') {
+                $subtype = ConcertKind::of(implode(' ', [$event->title, $event->venueName, $event->description ?? '']));
+            }
+            $story->setSubtypeId($this->subcategories->resolveSubtype($story->getSubcategoryId(), $subtype));
             $story->scheduleEvent($event->start, $event->end);
             $story->linkTo($event->link, $event->linkAction);
             $story->importedFrom($source->name(), $event->externalId, $runAt);

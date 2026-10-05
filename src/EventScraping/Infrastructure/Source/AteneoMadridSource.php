@@ -41,7 +41,7 @@ final class AteneoMadridSource extends TribeEventsSource
         'lectura dramatizada'    => ['events-stage', 'events-stage-theater'],
         'monólogo'               => ['events-stage', 'events-stage-comedy'],
         'musical'                => ['events-stage', 'events-stage-musicals'],
-        'ópera'                  => ['events-small-concerts', null],
+        'ópera'                  => ['events-small-concerts', 'events-small-concerts-classical'],
         'concierto'              => ['events-small-concerts', null],
         'candlelight'            => ['events-small-concerts', null],
         'música'                 => ['events-small-concerts', null],

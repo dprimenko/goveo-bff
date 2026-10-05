@@ -1427,6 +1427,11 @@ nombre en español como Niños: antes era el subnivel `events-experiences-cinema
 contenido pasó a Cine. Las fuentes mandan ahí lo que antes iba a ese subnivel. Igual **Circo**
 (`events-circus`, `Version20261004130000`): antes iba con la magia en Escena › Magia; la magia se
 queda ahí y el circo infantil sigue en Niños.
+**Conciertos** (05-10-2026, `Version20261005100000`): «Conciertos pequeños» pasó a llamarse así —el
+slug no cambió—, con dos subniveles, **Música moderna** y **Música clásica**. Lo decide el importador
+cuando la fuente no lo dice ([`ConcertKind`](src/EventScraping/Application/ConcertKind.php): clásica
+si el texto habla de orquesta, cámara, coro, ópera, un compositor…; moderna lo demás). El Auditorio
+Nacional salió de Escena a Música clásica.
 «Conciertos grandes» no entra por ahora.
 
 - **`geostories.subcategory_id`, aparte de `category_id`**: la vigencia, el feed de Eventos y el
@@ -1440,11 +1445,15 @@ queda ahí y el circo infantil sigue en Niños.
   Teatro, Musicales, Humor, Danza, Magia, Microteatro; Flamenco → Tablao, Espectáculo, En sala;
   Arte → Museos, Temporales, Inmersivas, Galerías, Fotografía; Mercados → Mercadillos, Vintage y
   artesanía, Gastromercados, Ferias; Fiestas → De barrio, Navidad, San Isidro, Hispanidad,
-  Carnaval; Planes → Cine, Talleres, Visitas guiadas, Gastronomía, Deporte—. **No es un filtro**:
-  la app y la web filtran sólo por el tipo, para no abrumar; se guarda para tener los datos
-  completos cuando haga falta, y lo rellena sobre todo el scraping. Es **opcional y sin valor por
+  Carnaval; Planes → Talleres, Visitas guiadas, Gastronomía, Deporte; Conciertos → Música moderna,
+  Música clásica; Niños → Teatro y títeres, Talleres, Cuentacuentos, Planes en familia—. **Desde el
+  05-10-2026 es también filtro** (`?subtype=` en el feed, slug o id), dentro del selector de tipo de la
+  web y la app: debajo de cada tipo, sus subniveles. Lo que no tiene subnivel sólo sale en el tipo
+  entero. Los subniveles llevan el **nombre en español** (`Version20261005110000`) y no clave, para
+  que los pinte cualquier cliente. Es **opcional y sin valor por
   defecto** (`Subcategories::resolveSubtype`): uno que no sea del tipo se queda en nada, y cambiar
   de tipo lo quita. Va en columna aparte para no tocar el filtro ni las apps publicadas.
+  `?parent=events&tree=1` devuelve los tipos con sus subniveles (`children`) de una vez.
   `subtypeId` al subir y editar; `subtype {id, slug, name}` en la lista del panel.
 - **Subida y edición**: `subcategoryId` (id o slug) en `POST /api/geostories` y en
   `POST /api/geostories/{id}`.

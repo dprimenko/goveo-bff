@@ -262,6 +262,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?string $viewerId = null,
         ?string $exclude = null,
         ?EventDay $eventDay = null,
+        ?string $subtype = null,
     ): array {
         $conditions = [
             'geo.deleted_at IS NULL',
@@ -438,6 +439,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         if ($subcategory !== null && $subcategory !== '') {
             $conditions[] = '(sub.id::text = :subcategory OR sub.slug = :subcategory)';
             $params['subcategory'] = $subcategory;
+        }
+
+        // Y su subnivel, dentro de ese tipo. Lo que no tiene subnivel sólo sale
+        // en «Todos» del tipo: no se adivina a cuál pertenecería.
+        if ($subtype !== null && $subtype !== '') {
+            $conditions[] = 'geo.subtype_id IN (SELECT st.id FROM categories st WHERE st.id::text = :subtype OR st.slug = :subtype)';
+            $params['subtype'] = $subtype;
         }
 
         if ($categoryId !== null) {

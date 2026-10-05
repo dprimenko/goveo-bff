@@ -51,6 +51,7 @@ class ListGeoStoriesController
         $category    = $request->query->get('category');
         $notCategory = $request->query->get('notCategory');
         $subcategory = $request->query->get('subcategory');
+        $subtype     = $request->query->get('subtype');
         $businessId  = $request->query->get('businessId');
         $influencerId = $request->query->get('influencerId');
         // `events`: sin eventos (la fila de vídeos de un perfil).
@@ -90,6 +91,7 @@ class ListGeoStoriesController
             viewerId:      $viewerId,
             exclude:       $exclude,
             eventDay:      $eventDay,
+            subtype:       $subtype,
         );
 
         $result = $findFeed();

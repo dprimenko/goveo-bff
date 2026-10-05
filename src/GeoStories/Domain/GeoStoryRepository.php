@@ -82,6 +82,8 @@ interface GeoStoryRepository
         ?string $exclude = null,
         /** Pestaña de Eventos: el día (y hora) elegido en vez de hoy. */
         ?EventDay $eventDay = null,
+        /** Subnivel de un evento (Musicales, Música clásica…), por slug o id. */
+        ?string $subtype = null,
     ): array;
 
     /**

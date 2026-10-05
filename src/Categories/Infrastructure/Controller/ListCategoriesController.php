@@ -74,6 +74,12 @@ class ListCategoriesController
                 [$parent, $parent],
             );
 
+            // Los tipos de evento con sus subniveles, para el selector de dos
+            // niveles de la web y la app, en una sola petición.
+            if ($request->query->getBoolean('tree')) {
+                $rows = $this->withChildren($rows);
+            }
+
             return $this->respond($rows, $counts);
         }
 

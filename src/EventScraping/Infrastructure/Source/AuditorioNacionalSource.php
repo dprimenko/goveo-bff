@@ -23,8 +23,8 @@ use App\EventScraping\Infrastructure\WebPage;
  * enlazan a la misma ficha: `Shows` las junta.
  *
  * Es música clásica —orquestas, cámara, algo de ópera en concierto—, así que va
- * a Escena sin subnivel, como la ópera del Teatro Real. Lo flamenco va a
- * Flamenco/Espectáculo.
+ * a Conciertos › Música clásica (hasta el 05-10-2026 iba a Escena sin subnivel).
+ * Lo flamenco va a Flamenco/Espectáculo.
  */
 final class AuditorioNacionalSource implements EventSource
 {
@@ -175,7 +175,7 @@ final class AuditorioNacionalSource implements EventSource
     {
         return match (true) {
             str_contains($title, 'flamenc') => ['events-flamenco', 'events-flamenco-show'],
-            default                         => ['events-stage', null],
+            default                         => ['events-small-concerts', 'events-small-concerts-classical'],
         };
     }
 }
