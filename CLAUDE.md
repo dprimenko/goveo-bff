@@ -1424,24 +1424,29 @@ talleres, cuentacuentos y planes en familia. El Ayuntamiento manda ahí lo que s
 resto de cursos siguen fuera); esMadrid, su categoría «Niños».
 **Cine** (`events-cinema`, `Version20261004120000`) también es tipo propio desde el 04-10-2026, con el
 nombre en español como Niños: antes era el subnivel `events-experiences-cinema`, que se retiró y cuyo
-contenido pasó a Cine. Las fuentes mandan ahí lo que antes iba a ese subnivel. Igual **Circo**
-(`events-circus`, `Version20261004130000`): antes iba con la magia en Escena › Magia; la magia se
-queda ahí y el circo infantil sigue en Niños.
+contenido pasó a Cine. Las fuentes mandan ahí lo que antes iba a ese subnivel.
 **Conciertos** (05-10-2026, `Version20261005100000`): «Conciertos pequeños» pasó a llamarse así —el
 slug no cambió—, con dos subniveles, **Música moderna** y **Música clásica**. Lo decide el importador
 cuando la fuente no lo dice ([`ConcertKind`](src/EventScraping/Application/ConcertKind.php): clásica
 si el texto habla de orquesta, cámara, coro, ópera, un compositor…; moderna lo demás). El Auditorio
 Nacional salió de Escena a Música clásica.
-**Escena se partió en tres** (05-10-2026, `Version20261005120000`): **Grandes teatros**
-(`events-big-theaters`: Gran Vía, comerciales estables —Lara, Infanta Isabel, La Latina, Marquina,
-Pavón— y públicos importantes —Real, Zarzuela, Canal, Español, Comedia, Abadía—), **Salas de teatro**
-(`events-theater-halls`: Microteatro, Teseo, Corral de Alcalá, salas pequeñas) y **Teatros en centros
-culturales**, que es lo que quedó de Escena con el mismo slug (`events-stage`) y los subniveles
-Musicales, Humor y monólogos, Danza, Magia y Microteatro. Los dos primeros, sin subniveles. El
-subnivel «Teatro» se retiró. Las fuentes siguen diciendo `events-stage` y el importador lo recoloca
-([`TheaterKind`](src/EventScraping/Application/TheaterKind.php)): por la fuente y, en el Ayuntamiento,
-esMadrid y la Comunidad, por el nombre de la sala. **Un teatro nuevo con fuente propia hay que
-apuntarlo ahí** (`BIG_SOURCES` / `HALL_SOURCES`), o caerá en centros culturales.
+**Teatro y escena** (`events-stage`, mismo slug que Escena; 05-10-2026, `Version20261005140000`): un
+solo tipo con nueve subniveles, en este orden: **Teatro en grandes salas** (Gran Vía, comerciales
+estables —Lara, Infanta Isabel, La Latina, Marquina, Pavón— y públicos importantes —Real, Zarzuela,
+Canal, Español, Comedia, Abadía—), **Teatro en salas** (Microteatro, Teseo, Corral de Alcalá, salas
+pequeñas), **Teatro en centros culturales** (lo demás), Musicales, Humor y monólogos, Danza, Magia,
+Microteatro y **Circo**. Un evento tiene un solo subnivel y **gana el género**: un musical de la Gran
+Vía va a Musicales. Lo decide el importador ([`TheaterKind`](src/EventScraping/Application/TheaterKind.php)):
+el género que dé la fuente y, si no, la sala —por la fuente y, en el Ayuntamiento, esMadrid y la
+Comunidad, por su nombre—. **Un teatro nuevo con fuente propia hay que apuntarlo ahí**
+(`BIG_SOURCES` / `HALL_SOURCES`), o caerá en centros culturales. Las fuentes que dicen
+`events-circus` van a Teatro y escena › Circo.
+⚠️ Antes de esto hubo dos pasos que se deshicieron el mismo día: Circo como tipo propio
+(`Version20261004130000`) y Escena partida en tres tipos (`Version20261005120000`, Grandes teatros /
+Salas / centros culturales). Sus tipos están **borrados en blando**; la migración de Teatro y escena
+devolvió lo suyo con el subnivel correspondiente.
+Orden de los tipos: Conciertos, Noche y fiesta, Niños, Teatro y escena, Flamenco, Cine, Arte, Planes y
+experiencias, Mercados y ferias, Fiestas populares, Otros. Se cambia desde el panel (ver «Orden»).
 «Conciertos grandes» no entra por ahora.
 
 - **`geostories.subcategory_id`, aparte de `category_id`**: la vigencia, el feed de Eventos y el

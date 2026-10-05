@@ -167,10 +167,10 @@ final class EventImporter
             if ($subtype === null && $event->subcategory === 'events-small-concerts') {
                 $subtype = ConcertKind::of(implode(' ', [$event->title, $event->venueName, $event->description ?? '']));
             }
-            // Y el teatro, a Grandes teatros, Salas o centros culturales según
-            // dónde sea (ver `TheaterKind`).
-            if ($event->subcategory === TheaterKind::CULTURAL) {
-                [$type, $subtype] = TheaterKind::of($source->name(), $event->venueName, $subtype);
+            // Y el teatro y el circo, a Teatro y escena con su subnivel: el
+            // género o, si no, dónde es (ver `TheaterKind`).
+            if (in_array($event->subcategory, [TheaterKind::STAGE, 'events-circus'], true)) {
+                [$type, $subtype] = TheaterKind::of($source->name(), $event->venueName, $event->subcategory, $subtype);
                 $story->setSubcategoryId($this->subcategories->resolve($this->eventsCategoryId(), $type));
             }
             $story->setSubtypeId($this->subcategories->resolveSubtype($story->getSubcategoryId(), $subtype));
