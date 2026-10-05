@@ -1432,6 +1432,16 @@ slug no cambió—, con dos subniveles, **Música moderna** y **Música clásica
 cuando la fuente no lo dice ([`ConcertKind`](src/EventScraping/Application/ConcertKind.php): clásica
 si el texto habla de orquesta, cámara, coro, ópera, un compositor…; moderna lo demás). El Auditorio
 Nacional salió de Escena a Música clásica.
+**Escena se partió en tres** (05-10-2026, `Version20261005120000`): **Grandes teatros**
+(`events-big-theaters`: Gran Vía, comerciales estables —Lara, Infanta Isabel, La Latina, Marquina,
+Pavón— y públicos importantes —Real, Zarzuela, Canal, Español, Comedia, Abadía—), **Salas de teatro**
+(`events-theater-halls`: Microteatro, Teseo, Corral de Alcalá, salas pequeñas) y **Teatros en centros
+culturales**, que es lo que quedó de Escena con el mismo slug (`events-stage`) y los subniveles
+Musicales, Humor y monólogos, Danza, Magia y Microteatro. Los dos primeros, sin subniveles. El
+subnivel «Teatro» se retiró. Las fuentes siguen diciendo `events-stage` y el importador lo recoloca
+([`TheaterKind`](src/EventScraping/Application/TheaterKind.php)): por la fuente y, en el Ayuntamiento,
+esMadrid y la Comunidad, por el nombre de la sala. **Un teatro nuevo con fuente propia hay que
+apuntarlo ahí** (`BIG_SOURCES` / `HALL_SOURCES`), o caerá en centros culturales.
 «Conciertos grandes» no entra por ahora.
 
 - **`geostories.subcategory_id`, aparte de `category_id`**: la vigencia, el feed de Eventos y el
