@@ -17,6 +17,8 @@ use Symfony\Component\Routing\Attribute\Route;
  * «Guardados»: los vídeos que ha guardado el usuario, el último primero, con
  * la misma forma que `/public/geostories` para que la app use el mismo mapper.
  * `lat`/`lng` sólo sirven para la distancia de cada tarjeta.
+ * `feedType` (`events`, `local`, `tourism`, `geostories`) deja sólo los de esa
+ * pestaña, con el mismo corte que el feed: son las pestañas de Guardados.
  *
  * → {items: [...], total}
  */
@@ -46,6 +48,7 @@ class ListMySavedGeoStoriesController
             longitude: (float) $request->query->get('lng', self::DEFAULT_LONG),
             page:      max(0, (int) $request->query->get('page', 0)),
             size:      max(1, min((int) $request->query->get('size', 10), 100)),
+            feedType:  $request->query->get('feedType') ?: null,
         );
 
         return new JsonResponse([

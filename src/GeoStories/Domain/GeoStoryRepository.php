@@ -122,6 +122,8 @@ interface GeoStoryRepository
         float $longitude,
         int $page = 0,
         int $size = 10,
+        /** Una pestaña: `events`, `local`, `tourism` o `geostories`. */
+        ?string $feedType = null,
     ): array;
 
     /**

@@ -465,7 +465,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         }
 
         if ($feedType === 'events' && $categoryId === null) {
-            $conditions[] = "cat.slug = 'events'";
+            $conditions[] = self::feedTypeCondition('events');
             // Lo que antes empieza, primero: en un feed de eventos la fecha
             // manda sobre la cercanía. Los recurrentes, intercalados: ver
             // `EventFeedOrder`.
@@ -475,20 +475,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             }
             $orderBy = EventFeedOrder::orderBy($eventDay !== null ? ':ev_day_start' : null);
         } elseif ($feedType === 'geostories' && $categoryId === null) {
-            $conditions[] = "cat.slug = 'news'";
+            $conditions[] = self::feedTypeCondition('geostories');
         } elseif ($feedType === 'tourism') {
-            // Lo de influencers de siempre más lo que cuelga de un grupo de
-            // Turismo (o es uno: lo que falta por clasificar) y el partner
-            // ibiza — el mismo corte que `section` en `/public/businesses`.
             // Con una categoría encima se suman: filtrar Alojamientos dentro
             // de Turismo es filtrar Alojamientos.
-            $conditions[] = "(cat.slug IN ('place', 'nature', 'culture')
-                OR COALESCE(grp.section, cat.section) = 'tourism'
-                OR cat.partner IS NOT NULL)";
+            $conditions[] = self::feedTypeCondition('tourism');
         } elseif ($feedType === 'local') {
-            $conditions[] = "cat.slug NOT IN ('place', 'events', 'news', 'culture', 'nature')";
-            $conditions[] = "COALESCE(grp.section, cat.section, 'local') <> 'tourism'";
-            $conditions[] = 'cat.partner IS NULL';
+            $conditions[] = self::feedTypeCondition('local');
             if ($notCategoryId !== null) {
                 $conditions[] = 'cat.slug != :not_cat';
                 $params['not_cat'] = $notCategoryId;
@@ -594,18 +587,46 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         return array_map('intval', $rows);
     }
 
+    /**
+     * Qué vídeos van en cada pestaña: el feed y Guardados cortan igual.
+     *
+     * - `tourism`: lo de influencers de siempre más lo que cuelga de un grupo
+     *   de Turismo (o es uno: lo que falta por clasificar) y el partner ibiza
+     *   — el mismo corte que `section` en `/public/businesses`.
+     * - `local`: lo demás que no es de influencers, eventos ni noticias.
+     */
+    private static function feedTypeCondition(string $feedType): ?string
+    {
+        return match ($feedType) {
+            'events'     => "cat.slug = 'events'",
+            'geostories' => "cat.slug = 'news'",
+            'tourism'    => "(cat.slug IN ('place', 'nature', 'culture')
+                OR COALESCE(grp.section, cat.section) = 'tourism'
+                OR cat.partner IS NOT NULL)",
+            'local'      => "(cat.slug NOT IN ('place', 'events', 'news', 'culture', 'nature')
+                AND COALESCE(grp.section, cat.section, 'local') <> 'tourism'
+                AND cat.partner IS NULL)",
+            default      => null,
+        };
+    }
+
     public function findSavedBy(
         string $userId,
         float $latitude,
         float $longitude,
         int $page = 0,
         int $size = 10,
+        ?string $feedType = null,
     ): array {
         // Lo mismo que vería en el feed —listo, validado, sin las salas del
         // scraping pendientes, sin lo bloqueado— pero sin caducidad: un evento
         // que ya pasó y se guardó sigue siendo suyo. Si se borra o se retira,
         // desaparece de aquí también (la fila se queda y vuelve si se restaura).
         $select = self::FEED_SELECT;
+
+        // Una pestaña de Guardados (Eventos, Negocios…), con el corte del feed.
+        $tab = $feedType !== null ? self::feedTypeCondition($feedType) : null;
+        $tab = $tab !== null ? "AND $tab" : '';
 
         $sql = <<<SQL
             $select
@@ -619,6 +640,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                  WHERE ub.user_id::text = :viewer_id
                    AND ((ub.target_type = 'business'   AND ub.target_id = geo.business_id)
                      OR (ub.target_type = 'influencer' AND ub.target_id = geo.influencer_id)))
+              $tab
             ORDER BY sg.created_at DESC, geo.id
             LIMIT :limit OFFSET :offset
         SQL;
