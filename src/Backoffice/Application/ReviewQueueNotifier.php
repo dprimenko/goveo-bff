@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Backoffice\Application;
 
 use App\Business\Domain\Business;
+use App\Influencers\Domain\Influencer;
 use App\GeoStories\Domain\GeoStory;
 use App\Loyalty\Application\LoyaltyStatus;
 use App\Moderation\Domain\ContentReport;
@@ -66,6 +67,27 @@ final class ReviewQueueNotifier
                 sprintf('Correo:    %s', $billing['email'] ?? '—'),
                 '',
                 sprintf('Revisar: %s/negocios/%s', rtrim($this->backofficeUrl, '/'), $business->getId()),
+            ],
+        );
+    }
+
+    /** Un creador dado de alta desde la web o la app, por validar (06-10-2026). */
+    public function influencerPendingReview(Influencer $influencer, string $email): void
+    {
+        $meta = $influencer->getMeta() ?? [];
+
+        $this->send(
+            sprintf('Nuevo creador por validar: %s', $influencer->getName()),
+            [
+                'Ha entrado un creador nuevo en la cola de validación.',
+                '',
+                sprintf('Nombre:    %s', $influencer->getName()),
+                sprintf('Usuario:   @%s', $influencer->getUsername()),
+                sprintf('Instagram: %s', isset($meta['instagram']) ? 'https://instagram.com/' . $meta['instagram'] : '—'),
+                sprintf('TikTok:    %s', isset($meta['tiktok']) ? 'https://tiktok.com/@' . $meta['tiktok'] : '—'),
+                sprintf('Correo:    %s', $email),
+                '',
+                sprintf('Revisar: %s/influencers?q=%s', rtrim($this->backofficeUrl, '/'), rawurlencode($influencer->getUsername())),
             ],
         );
     }

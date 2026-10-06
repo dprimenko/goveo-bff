@@ -89,11 +89,9 @@ final class ReviewDecisionMailer
     /**
      * Creador aprobado o rechazado.
      *
-     * Todavía **no lo llama nadie**: el panel no tiene cola de creadores (no hay
-     * `PUT /api/admin/influencers/{id}/approve`), así que `influencers.verified_at`
-     * hoy sólo se toca a mano o en la importación. Los dos correos están escritos
-     * porque el texto es lo que se ha decidido ahora, y el día que exista esa cola
-     * lo único que falta es llamar aquí desde su controlador.
+     * La aprobación la llama `PUT /api/admin/influencers/{id}/approve`, la cola
+     * de los que se dan de alta solos (06-10-2026). El rechazo sigue sin uso: un
+     * alta que no vale se archiva desde el panel.
      */
     public function publisherApproved(string $influencerId): void
     {

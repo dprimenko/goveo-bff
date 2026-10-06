@@ -186,6 +186,12 @@ services:
             $webUrl: '%env(WEB_URL)%'
             $appUrl: '%env(APP_LINK_URL)%'
 
+    App\Account\Application\CreatorWelcomeMailer:
+        arguments:
+            $fromAddress: '%env(EMAIL_FROM)%'
+            $webUrl: '%env(WEB_URL)%'
+            $appUrl: '%env(APP_LINK_URL)%'
+
     # Lo que se le dice al dueño cuando se decide sobre su negocio, su vídeo o
     # su cuenta de creador. `webUrl` enlaza el vídeo publicado; `appUrl`, la app.
     App\Backoffice\Application\ReviewDecisionMailer:

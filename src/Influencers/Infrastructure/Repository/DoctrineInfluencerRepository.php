@@ -39,7 +39,9 @@ class DoctrineInfluencerRepository implements InfluencerRepository
     public function searchByName(?string $query, int $page, int $size, ?string $blockedBy = null): array
     {
         $conn  = $this->em->getConnection();
-        $where = 'i.deleted_at IS NULL';
+        // Sin validar no sale al público (los que se dan de alta solos esperan
+        // a que el equipo los apruebe).
+        $where = 'i.deleted_at IS NULL AND i.verified_at IS NOT NULL';
         $params = [];
 
         // `unaccent` para que "jose" encuentre "José". Busca en nombre y en

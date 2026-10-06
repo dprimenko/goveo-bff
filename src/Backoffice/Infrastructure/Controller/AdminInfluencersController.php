@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Backoffice\Infrastructure\Controller;
 
 use App\Account\Application\AccountProvisioner;
+use App\Backoffice\Application\ReviewDecisionMailer;
+use App\Influencers\Domain\InfluencerProfileRules;
 use App\Influencers\Application\InfluencerArchiver;
 use App\Influencers\Application\InfluencerPurger;
 use App\Influencers\Domain\Influencer;
@@ -25,12 +27,13 @@ use Symfony\Component\Uid\Uuid;
 /**
  * Los influencers desde el panel: alta, edición, archivo y borrado.
  *
- * `GET    /api/admin/influencers?status=active|removed&q=&page=&size=`
+ * `GET    /api/admin/influencers?status=active|pending|removed&q=&page=&size=`
  * `GET    /api/admin/influencers/{id}`
  * `POST   /api/admin/influencers`            {name, username, bio?, email?}
  * `PATCH  /api/admin/influencers/{id}`       {name?, username?, bio?}
  * `POST   /api/admin/influencers/{id}/avatar` multipart `file`
  * `PUT    /api/admin/influencers/{id}/{remove|restore}`
+ * `PUT    /api/admin/influencers/{id}/approve` (los del alta pública; avisa por correo)
  * `DELETE /api/admin/influencers/{id}`       (definitivo, sólo si ya está archivado)
  *
  * **Con los permisos de negocio** (`business.edit` y `business.delete`) y no con
@@ -53,9 +56,9 @@ class AdminInfluencersController
     private const DEFAULT_SIZE = 20;
     private const MAX_SIZE     = 100;
     /** Lo que va en la URL del perfil: sin espacios ni tildes. */
-    private const USERNAME = '/^[a-z0-9][a-z0-9._-]{2,39}$/';
-    private const NAME_MAX = 120;
-    private const BIO_MAX  = 1000;
+    private const USERNAME = InfluencerProfileRules::USERNAME;
+    private const NAME_MAX = InfluencerProfileRules::NAME_MAX;
+    private const BIO_MAX  = InfluencerProfileRules::BIO_MAX;
 
     public function __construct(
         private readonly Connection $db,
@@ -66,6 +69,7 @@ class AdminInfluencersController
         private readonly InfluencerPurger $purger,
         private readonly BunnyStorageService $storage,
         private readonly LoggerInterface $logger,
+        private readonly ReviewDecisionMailer $decisions,
     ) {}
 
     #[Route('', name: 'list', methods: ['GET'])]
@@ -78,11 +82,14 @@ class AdminInfluencersController
 
         [$where, $order] = match ($status) {
             'active'  => ['i.deleted_at IS NULL', 'i.name ASC'],
+            // Los que se han dado de alta solos y esperan validación, el más
+            // reciente primero.
+            'pending' => ['i.deleted_at IS NULL AND i.verified_at IS NULL', 'i.created_at DESC'],
             'removed' => ['i.deleted_at IS NOT NULL', 'i.deleted_at DESC'],
             default   => [null, null],
         };
         if ($where === null) {
-            return new JsonResponse(['error' => 'Unknown status. Use active or removed.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            return new JsonResponse(['error' => 'Unknown status. Use active, pending or removed.'], Response::HTTP_UNPROCESSABLE_ENTITY);
         }
 
         $params = [];
@@ -257,6 +264,28 @@ class AdminInfluencersController
         return new JsonResponse(($this->find($id) ?? []) + ['cascade' => $cascade]);
     }
 
+    /**
+     * Aprobar un creador del alta pública: sale al público y le llega el correo
+     * de bienvenida a la selección (`publisherApproved`). Idempotente: aprobar
+     * dos veces no vuelve a escribirle.
+     */
+    #[Route('/{id}/approve', name: 'approve', methods: ['PUT'], requirements: ['id' => '[0-9a-f-]{36}'])]
+    public function approve(string $id): Response
+    {
+        $influencer = $this->influencers->findById($id);
+        if ($influencer === null) {
+            return new JsonResponse(['error' => 'not_found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$influencer->isVerified()) {
+            $influencer->verify();
+            $this->influencers->save($influencer);
+            $this->decisions->publisherApproved($id);
+        }
+
+        return new JsonResponse($this->find($id));
+    }
+
     #[Route('/{id}', name: 'purge', methods: ['DELETE'], requirements: ['id' => '[0-9a-f-]{36}'])]
     #[IsGranted('ROLE_BUSINESS_DELETE')]
     public function purge(string $id): Response
@@ -316,6 +345,9 @@ class AdminInfluencersController
             // Los que crea el sistema (la agenda de eventos) no tienen detrás a
             // una persona: se enseñan marcados.
             'system'      => $meta['system'] ?? null,
+            // Las redes que dio en el alta: con ellas se comprueba quién es.
+            'instagram'   => $meta['instagram'] ?? null,
+            'tiktok'      => $meta['tiktok'] ?? null,
             'counts'      => ['videos' => (int) $row['videos'], 'followers' => (int) $row['followers']],
             'created_at'  => self::iso($row['created_at']),
             'verified_at' => self::iso($row['verified_at']),
