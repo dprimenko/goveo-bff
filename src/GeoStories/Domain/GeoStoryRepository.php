@@ -92,6 +92,23 @@ interface GeoStoryRepository
     ): array;
 
     /**
+     * Cuántos eventos enseñaría ahora la pestaña de Eventos por tipo y por
+     * subnivel (claves: id de la categoría). Las mismas reglas que `findFeed`
+     * con `feedType=events` —listo, validado, vigente o del día elegido, sin
+     * las salas del scraping pendientes— y, si se da, el mismo radio (`maxDist`
+     * de la app y la web). Es el número que sale junto a cada tipo en el
+     * selector.
+     *
+     * @return array<string,int>
+     */
+    public function countEventsByType(
+        ?EventDay $eventDay = null,
+        ?float $latitude = null,
+        ?float $longitude = null,
+        ?float $maxDistMeters = null,
+    ): array;
+
+    /**
      * Los vídeos que ha guardado el usuario, el último guardado primero, con la
      * misma forma que el feed. Sólo lo que el feed enseñaría (listo, validado,
      * sin bloquear), pero **sin caducidad**: un evento guardado que ya pasó se

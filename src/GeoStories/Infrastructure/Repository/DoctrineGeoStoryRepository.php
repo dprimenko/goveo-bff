@@ -545,6 +545,55 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ];
     }
 
+    public function countEventsByType(
+        ?EventDay $eventDay = null,
+        ?float $latitude = null,
+        ?float $longitude = null,
+        ?float $maxDistMeters = null,
+    ): array {
+        $conditions = [
+            'geo.deleted_at IS NULL',
+            "geo.status = 'ready'",
+            'geo.verified_at IS NOT NULL',
+            'NOT (buss.external_ref IS NOT NULL AND buss.verified_at IS NULL)',
+            "cat.slug = 'events'",
+        ];
+        $params = [];
+
+        if ($latitude !== null && $longitude !== null && $maxDistMeters !== null) {
+            $conditions[] = 'ST_Distance(geo.location, ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography) <= :max_dist';
+            $params += ['lat' => $latitude, 'lng' => $longitude, 'max_dist' => $maxDistMeters];
+        }
+
+        // La misma ventana que `findFeed`: con un día, lo de ese día; sin él,
+        // lo vigente que ya asoma (un mes antes de empezar).
+        if ($eventDay !== null) {
+            $conditions[] = "geo.started_at < :ev_day_end AND geo.ended_at >= :ev_from
+                AND (geo.ended_at - geo.started_at >= INTERVAL '24 hours' OR geo.started_at >= :ev_day_start)";
+            $params['ev_day_end']   = $eventDay->dayEnd->format('Y-m-d H:i:sP');
+            $params['ev_from']      = $eventDay->from->format('Y-m-d H:i:sP');
+            $params['ev_day_start'] = $eventDay->dayStart->format('Y-m-d H:i:sP');
+        } elseif ($this->expiryEnabled) {
+            $conditions[] = "NOW() >= geo.started_at - INTERVAL '1 month' AND NOW() <= geo.ended_at";
+        }
+
+        $where = implode(' AND ', $conditions);
+
+        // Cada evento cuenta en su tipo y en su subnivel.
+        $rows = $this->em->getConnection()->fetchAllKeyValue(
+            "SELECT x.id::text, COUNT(*)
+               FROM geostories geo
+               JOIN categories cat ON cat.id = geo.category_id
+               LEFT JOIN business buss ON buss.id = geo.business_id
+              CROSS JOIN LATERAL (VALUES (geo.subcategory_id), (geo.subtype_id)) AS x(id)
+              WHERE $where AND x.id IS NOT NULL
+              GROUP BY x.id",
+            $params,
+        );
+
+        return array_map('intval', $rows);
+    }
+
     public function findSavedBy(
         string $userId,
         float $latitude,

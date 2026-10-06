@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Categories\Infrastructure\Controller;
 
 use App\Categories\Domain\Category;
+use App\GeoStories\Domain\EventDay;
+use App\GeoStories\Domain\GeoStoryRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,6 +34,10 @@ use Symfony\Component\Routing\Attribute\Route;
  *   público, que no tiene que ver chips que llevan a una lista vacía. Con él,
  *   las `children` van **por volumen**, de más a menos.
  * - `?parent=<slug|id>`: las hijas encendidas de una (los tipos de evento).
+ * - `?with_stories=1` (con `parent=events`): quita los tipos y subniveles sin
+ *   ningún evento que enseñar y añade `story_count`, lo que saldría en la
+ *   pestaña de Eventos (con `date`/`time`, ese día; con `lat`, `lng` y
+ *   `maxDist`, en ese radio). Es el número del selector de la app y la web.
  * - `?mode=business|influencer`: las que se pueden **elegir** al dar de alta un
  *   negocio o subir un vídeo — las hojas, no los grupos, estén encendidas o no:
  *   que una subcategoría no se enseñe todavía no impide usarla. Cada una trae
@@ -55,6 +61,7 @@ class ListCategoriesController
 
     public function __construct(
         private readonly Connection $db,
+        private readonly GeoStoryRepository $geoStories,
         private readonly bool $legacyLeaves = false,
     ) {}
 
@@ -65,6 +72,16 @@ class ListCategoriesController
         $counts = $withBusinesses ? $this->businessCounts() : null;
 
         $parent = trim($request->query->getString('parent', ''));
+        if ($parent !== '' && $request->query->getBoolean('with_stories')) {
+            $q = $request->query;
+            $counts = $this->geoStories->countEventsByType(
+                EventDay::fromQuery($q->get('date'), $q->get('time')),
+                $q->has('lat') ? (float) $q->get('lat') : null,
+                $q->has('lng') ? (float) $q->get('lng') : null,
+                $q->has('maxDist') ? (float) $q->get('maxDist') : null,
+            );
+            $countKey = 'story_count';
+        }
         if ($parent !== '') {
             $rows = $this->db->fetchAllAssociative(
                 'SELECT ' . self::COLUMNS . ' FROM categories c
@@ -80,7 +97,7 @@ class ListCategoriesController
                 $rows = $this->withChildren($rows);
             }
 
-            return $this->respond($rows, $counts);
+            return $this->respond($rows, $counts, $countKey ?? 'business_count');
         }
 
         // ?partner=xxx → las de ese partner; sin él, el catálogo general.
@@ -216,10 +233,14 @@ class ListCategoriesController
     /**
      * @param list<array<string,mixed>> $rows
      * @param array<string,int>|null $counts con él, fuera lo vacío
+     * @param string $countKey `business_count`, o `story_count` en los eventos
      */
-    private function respond(array $rows, ?array $counts): Response
+    private function respond(array $rows, ?array $counts, string $countKey = 'business_count'): Response
     {
-        $shape = function (array $row) use ($counts, &$shape): ?array {
+        // Los tipos de evento conservan su orden (lo decide el panel); los
+        // grupos de la home, por volumen.
+        $byVolume = $countKey === 'business_count';
+        $shape = function (array $row) use ($counts, $countKey, $byVolume, &$shape): ?array {
             $out = [
                 'id'         => $row['id'],
                 'slug'       => $row['slug'],
@@ -234,8 +255,8 @@ class ListCategoriesController
             ];
 
             if ($counts !== null) {
-                $out['business_count'] = $counts[$row['id']] ?? 0;
-                if ($out['business_count'] === 0) {
+                $out[$countKey] = $counts[$row['id']] ?? 0;
+                if ($out[$countKey] === 0) {
                     return null;
                 }
             }
@@ -245,7 +266,7 @@ class ListCategoriesController
                 // Con recuentos, por volumen: el primer chip siempre tiene
                 // contenido (así lo pide el diseño). `usort` es estable, así
                 // que a igualdad manda el orden del catálogo.
-                if ($counts !== null) {
+                if ($counts !== null && $byVolume) {
                     usort($children, static fn (array $a, array $b) => $b['business_count'] <=> $a['business_count']);
                 }
                 $out['children'] = $children;
