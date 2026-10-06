@@ -115,11 +115,13 @@ class ListGeoStoryReviewsController
 
         // Por slug o por id, como el filtro público. Vale también un tipo de
         // evento (`events-flamenco`): el panel los ofrece dentro de Eventos, y
-        // eso es la subcategoría del vídeo, no su categoría.
+        // eso es la subcategoría del vídeo, no su categoría. Y un subnivel
+        // (`events-stage-dance`), para recategorizar de golpe lo de uno.
         $category = trim((string) $request->query->get('category', ''));
         if ($category !== '') {
-            $where .= ' AND (c.slug = ? OR c.id::text = ? OR sc.slug = ? OR sc.id::text = ?)';
-            $params = [...$params, ...array_fill(0, 4, $category)];
+            $where .= ' AND (c.slug = ? OR c.id::text = ? OR sc.slug = ? OR sc.id::text = ?
+                OR g.subtype_id IN (SELECT st.id FROM categories st WHERE st.slug = ? OR st.id::text = ?))';
+            $params = [...$params, ...array_fill(0, 6, $category)];
         }
 
         if ($q !== '') {
