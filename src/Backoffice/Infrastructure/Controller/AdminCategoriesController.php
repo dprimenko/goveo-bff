@@ -97,12 +97,33 @@ class AdminCategoriesController
     #[IsGranted('ROLE_BACKOFFICE_ACCESS')]
     public function events(): Response
     {
+        // Cuatro números por tipo (06-10-2026), porque uno solo no cuadraba con
+        // la app y no se sabía por qué:
+        //  - `visible`: lo que enseña ahora la pestaña de Eventos —validado,
+        //    listo, de una sala validada, un mes antes de empezar y sin
+        //    terminar— salvo la distancia (la app cuenta 200 km a la redonda).
+        //  - `pending`: sin terminar y esperando validación, del vídeo o de su
+        //    sala (las que crea el scraping).
+        //  - `later`: validado, pero empieza dentro de más de un mes: la app
+        //    todavía no lo enseña (el scraping trae 60 días).
+        //  - `upcoming`: todo lo que no ha terminado, como antes.
         $rows = $this->db->fetchAllAssociative(
             "SELECT c.id::text AS id, c.slug, c.name, c.\"order\", c.active, c.parent_id::text AS parent_id,
-                    (SELECT COUNT(*) FROM geostories g
-                      WHERE (g.subcategory_id = c.id OR g.subtype_id = c.id)
-                        AND g.deleted_at IS NULL AND (g.ended_at IS NULL OR g.ended_at >= NOW())) AS upcoming
+                    COALESCE(n.upcoming, 0) AS upcoming, COALESCE(n.visible, 0) AS visible,
+                    COALESCE(n.pending, 0) AS pending, COALESCE(n.later, 0) AS later
                FROM categories c
+               LEFT JOIN LATERAL (
+                   SELECT COUNT(*) AS upcoming,
+                          COUNT(*) FILTER (WHERE v.ok AND NOW() >= g.started_at - INTERVAL '1 month' AND NOW() <= g.ended_at) AS visible,
+                          COUNT(*) FILTER (WHERE NOT v.ok) AS pending,
+                          COUNT(*) FILTER (WHERE v.ok AND NOW() < g.started_at - INTERVAL '1 month') AS later
+                     FROM geostories g
+                     LEFT JOIN business b ON b.id = g.business_id
+                    CROSS JOIN LATERAL (SELECT g.verified_at IS NOT NULL AND g.status = 'ready'
+                        AND NOT (b.external_ref IS NOT NULL AND b.verified_at IS NULL) AS ok) v
+                    WHERE (g.subcategory_id = c.id OR g.subtype_id = c.id)
+                      AND g.deleted_at IS NULL AND (g.ended_at IS NULL OR g.ended_at >= NOW())
+               ) n ON TRUE
               WHERE c.deleted_at IS NULL
                 AND (c.parent_id = (SELECT id FROM categories WHERE slug = 'events' AND deleted_at IS NULL)
                      OR c.parent_id IN (SELECT id FROM categories
@@ -117,6 +138,9 @@ class AdminCategoriesController
             'order'    => $row['order'] === null ? null : (int) $row['order'],
             'active'   => (bool) $row['active'],
             'upcoming' => (int) $row['upcoming'],
+            'visible'  => (int) $row['visible'],
+            'pending'  => (int) $row['pending'],
+            'later'    => (int) $row['later'],
         ];
 
         $types    = [];
