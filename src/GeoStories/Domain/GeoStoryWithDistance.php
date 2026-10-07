@@ -43,6 +43,8 @@ final class GeoStoryWithDistance
         public readonly ?string $categorySlug = null,
         /** La subcategoría de un evento (hija de `events`): id, slug y nombre. */
         public readonly ?string $subcategoryId = null,
+        /** El subnivel del tipo de evento (Teatro y escena › Danza), si lo tiene. */
+        public readonly ?string $subtypeId = null,
         public readonly ?string $subcategorySlug = null,
         public readonly ?string $subcategoryName = null,
     ) {}
@@ -81,6 +83,7 @@ final class GeoStoryWithDistance
             categoryName: $row['category_name'] ?? null,
             categorySlug: $row['category_slug'] ?? null,
             subcategoryId: $row['subcategory_id'] ?? null,
+            subtypeId: $row['subtype_id'] ?? null,
             subcategorySlug: $row['subcategory_slug'] ?? null,
             subcategoryName: $row['subcategory_name'] ?? null,
         );

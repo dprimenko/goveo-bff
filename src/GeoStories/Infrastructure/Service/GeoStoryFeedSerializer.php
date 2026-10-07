@@ -63,6 +63,7 @@ final class GeoStoryFeedSerializer
             'subcategory_id'   => $s->subcategoryId,
             'subcategory_slug' => $s->subcategorySlug,
             'subcategory_name' => $s->subcategoryName,
+            'subtype_id'       => $s->subtypeId,
         ];
     }
 

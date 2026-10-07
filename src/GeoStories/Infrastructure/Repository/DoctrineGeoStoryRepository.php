@@ -48,6 +48,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 cat.name     AS category_name,
                 cat.slug     AS category_slug,
                 sub.id       AS subcategory_id,
+                geo.subtype_id AS subtype_id,
                 sub.slug     AS subcategory_slug,
                 sub.name     AS subcategory_name,
                 COUNT(*) OVER() AS total_count
@@ -209,6 +210,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 cat.name   AS category_name,
                 cat.slug   AS category_slug,
                 sub.id     AS subcategory_id,
+                geo.subtype_id AS subtype_id,
                 sub.slug   AS subcategory_slug,
                 sub.name   AS subcategory_name
             FROM geostories geo
@@ -272,6 +274,7 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
                 cat.name   AS category_name,
                 cat.slug   AS category_slug,
                 sub.id     AS subcategory_id,
+                geo.subtype_id AS subtype_id,
                 sub.slug   AS subcategory_slug,
                 sub.name   AS subcategory_name
             FROM geostories geo
