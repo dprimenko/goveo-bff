@@ -69,9 +69,12 @@ final class EventFeedOrder
      *
      * @param ?string $dayStart parámetro SQL con el principio del día elegido
      *                          (`:ev_day_start`); sin él, el de hoy en Madrid
+     * @param ?string $distance expresión de la distancia a quien mira: a igual
+     *                          hora, el más cercano primero
      */
-    public static function orderBy(?string $dayStart = null): string
+    public static function orderBy(?string $dayStart = null, ?string $distance = null): string
     {
+        $tieBreak = $distance !== null ? "{$distance}, " : '';
         $today = $dayStart ?? sprintf(
             "(date_trunc('day', NOW() AT TIME ZONE '%1\$s') AT TIME ZONE '%1\$s')",
             self::TIMEZONE,
@@ -89,7 +92,7 @@ final class EventFeedOrder
         // Orden dentro de cada cola, base 0.
         $index = "(ROW_NUMBER() OVER (
                 PARTITION BY {$recurring}
-                ORDER BY CASE WHEN {$recurring} THEN geo.ended_at ELSE geo.started_at END, geo.id
+                ORDER BY CASE WHEN {$recurring} THEN geo.ended_at ELSE geo.started_at END, {$tieBreak}geo.id
             ) - 1)";
         $normal    = self::NORMAL_RUN;
         $recRun    = self::RECURRING_RUN;

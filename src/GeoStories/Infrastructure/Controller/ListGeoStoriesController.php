@@ -61,6 +61,8 @@ class ListGeoStoriesController
         // «Siguiendo»: sólo lo de las cuentas que sigue quien mira. Sin sesión
         // sale vacío, no un 401: la app pinta su propio mensaje.
         $following    = $request->query->getBoolean('following');
+        // Pestaña de Eventos: `distance` = por cercanía (y sin día).
+        $sort         = $request->query->get('sort') === 'distance' ? 'distance' : null;
 
         // Los vídeos pendientes de validar sólo los ve su dueño, y para eso hay
         // que identificarse: la ruta es pública, pero si llega un token se lee.
@@ -97,6 +99,7 @@ class ListGeoStoriesController
             eventDay:      $eventDay,
             subtype:       $subtype,
             following:     $following,
+            sort:          $sort,
         );
 
         $result = $findFeed();

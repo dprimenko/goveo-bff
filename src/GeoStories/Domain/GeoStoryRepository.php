@@ -89,6 +89,11 @@ interface GeoStoryRepository
          * `$viewerId`. Sin quien mira, lista vacía.
          */
         bool $following = false,
+        /**
+         * Pestaña de Eventos: `distance` ordena por cercanía y sin día (todo lo
+         * vigente); sin él, por fecha y, a igual hora, por cercanía.
+         */
+        ?string $sort = null,
     ): array;
 
     /**

@@ -318,7 +318,14 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         ?EventDay $eventDay = null,
         ?string $subtype = null,
         bool $following = false,
+        ?string $sort = null,
     ): array {
+        // Por cercanía no hay día: es «qué tengo cerca», cualquier día.
+        $byDistance = $sort === 'distance' && $feedType === 'events';
+        if ($byDistance) {
+            $eventDay = null;
+        }
+
         // «Siguiendo» sin sesión no tiene a quién seguir: vacío, sin consultar.
         if ($following && $viewerId === null) {
             return ['items' => [], 'total' => 0];
@@ -476,7 +483,16 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
             if ($eventDay !== null) {
                 $params['ev_day_start'] = $eventDay->dayStart->format('Y-m-d H:i:sP');
             }
-            $orderBy = EventFeedOrder::orderBy($eventDay !== null ? ':ev_day_start' : null);
+            // Por cercanía, lo más cerca primero (08-10-2026: un evento a la
+            // vuelta de la esquina dentro de dos semanas quedaba enterrado
+            // detrás de todo lo de hoy, por lejos que estuviera). Si no, por
+            // fecha y, a igual hora, el más cercano.
+            $orderBy = $byDistance
+                ? 'geo.location <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography, geo.started_at, geo.id'
+                : EventFeedOrder::orderBy(
+                    $eventDay !== null ? ':ev_day_start' : null,
+                    'geo.location <-> ST_SetSRID(ST_MakePoint(:lng, :lat), 4326)::geography',
+                );
         } elseif ($feedType === 'geostories' && $categoryId === null) {
             $conditions[] = self::feedTypeCondition('geostories');
         } elseif ($feedType === 'tourism') {
