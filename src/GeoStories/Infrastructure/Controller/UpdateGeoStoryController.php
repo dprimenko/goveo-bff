@@ -127,11 +127,24 @@ class UpdateGeoStoryController
                 : $story->getSubtypeId(),
         ));
 
-        if (!$isBusiness) {
+        // La localización: la de un influencer la cambia él; la de un vídeo de
+        // negocio es la de la tienda, salvo que la mueva el panel (08-10-2026):
+        // un evento puede ser en otro sitio que la sala que lo anuncia, y el
+        // scraping a veces lo coloca mal.
+        $canMove = !$isBusiness || $this->security->isGranted('ROLE_GEOSTORY_MODERATE');
+        if ($canMove) {
             $lat = $request->request->get('lat');
             $lng = $request->request->get('lng');
             if ($lat !== null && $lng !== null && $lat !== '' && $lng !== '') {
+                if (!is_numeric($lat) || !is_numeric($lng) || abs((float) $lat) > 90 || abs((float) $lng) > 180) {
+                    return new JsonResponse(['error' => 'invalid_location'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
                 $story->setLocation((float) $lat, (float) $lng);
+            }
+            // La dirección que se lee en la tarjeta (y abre «Cómo llegar»).
+            // Vacía, vuelve a la del negocio.
+            if ($request->request->has('address')) {
+                $story->locatedAt((string) $request->request->get('address'));
             }
         }
 

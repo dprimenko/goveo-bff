@@ -148,6 +148,8 @@ class ListGeoStoryReviewsController
         $rows = $this->db->fetchAllAssociative(
             "SELECT g.id, g.title, g.description, g.category_id, g.thumbnail, g.url,
                     g.status, g.media_type, g.meta, g.likes, g.views, g.external_ref,
+                    ST_Y(g.location::geometry) AS lat, ST_X(g.location::geometry) AS lng,
+                    b.meta->>'address' AS business_address,
                     g.created_at, g.verified_at, g.deleted_at, g.started_at, g.ended_at,
                     c.slug AS category_slug, c.name AS category_name,
                     sc.id AS subcategory_id, sc.slug AS subcategory_slug, sc.name AS subcategory_name,
@@ -244,6 +246,14 @@ class ListGeoStoryReviewsController
                 'id'   => $row['subtype_id'],
                 'slug' => $row['subtype_slug'],
                 'name' => $row['subtype_name'],
+            ],
+            // Dónde está: el punto del mapa y la dirección que se lee —la suya
+            // o, si no tiene, la del negocio (`address_own` dice cuál)—.
+            'location'    => $row['lat'] === null ? null : [
+                'lat'         => (float) $row['lat'],
+                'lng'         => (float) $row['lng'],
+                'address'     => self::meta($row['meta'] ?? null)['address'] ?? $row['business_address'] ?? null,
+                'address_own' => isset(self::meta($row['meta'] ?? null)['address']),
             ],
             'owner'       => $owner,
             'created_at'  => self::iso($row['created_at']),
