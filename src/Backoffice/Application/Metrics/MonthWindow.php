@@ -74,4 +74,19 @@ final class MonthWindow
             'prev_from' => $this->previousStart->setTimezone($utc)->format(DATE_ATOM),
         ];
     }
+
+    /**
+     * Los límites como **fechas de Madrid** (`Y-m-d`), para las tablas que ya
+     * guardan el día local en vez de un instante (`app_installs_daily`).
+     *
+     * @return array{prev_day: string, cur_day: string, next_day: string}
+     */
+    public function dayParams(): array
+    {
+        return [
+            'prev_day' => $this->previousStart->format('Y-m-d'),
+            'cur_day'  => $this->currentStart->format('Y-m-d'),
+            'next_day' => $this->currentEnd->format('Y-m-d'),
+        ];
+    }
 }

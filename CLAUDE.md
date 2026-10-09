@@ -29,6 +29,8 @@ nginx en `:8080`, Postgres/PostGIS en `goveo-db`, DB `goveo`/`goveo`).
   `publishedOnly=true` fijo (no expone borradores).
 - `GET /public/influencers?q=&page=&size=` — listado/búsqueda de creadores por nombre **o**
   username: `{items:[{id,name,username,avatar}], total, page, size}`.
+- `POST /public/app-installs` — la app cuenta su instalación si Branch la atribuye a un enlace
+  (ver [Paso a la app](#paso-a-la-app-post-publicapp-installs)).
 - `GET /public/geostories?...`, `/public/categories?...`, `/public/influencers/{id}`. En el feed,
   `following=1` deja sólo lo de quien sigue el usuario (ver «Siguiendo» en [Follows y likes](#follows-y-likes)).
 
@@ -1269,7 +1271,7 @@ Las cifras de la pantalla «Métricas» del panel, **sólo recuentos de nuestra 
 Google (GA4) vendrá después como otro bloque de la misma respuesta, que va partida en
 `businesses`, `users` y `content` justo para eso. Permiso propio, **`metrics.read`**
 (`ROLE_METRICS_READ`): son cifras del negocio y no todo el que modera vídeos tiene por qué verlas.
-Tres consultas agregadas (`count(*) FILTER`), ~50 ms en local; ninguna entidad pasa por memoria.
+Tres consultas agregadas (`count(*) FILTER`), ~50 ms en local, y una cuarta para «Paso a la app» (ver abajo); ninguna entidad pasa por memoria.
 
 **Qué es cada estado de un negocio** está escrito una sola vez, en
 [`BusinessStatus`](src/Backoffice/Application/Metrics/BusinessStatus.php), y la cola de revisión
@@ -1304,6 +1306,40 @@ dar el mismo número. Todo excluye lo archivado (`deleted_at`), que es también 
 Alta del rol: `configure-backoffice.sh` crea `metrics.read` y lo mete en `backoffice-admin`.
 **Hay que relanzar el script en demo y producción** al desplegar (o crear el rol a mano en el
 cliente `goveo-backoffice` y añadirlo al grupo), y quien tenga sesión abierta, volver a entrar.
+
+### Paso a la app (`POST /public/app-installs`)
+
+(09-10-2026) El dato que pidió negocio: **cuánta gente llega a la app desde un enlace**, y en
+especial desde la web —alguien abre una ficha compartida, no tiene la app, cae en goveo.app,
+pulsa «Descargar» y la instala—. Lo cuenta la propia app en su primera apertura y aquí sólo se suma.
+
+**Por qué en el BFF y no sólo en Google Analytics**: GA no ve a quien rechaza la analítica —y en la
+primera apertura nadie ha contestado aún al aviso—, y no une la visita de la web con la
+instalación. Esto no identifica a nadie, así que no necesita consentimiento.
+
+- **Contrato**: `{platform: ios|android, channel?, feature?, campaign?, kind?}` → `204` (también si
+  la base falla: queda en el log y la app no reintenta). `400` sólo sin plataforma conocida o sin
+  JSON. Los valores son los de Branch (`~channel`, `~feature`, `~campaign`) y el destino del enlace
+  (`kind`: `business|influencer|geostory|product|app|loyalty|none`).
+- **Cuándo lo llama la app**: una vez, con `+is_first_session` y `+clicked_branch_link` de Branch,
+  con una marca en el móvil para no repetir. **Una instalación sin enlace no llega nunca.** Ojo:
+  Branch también da `+is_first_session` al **reinstalar**.
+- **Tabla `app_installs_daily`** ([`AppInstallDay`](src/Installs/Domain/AppInstallDay.php)):
+  día de Madrid + plataforma + canal + feature + campaña + tipo como clave, y `installs`. Nada de
+  dispositivo, usuario ni IP. Se suma con un `INSERT … ON CONFLICT DO UPDATE`
+  ([`InstallCounter`](src/Installs/Application/InstallCounter.php)).
+- **Normalización** ([`AttributedInstall`](src/Installs/Domain/AttributedInstall.php)): plataforma
+  y tipo, listas cerradas; `feature`, lista cerrada con `other` (un enlace de campaña del panel de
+  Branch); canal y campaña, texto libre pasado a `[a-z0-9_-]` y recortado (32 y 64).
+- **Freno**: no hay limitador de peticiones en el BFF (no está `symfony/rate-limiter`). Lo que sí
+  hay: con 200 combinaciones en un día, una nueva se guarda con canal y campaña en `other`. Inflar
+  la cifra se puede —es una ruta pública sin identificar a nadie, y es lo que se quiere—, pero no
+  llenar la tabla, y se notaría como un pico de `other`.
+- **En las métricas** es el bloque `installs` de `GET /api/admin/metrics`
+  ([`AppInstallsReport`](src/Backoffice/Application/Metrics/AppInstallsReport.php)): `total` y
+  `from_web` (`channel = web`) del mes y del anterior, y desgloses `by_platform`, `by_kind`,
+  `by_feature` y `web_by_campaign` (qué botón de la web: el `campaign` lo pone goveo-astro).
+  El mes compara **fechas** de Madrid (`MonthWindow::dayParams`), no instantes.
 
 ### La firma del token sí se comprueba
 
@@ -1931,6 +1967,7 @@ con `doctrine:schema:validate --skip-sync` (mapping) + `doctrine:migrations:diff
 | `categories.mode` | columna nueva | `Version20260812113346` (`ADD mode` + backfill por slug) · import: `ImportCategoriesFromSupabaseCommand` (`modeForSlug` en INSERT y `ON CONFLICT … mode = EXCLUDED.mode`) |
 | `products` / `product_subcategories` / `default_subcategories` | **tablas preexistentes** | — (mapeadas por entidades; datos vía `goveo:migrate:*`) |
 | `business_subscriptions.invited_at` | columna nueva | `Version20260930100000` |
+| `app_installs_daily` | tabla nueva (agregados, sin import) | `Version20261009100000` |
 | subcategorías de tienda (nombres) | — | `goveo:migrate:subcategories` (`stores.subCategories` → `product_subcategories`, id UUID v5) |
 
 `mode` se deriva **por slug** (no por id) en migración e import → robusto contra los datos reales, sin

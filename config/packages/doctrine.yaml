@@ -104,6 +104,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Moderation/Domain'
                 prefix: 'App\Moderation\Domain'
                 alias: Moderation
+            Installs:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Installs/Domain'
+                prefix: 'App\Installs\Domain'
+                alias: Installs
         controller_resolver:
             auto_mapping: false
 

@@ -50,6 +50,16 @@ final class DashboardMetricsTest extends TestCase
                 };
             });
 
+        // Paso a la app: las combinaciones de los dos meses, por día de Madrid.
+        $db->expects(self::once())
+            ->method('fetchAllAssociative')
+            ->willReturnCallback(static function (string $sql, array $bound) {
+                self::assertStringContainsString('app_installs_daily', $sql);
+                self::assertSame(['prev_day' => '2026-08-01', 'cur_day' => '2026-09-01', 'next_day' => '2026-10-01'], $bound);
+
+                return [['platform' => 'ios', 'channel' => 'web', 'feature' => 'web_to_app', 'campaign' => 'story', 'kind' => 'app', 'current' => '3', 'previous' => '1']];
+            });
+
         $report = (new DashboardMetrics($db))->at($now);
 
         self::assertSame('Europe/Madrid', $report['timezone']);
@@ -72,6 +82,9 @@ final class DashboardMetricsTest extends TestCase
             'events'     => ['live' => 3, 'ongoing' => 1],
         ], $report['content']);
 
+        self::assertSame(['current' => 3, 'previous' => 1], $report['installs']['total']);
+        self::assertSame(['current' => 3, 'previous' => 1], $report['installs']['from_web']);
+
         // «Pendiente» es la condición de la cola, no una parecida.
         self::assertStringContainsString(BusinessStatus::PENDING, $queries[0]);
         self::assertStringContainsString(BusinessStatus::FILLED, $queries[0]);
@@ -87,6 +100,7 @@ final class DashboardMetricsTest extends TestCase
         self::assertSame(0, $report['businesses']['pending']);
         self::assertSame(['current' => 0, 'previous' => 0], $report['users']['signups']);
         self::assertSame(['live' => 0, 'ongoing' => 0], $report['content']['events']);
+        self::assertSame(['current' => 0, 'previous' => 0], $report['installs']['total']);
     }
 
     public function testActivityWindowsDoNotOverlap(): void

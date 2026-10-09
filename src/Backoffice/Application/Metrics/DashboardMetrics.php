@@ -16,7 +16,8 @@ use Doctrine\DBAL\Connection;
  * números.
  *
  * Cada bloque va en su propia clave para que añadir otro —el de Google
- * Analytics, cuando llegue— sea una clave más y no reordenar lo que hay.
+ * Analytics, cuando llegue— sea una clave más y no reordenar lo que hay. El de
+ * instalaciones (`installs`) es una cuarta consulta, sobre su propia tabla.
  */
 final class DashboardMetrics
 {
@@ -50,7 +51,32 @@ final class DashboardMetrics
             'businesses' => $this->businesses($params),
             'users'      => $this->users($params),
             'content'    => $this->content($params),
+            'installs'   => $this->installs($window),
         ];
+    }
+
+    /**
+     * Paso a la app: instalaciones que Branch atribuye a un enlace, contadas por
+     * la propia app en su primera apertura (`POST /public/app-installs`). Ver
+     * `AppInstallsReport`.
+     *
+     * La tabla guarda **días de Madrid**, así que aquí se compara por fecha y no
+     * por instante: los límites del mes van como `Y-m-d` locales.
+     *
+     * @return array<string, mixed>
+     */
+    private function installs(MonthWindow $window): array
+    {
+        $rows = $this->db->fetchAllAssociative(<<<'SQL'
+            SELECT platform, channel, feature, campaign, kind,
+                   sum(installs) FILTER (WHERE day >= :cur_day AND day < :next_day) AS current,
+                   sum(installs) FILTER (WHERE day < :cur_day) AS previous
+              FROM app_installs_daily
+             WHERE day >= :prev_day AND day < :next_day
+             GROUP BY platform, channel, feature, campaign, kind
+            SQL, $window->dayParams());
+
+        return AppInstallsReport::fromRows($rows);
     }
 
     /**
