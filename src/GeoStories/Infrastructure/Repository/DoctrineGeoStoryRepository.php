@@ -435,12 +435,13 @@ class DoctrineGeoStoryRepository implements GeoStoryRepository
         // fechas, y ahí `created_at` es la única referencia de cuándo fueron
         // noticia.
         //
-        // La fila de Eventos de un perfil (`feedType=events` con el creador)
-        // sigue la regla del feed para quien lo visita: lo mismo que vería en la
-        // pestaña. Su dueño, en cambio, los ve todos, o el evento que acaba de
-        // subir para dentro de seis meses desaparecería de su perfil.
-        $ownerView   = $isOwnerScoped && ($feedType !== 'events' || $includeUnverified);
-        $eventLeadIn = $ownerView
+        // En un perfil, sin «mes vista» para nadie: es la cartelera de esa sala
+        // o ese creador, y quien entra a verla quiere todo lo que tiene
+        // programado. Hasta el 12-10-2026 a quien visitaba se le aplicaba la
+        // regla del feed, y el Teatro Capitol enseñaba sólo lo del mes
+        // siguiente: un concierto de abril de 2027 no salía en ningún sitio
+        // salvo eligiendo ese día en la pestaña.
+        $eventLeadIn = $isOwnerScoped
             ? 'TRUE'
             : "NOW() >= geo.started_at - INTERVAL '1 month'";
 

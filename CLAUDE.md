@@ -1476,9 +1476,10 @@ cuentan «antes de hoy» como «antes del día elegido». Ver [`EventDay`](src/G
 
 **En los perfiles, los eventos van en su propia fila** (01-10-2026): `feedType=events` con
 `businessId`/`influencerId` da los eventos de ese creador con el orden y el filtro de la pestaña, y
-`exclude=events` el resto de sus vídeos. Quien visita ve los eventos como en el feed (a un mes vista);
-**su dueño los ve todos**, o el evento que acaba de subir para dentro de seis meses no estaría en
-ningún sitio de su perfil. Sin `exclude`, la lista del perfil sigue trayéndolo todo (apps anteriores).
+`exclude=events` el resto de sus vídeos. En el perfil **no hay «mes vista»**, ni
+para su dueño ni para quien visita: es la cartelera completa de la sala, y un evento de dentro de
+seis meses tiene que estar (hasta el 12-10-2026 quien visitaba sólo veía lo del mes siguiente). Lo
+terminado sigue sin salir. Sin `exclude`, la lista del perfil sigue trayéndolo todo (apps anteriores).
 
 ## Subcategorías de Eventos (`categories.parent_id`)
 
