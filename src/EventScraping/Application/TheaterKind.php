@@ -48,7 +48,7 @@ final class TheaterKind
     private const HALL_SOURCES = ['microteatro', 'teseo-teatro', 'corral-alcala'];
 
     /** Fuentes que mezclan salas de todo tipo: se decide por el nombre de la sala. */
-    private const AGENDAS = ['madrid-datos', 'esmadrid', 'comunidad-madrid'];
+    private const AGENDAS = ['madrid-datos', 'esmadrid', 'comunidad-madrid', 'elcorteingles'];
 
     /** Teatros públicos importantes y comerciales que llegan por las agendas. */
     private const BIG_VENUES = '/teatro espa[nñ]ol|naves del espa[nñ]ol|fern[aá]n g[oó]mez|teatro real|zarzuela|'

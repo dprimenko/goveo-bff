@@ -55,8 +55,13 @@ final class EventImporter
     /**
      * @param callable(string $outcome, ScrapedEvent $event, ?string $detail): void $report
      *        `outcome` es `created`, `would-create` o uno de los `SKIP_*`.
+     * @param string|null $placeholder Cartel de reserva (los bytes de la imagen)
+     *        para lo que llega sin imagen o con una que no se puede leer. Sin él,
+     *        eso no entra, que es lo de siempre; lo usa la cartelera de El Corte
+     *        Inglés, donde el usuario decidió que entrara con un «cartel no
+     *        disponible».
      */
-    public function run(EventSource $source, EventWindow $window, bool $dryRun, int $limit, callable $report): void
+    public function run(EventSource $source, EventWindow $window, bool $dryRun, int $limit, callable $report, ?string $placeholder = null): void
     {
         $existing = $this->existingRefs($source->name());
         $runAt    = new \DateTimeImmutable('now', new \DateTimeZone('Europe/Madrid'));
@@ -97,7 +102,7 @@ final class EventImporter
 
             $event = $source->enrich($event);
 
-            if ($event->imageUrl === null) {
+            if ($event->imageUrl === null && $placeholder === null) {
                 $report(self::SKIP_NO_IMAGE, $event, null);
                 continue;
             }
@@ -123,15 +128,12 @@ final class EventImporter
             $storyId = Uuid::v4()->toRfc4122();
             // Se descarga con margen: el límite de 8 MB es para lo que se sube, y
             // lo que se sube es el cartel ya reducido, no el original.
-            $image   = $this->web->get($event->imageUrl, 4 * BunnyStorageService::MAX_BYTES);
+            $image   = $event->imageUrl !== null ? $this->web->get($event->imageUrl, 4 * BunnyStorageService::MAX_BYTES) : null;
 
             try {
-                if ($image === null) {
-                    throw new StorageException('no se pudo descargar');
-                }
                 $url = $this->storage->upload(
                     fn (string $ext): string => sprintf('geostories/%s/%d.%s', $storyId, time(), $ext),
-                    $this->frame->fit($image),
+                    $this->poster($image, $placeholder),
                 );
             } catch (StorageException|\RuntimeException $e) {
                 $report(self::SKIP_BAD_IMAGE, $event, $e->getMessage());
@@ -192,6 +194,28 @@ final class EventImporter
             unset($story);
             gc_collect_cycles();
         }
+    }
+
+    /**
+     * El cartel encajado en vertical; si no hay o no se puede leer, el de
+     * reserva, y si tampoco lo hay, fuera.
+     */
+    private function poster(?string $image, ?string $placeholder): string
+    {
+        if ($image !== null) {
+            try {
+                return $this->frame->fit($image);
+            } catch (\RuntimeException $e) {
+                if ($placeholder === null) {
+                    throw $e;
+                }
+            }
+        }
+        if ($placeholder === null) {
+            throw new StorageException('no se pudo descargar');
+        }
+
+        return $this->frame->fit($placeholder);
     }
 
     /** @return array<string, array{id: string, ended_at: ?string}> */

@@ -119,6 +119,14 @@ firestore:
 events:
 	@./bin/goveo-events $(or $(CITY),Madrid) $(ARGS)
 
+## awin: cartelera de El Corte Inglés (CSV de Awin) en producción. Uso: make awin CSV=~/Desktop/eci.csv [ARGS=--dry-run]
+awin:
+	@./bin/goveo-awin $(CSV) $(ARGS)
+
+## awin-local: lo mismo contra el docker local (el CSV dentro del proyecto). Uso: make awin-local CSV=var/tmp/eci.csv [ARGS=--dry-run]
+awin-local:
+	docker compose exec php php bin/console goveo:events:import-awin $(CSV) $(ARGS)
+
 ## events-local: lo mismo contra el docker local. Uso: make events-local CITY=Madrid [ARGS=--dry-run]
 events-local:
 	docker compose exec php php bin/console goveo:events:scrape --city=$(or $(CITY),Madrid) $(ARGS)

@@ -1480,7 +1480,8 @@ Hoy sólo las tiene Eventos (migración `Version20260926090000`), un nivel:
 `events-small-concerts` Conciertos pequeños · `events-nightlife` Noche y fiesta · `events-stage`
 Escena · `events-flamenco` Flamenco · `events-art` Arte y exposiciones · `events-markets` Mercados
 y ferias · `events-festivities` Fiestas populares (era «Fiestas de Madrid» hasta el 05-10-2026) · `events-experiences` Planes y experiencias ·
-`events-kids` Niños · `events-other` Otros. El `name` es la clave de traducción `category.<slug>`,
+`events-kids` Niños · `events-other` Otros. Desde el 12-10-2026 también `events-sport` Deporte y
+`events-talks` Charlas y conferencias (ver «Cartelera de El Corte Inglés»). El `name` es la clave de traducción `category.<slug>`,
 como el resto, **salvo Niños** (04-10-2026, `Version20261004100000`), que va con el nombre en español:
 la app publicada no tiene esa traducción y pintaría el slug. Sus subniveles: teatro y títeres,
 talleres, cuentacuentos y planes en familia. El Ayuntamiento manda ahí lo que su `audience` dice
@@ -1875,6 +1876,45 @@ Como cron **del servidor** (*Server → Schedules* o `crontab`) sí haría falta
 del proyecto: `docker compose -f docker-compose.prod.yml exec -T php php bin/console …`. El `-T` es
 obligatorio: un cron no tiene terminal y `exec` sin él falla. Se prefiere la del Compose: no depende
 de dónde deje Dokploy la carpeta y los logs de cada ejecución se ven en el propio panel.
+
+### Cartelera de El Corte Inglés (feed de Awin)
+
+(12-10-2026) `goveo:events:import-awin <csv>` importa la cartelera de **Ticketing El Corte Inglés**
+desde el CSV del feed de productos de Awin, con el **enlace de afiliado** (`aw_deep_link`, acción
+`buy`): la compra lleva comisión. No es una web, es un fichero que se baja del panel de Awin, así que
+la fuente ([`AwinElCorteInglesSource`](src/EventScraping/Infrastructure/Source/AwinElCorteInglesSource.php))
+no se registra con las demás (`#[Exclude]`): la crea el comando con la ruta. `external_ref` =
+`elcorteingles:<merchant_product_id>`, así que repetirlo con un CSV nuevo no duplica y alarga lo que
+prorroga.
+
+En producción: `make awin CSV=~/Desktop/eci.csv ARGS=--dry-run` y luego sin `ARGS`
+([`bin/goveo-awin`](bin/goveo-awin) sube el CSV al contenedor, lo lanza y lo borra). En local,
+`make awin-local CSV=var/tmp/eci.csv`.
+
+Decidido con el usuario:
+
+- **Todo lo que viene**, sin la ventana de jueves a sábado ni los 60 días (hasta tres años).
+- **Toda España**; lo de fuera, fuera. Cada evento va al negocio de su sala si está en Goveo y, si
+  no, a la Agenda de su ciudad. No crea salas (el feed no trae web ni logo).
+- **Sin dirección que valga, fuera**: sin ciudad o coordenadas, fuera de España, o a más de 40 km de
+  la mediana de su ciudad. ⚠️ El feed trae coordenadas mal (Sala Mirari de Málaga en Castellón,
+  Badajoz en la latitud 29); el corte se lleva también 3 buenos que dan la provincia como ciudad.
+- **Sólo días, sin hora**: del próximo pase al último, días enteros, como el Calderón.
+- **Sin cartel** (su imagen `…/assets/missing/…`) o con uno que no se puede leer: entra con
+  [`resources/events/cartel-no-disponible.jpg`](resources/events/cartel-no-disponible.jpg)
+  (`EventImporter::run(…, $placeholder)`; las demás fuentes siguen sin dejar entrar lo que no tiene
+  imagen). De entradas.plus se pide `l_poster` (800×1200) en vez de `m_poster` si existe.
+- **Duplicados: se queda el que estaba y se le cambia el enlace** por el de afiliado
+  ([`AffiliateRelinker`](src/EventScraping/Application/AffiliateRelinker.php)): otro importado
+  (`external_ref`; lo que sube un negocio no se toca), a ≤ 1 km, con fechas que se pisan y el mismo
+  título por palabras (vale que uno contenga al otro con dos o más). Lleva `meta.link_partner = awin`.
+  En la primera prueba casaron 39, casi todos de Lara, Pavón, ATG y el Auditorio.
+- **Tipo y subnivel por su categoría** (`AwinElCorteInglesSource::TYPES`). Para esto se crearon
+  (`Version20261012100000`) los tipos **Deporte** (Fútbol, Motor, Deportes de contacto, Carreras
+  populares, Tours de estadio) y **Charlas y conferencias**, y los subniveles Conciertos ›
+  **Festivales** y › **Grandes conciertos** (por el recinto: estadios, pabellones, arenas), Niños ›
+  **Parques y zoos** y Planes › **Espectáculos ecuestres** y › **Escape rooms**. Entran también las
+  atracciones fijas (Bioparc, museos), que en el scraping se dejan fuera.
 
 ## Subida de vídeos a Bunny Stream (GeoStories)
 
