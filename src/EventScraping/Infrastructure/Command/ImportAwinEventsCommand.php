@@ -29,6 +29,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *     php bin/console goveo:events:import-awin --dry-run          # el feed de AWIN_ECI_FEED_URL
  *     php bin/console goveo:events:import-awin 'https://productdata.awin.com/…'
  *     php bin/console goveo:events:import-awin /tmp/eci.csv
+ *     php bin/console goveo:events:import-awin --province=all   # toda España
+ *
+ * **Por ahora sólo la provincia de Madrid** (`--province`, Madrid por defecto).
  *
  * Lo normal es **sin argumento**: descarga el feed de la URL de Awin guardada en
  * `AWIN_ECI_FEED_URL` (lleva la clave de la cuenta: va en el entorno, no en el
@@ -76,6 +79,7 @@ final class ImportAwinEventsCommand extends Command
     {
         $this
             ->addArgument('csv', InputArgument::OPTIONAL, 'El CSV del feed de Awin, o su URL de descarga. Sin él, AWIN_ECI_FEED_URL.')
+            ->addOption('province', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sólo estas provincias; «all», toda España. Por ahora, Madrid.', ['Madrid'])
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Máximo de eventos nuevos.', '3000')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Enseña lo que haría sin subir ni guardar nada.')
             ->addOption('details', null, InputOption::VALUE_NONE, 'Lista también los descartados y por qué.');
@@ -100,7 +104,10 @@ final class ImportAwinEventsCommand extends Command
                 return Command::FAILURE;
             }
         }
-        $source  = new AwinElCorteInglesSource($csv, $this->web);
+        // Por ahora sólo Madrid (decisión del usuario, 12-10-2026): el feed trae
+        // toda España.
+        $provinces = array_values(array_filter((array) $input->getOption('province'), fn ($p) => $p !== '' && strtolower($p) !== 'all'));
+        $source    = new AwinElCorteInglesSource($csv, $this->web, $provinces);
         $window  = EventWindow::nextDays(self::HORIZON_DAYS, [1, 2, 3, 4, 5, 6, 7]);
 
         $placeholder = @file_get_contents($this->projectDir . self::PLACEHOLDER);

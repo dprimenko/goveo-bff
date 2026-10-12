@@ -134,9 +134,16 @@ final class AwinElCorteInglesSource implements EventSource
     /** @var array<string, int> Descartes del fichero, por motivo. */
     private array $discarded = [];
 
+    /**
+     * @param list<string> $provinces Sólo estas provincias («Madrid»: la capital
+     *                                y su comunidad —Las Rozas, Leganés…—, como
+     *                                la agenda de Madrid del scraping). Vacía,
+     *                                toda España.
+     */
     public function __construct(
         private readonly string $csvPath,
         private readonly WebPage $web,
+        private readonly array $provinces = [],
     ) {}
 
     public function name(): string
@@ -233,6 +240,13 @@ final class AwinElCorteInglesSource implements EventSource
         $country = self::fixEncoding(trim($row['Tickets:event_location_country'] ?? '') ?: trim($address[3] ?? ''));
         if ($country !== 'España') {
             $this->discard('fuera de España');
+
+            return null;
+        }
+
+        $province = self::fixEncoding(trim($row['Tickets:event_location_region'] ?? '') ?: trim($address[2] ?? ''));
+        if ($this->provinces !== [] && !in_array(self::key($province), array_map(self::key(...), $this->provinces), true)) {
+            $this->discard('fuera de ' . implode(', ', $this->provinces));
 
             return null;
         }
@@ -365,6 +379,14 @@ final class AwinElCorteInglesSource implements EventSource
         $city = trim(explode('/', $city)[0]);
 
         return trim((string) preg_replace(array_keys(self::CITY_FIXES), array_values(self::CITY_FIXES), $city));
+    }
+
+    /** Para comparar provincias: sin tildes, mayúsculas ni la otra lengua («Valencia/València»). */
+    private static function key(string $name): string
+    {
+        $name = mb_strtolower(trim(explode('/', $name)[0]));
+
+        return strtr($name, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n', 'à' => 'a', 'è' => 'e', 'ò' => 'o']);
     }
 
     /** El feed las da como `2.16794""`. */

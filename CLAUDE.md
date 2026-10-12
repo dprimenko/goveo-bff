@@ -1899,8 +1899,10 @@ Desde el Mac, con un CSV bajado a mano: `make awin CSV=~/Desktop/eci.csv ARGS=--
 
 Decidido con el usuario:
 
+- **Por ahora sólo la provincia de Madrid** (`--province`, `Madrid` por defecto; `--province=all` para
+  toda España): la capital y la comunidad, como la agenda de Madrid del scraping. Unos 550 eventos.
 - **Todo lo que viene**, sin la ventana de jueves a sábado ni los 60 días (hasta tres años).
-- **Toda España**; lo de fuera, fuera. Cada evento va al negocio de su sala si está en Goveo y, si
+- Lo de fuera de España, fuera. Cada evento va al negocio de su sala si está en Goveo y, si
   no, a la Agenda de su ciudad. No crea salas (el feed no trae web ni logo).
 - **Sin dirección que valga, fuera**: sin ciudad o coordenadas, fuera de España, o a más de 40 km de
   la mediana de su ciudad. ⚠️ El feed trae coordenadas mal (Sala Mirari de Málaga en Castellón,
