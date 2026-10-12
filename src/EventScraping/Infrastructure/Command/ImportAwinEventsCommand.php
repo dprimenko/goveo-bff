@@ -26,17 +26,17 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * Importa la cartelera de Ticketing El Corte Inglés desde el CSV del feed de
  * productos de Awin, con el enlace de afiliado:
  *
- *     php bin/console goveo:events:import-awin --dry-run          # el feed de AWIN_ECI_FEED_URL
+ *     php bin/console goveo:events:import-awin --dry-run          # descarga el feed con AWIN_API_KEY
  *     php bin/console goveo:events:import-awin 'https://productdata.awin.com/…'
  *     php bin/console goveo:events:import-awin /tmp/eci.csv
  *     php bin/console goveo:events:import-awin --province=all   # toda España
  *
  * **Por ahora sólo la provincia de Madrid** (`--province`, Madrid por defecto).
  *
- * Lo normal es **sin argumento**: descarga el feed de la URL de Awin guardada en
- * `AWIN_ECI_FEED_URL` (lleva la clave de la cuenta: va en el entorno, no en el
- * repositorio). Así se lanza desde la terminal o los Schedules de Dokploy sin
- * tener que subir un fichero al contenedor. Admite el CSV en claro o en gzip.
+ * Lo normal es **sin argumento**: monta el enlace de descarga del feed con la
+ * clave de la cuenta (`AWIN_API_KEY`, en el entorno, no en el repositorio) y lo
+ * descarga. Así se lanza desde la terminal o los Schedules de Dokploy sin tener
+ * que subir un fichero al contenedor. Admite el CSV en claro o en gzip.
  *
  * Entra **todo lo que viene**, sin la ventana de jueves a sábado del scraping
  * (decisión del usuario, 12-10-2026), sin validar, como el resto de lo
@@ -56,6 +56,18 @@ final class ImportAwinEventsCommand extends Command
     /** Cartel para lo que llega sin imagen. */
     private const PLACEHOLDER = '/resources/events/cartel-no-disponible.jpg';
 
+    /** El feed de Ticketing El Corte Inglés en Awin. */
+    private const FEED_ID = 63703;
+
+    /**
+     * Sólo las columnas que lee `AwinElCorteInglesSource`: el enlace de Awin con
+     * todas las del feed pasaba de dos mil caracteres y bajaba lo que no se usa.
+     */
+    private const COLUMNS = ['aw_deep_link', 'product_name', 'aw_product_id', 'merchant_product_id', 'merchant_image_url',
+        'description', 'merchant_category', 'merchant_name', 'merchant_deep_link', 'merchant_product_second_category',
+        'Tickets:event_date', 'Tickets:venue_name', 'Tickets:venue_address', 'Tickets:longitude', 'Tickets:latitude',
+        'Tickets:event_location_city', 'Tickets:event_location_region', 'Tickets:event_location_country'];
+
     /** El feed entero son unos 3,5 MB; con margen por si crece. */
     private const MAX_FEED_BYTES = 200 * 1024 * 1024;
 
@@ -69,8 +81,8 @@ final class ImportAwinEventsCommand extends Command
         private readonly Connection $db,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
-        #[Autowire('%env(AWIN_ECI_FEED_URL)%')]
-        private readonly string $feedUrl,
+        #[Autowire('%env(AWIN_API_KEY)%')]
+        private readonly string $apiKey,
     ) {
         parent::__construct();
     }
@@ -78,7 +90,7 @@ final class ImportAwinEventsCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('csv', InputArgument::OPTIONAL, 'El CSV del feed de Awin, o su URL de descarga. Sin él, AWIN_ECI_FEED_URL.')
+            ->addArgument('csv', InputArgument::OPTIONAL, 'El CSV del feed de Awin, o su URL de descarga. Sin él, se descarga con AWIN_API_KEY.')
             ->addOption('province', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Sólo estas provincias; «all», toda España. Por ahora, Madrid.', ['Madrid'])
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Máximo de eventos nuevos.', '3000')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Enseña lo que haría sin subir ni guardar nada.')
@@ -90,9 +102,9 @@ final class ImportAwinEventsCommand extends Command
         $io      = new SymfonyStyle($input, $output);
         $dryRun  = (bool) $input->getOption('dry-run');
         $details = (bool) $input->getOption('details');
-        $csv     = (string) ($input->getArgument('csv') ?? '') ?: $this->feedUrl;
+        $csv     = (string) ($input->getArgument('csv') ?? '') ?: $this->feedUrl();
         if ($csv === '') {
-            $io->error('Falta el CSV: pásalo como argumento o pon AWIN_ECI_FEED_URL.');
+            $io->error('Falta el CSV: pásalo como argumento o pon AWIN_API_KEY.');
 
             return Command::INVALID;
         }
@@ -170,6 +182,21 @@ final class ImportAwinEventsCommand extends Command
         $io->writeln('  ' . ($counts === [] ? 'nada' : implode(' · ', array_map(fn ($k, $v) => "{$k}: {$v}", array_keys($counts), $counts))));
 
         return Command::SUCCESS;
+    }
+
+    /** El enlace de descarga del feed, como lo genera Create-a-Feed de Awin. Vacío sin clave. */
+    private function feedUrl(): string
+    {
+        if (trim($this->apiKey) === '') {
+            return '';
+        }
+
+        return sprintf(
+            'https://productdata.awin.com/datafeed/download/apikey/%s/language/es/fid/%d/rid/0/hasEnhancedFeeds/0/columns/%s/format/csv/delimiter/%%2C/compression/gzip/adultcontent/1/',
+            rawurlencode(trim($this->apiKey)),
+            self::FEED_ID,
+            implode(',', array_map('rawurlencode', self::COLUMNS)),
+        );
     }
 
     /** El feed a un fichero temporal, descomprimido si viene en gzip. */

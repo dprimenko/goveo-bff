@@ -1887,11 +1887,11 @@ no se registra con las demás (`#[Exclude]`): la crea el comando con la ruta. `e
 `elcorteingles:<merchant_product_id>`, así que repetirlo con un CSV nuevo no duplica y alarga lo que
 prorroga.
 
-**Desde Dokploy** (lo normal): la URL de descarga del feed (Awin → Toolbox → Create-a-Feed; lleva la
-clave de la cuenta) va en la variable `AWIN_ECI_FEED_URL` del Compose, y el comando **sin argumento**
-la descarga (CSV en claro o gzip): terminal del contenedor `php` o una tarea de *Schedules* con
-`php bin/console goveo:events:import-awin` (con `--dry-run` para probar). También acepta una URL o
-una ruta como argumento.
+**Desde Dokploy** (lo normal): la clave de la API de Awin (la que va en el enlace de Create-a-Feed,
+tras `/apikey/`) en la variable `AWIN_API_KEY` del Compose, y el comando **sin argumento** monta el
+enlace del feed 63703 con sólo las columnas que lee (`COLUMNS`) y lo descarga en gzip: terminal del
+contenedor `php` o una tarea de *Schedules* con `php bin/console goveo:events:import-awin` (con
+`--dry-run` para probar). También acepta una URL o una ruta como argumento.
 
 Desde el Mac, con un CSV bajado a mano: `make awin CSV=~/Desktop/eci.csv ARGS=--dry-run` y luego sin `ARGS`
 ([`bin/goveo-awin`](bin/goveo-awin) sube el CSV al contenedor, lo lanza y lo borra). En local,
