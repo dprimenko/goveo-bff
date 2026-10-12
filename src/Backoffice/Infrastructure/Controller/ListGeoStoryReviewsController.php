@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Backoffice\Infrastructure\Controller;
 
+use App\Backoffice\Application\GeoStoryPlaces;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -63,6 +64,7 @@ class ListGeoStoryReviewsController
 
     public function __construct(
         private readonly Connection $db,
+        private readonly GeoStoryPlaces $places,
     ) {}
 
     public function __invoke(Request $request): Response
@@ -150,6 +152,7 @@ class ListGeoStoryReviewsController
                     g.status, g.media_type, g.meta, g.likes, g.views, g.external_ref,
                     ST_Y(g.location::geometry) AS lat, ST_X(g.location::geometry) AS lng,
                     b.meta->>'address' AS business_address,
+                    b.city AS business_city, b.meta->>'postal_code' AS business_postal_code,
                     g.created_at, g.verified_at, g.deleted_at, g.started_at, g.ended_at,
                     c.slug AS category_slug, c.name AS category_name,
                     sc.id AS subcategory_id, sc.slug AS subcategory_slug, sc.name AS subcategory_name,
@@ -163,8 +166,11 @@ class ListGeoStoryReviewsController
             [...$params, $size, ($page - 1) * $size],
         );
 
+        // Código postal y municipio de cada uno (ver `GeoStoryPlaces`).
+        $places = $this->places->forRows($rows);
+
         return new JsonResponse([
-            'items' => array_map([$this, 'toItem'], $rows),
+            'items' => array_map(fn (array $row) => $this->toItem($row) + ['place' => $places[(string) $row['id']] ?? null], $rows),
             'total' => $total,
             'page'  => $page,
             'size'  => $size,

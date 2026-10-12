@@ -240,6 +240,11 @@ services:
         arguments:
             $apiKey: '%env(GOOGLE_MAPS_API_KEY)%'
 
+    # Código postal y municipio de cada vídeo en el listado del panel.
+    App\GeoStories\Infrastructure\Geocoding\GooglePlaceLookup:
+        arguments:
+            $apiKey: '%env(GOOGLE_MAPS_API_KEY)%'
+
     # Dirección de los eventos importados sin ella, por sus coordenadas.
     App\EventScraping\Infrastructure\Command\FillEventAddressesCommand:
         arguments:

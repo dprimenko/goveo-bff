@@ -1219,6 +1219,15 @@ el vídeo no sea suyo.
 
 ### Cola de vídeos
 
+**Dónde es cada uno** (12-10-2026): cada elemento trae `place {postal_code, city}` —«28901 Getafe»,
+no «Madrid» para toda la comunidad—. Lo saca [`GeoStoryPlaces`](src/Backoffice/Application/GeoStoryPlaces.php)
+de las coordenadas **del vídeo** con la geocodificación inversa de Google (`GooglePlaceLookup`, una
+llamada por punto y todas en paralelo, `GOOGLE_MAPS_API_KEY`) y lo guarda en `meta.place` **con las
+coordenadas con que se calculó**: si el vídeo se mueve, ya no coinciden y se recalcula solo. Se
+calcula **al listar** y sólo lo que falta de la página (~0,5 s la primera vez, nada después). Sin
+coordenadas propias, o sin clave (en local puede no haberla), los del negocio (`city` y
+`meta.postal_code`). El filtro de ciudad sigue siendo el del negocio.
+
 `GET /api/admin/geostories?status=pending|published|removed&q=&page=&size=` y
 `PUT /api/admin/geostories/{id}/{approve|reject}`, bajo `ROLE_GEOSTORY_MODERATE`.
 
