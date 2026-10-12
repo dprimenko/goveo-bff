@@ -26,8 +26,14 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  * Importa la cartelera de Ticketing El Corte Inglés desde el CSV del feed de
  * productos de Awin, con el enlace de afiliado:
  *
- *     php bin/console goveo:events:import-awin /tmp/eci.csv --dry-run
+ *     php bin/console goveo:events:import-awin --dry-run          # el feed de AWIN_ECI_FEED_URL
+ *     php bin/console goveo:events:import-awin 'https://productdata.awin.com/…'
  *     php bin/console goveo:events:import-awin /tmp/eci.csv
+ *
+ * Lo normal es **sin argumento**: descarga el feed de la URL de Awin guardada en
+ * `AWIN_ECI_FEED_URL` (lleva la clave de la cuenta: va en el entorno, no en el
+ * repositorio). Así se lanza desde la terminal o los Schedules de Dokploy sin
+ * tener que subir un fichero al contenedor. Admite el CSV en claro o en gzip.
  *
  * Entra **todo lo que viene**, sin la ventana de jueves a sábado del scraping
  * (decisión del usuario, 12-10-2026), sin validar, como el resto de lo
@@ -47,6 +53,9 @@ final class ImportAwinEventsCommand extends Command
     /** Cartel para lo que llega sin imagen. */
     private const PLACEHOLDER = '/resources/events/cartel-no-disponible.jpg';
 
+    /** El feed entero son unos 3,5 MB; con margen por si crece. */
+    private const MAX_FEED_BYTES = 200 * 1024 * 1024;
+
     /** «Todo lo que viene»: tres años da de sobra para cualquier gira anunciada. */
     private const HORIZON_DAYS = 3 * 366;
 
@@ -57,6 +66,8 @@ final class ImportAwinEventsCommand extends Command
         private readonly Connection $db,
         #[Autowire('%kernel.project_dir%')]
         private readonly string $projectDir,
+        #[Autowire('%env(AWIN_ECI_FEED_URL)%')]
+        private readonly string $feedUrl,
     ) {
         parent::__construct();
     }
@@ -64,7 +75,7 @@ final class ImportAwinEventsCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('csv', InputArgument::REQUIRED, 'El CSV del feed de Awin.')
+            ->addArgument('csv', InputArgument::OPTIONAL, 'El CSV del feed de Awin, o su URL de descarga. Sin él, AWIN_ECI_FEED_URL.')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Máximo de eventos nuevos.', '3000')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Enseña lo que haría sin subir ni guardar nada.')
             ->addOption('details', null, InputOption::VALUE_NONE, 'Lista también los descartados y por qué.');
@@ -75,7 +86,21 @@ final class ImportAwinEventsCommand extends Command
         $io      = new SymfonyStyle($input, $output);
         $dryRun  = (bool) $input->getOption('dry-run');
         $details = (bool) $input->getOption('details');
-        $source  = new AwinElCorteInglesSource((string) $input->getArgument('csv'), $this->web);
+        $csv     = (string) ($input->getArgument('csv') ?? '') ?: $this->feedUrl;
+        if ($csv === '') {
+            $io->error('Falta el CSV: pásalo como argumento o pon AWIN_ECI_FEED_URL.');
+
+            return Command::INVALID;
+        }
+        if (preg_match('#^https?://#i', $csv) === 1) {
+            $csv = $this->download($csv);
+            if ($csv === null) {
+                $io->error('No se pudo descargar el feed de Awin' . (($why = $this->web->lastError()) !== null ? ": {$why}" : ''));
+
+                return Command::FAILURE;
+            }
+        }
+        $source  = new AwinElCorteInglesSource($csv, $this->web);
         $window  = EventWindow::nextDays(self::HORIZON_DAYS, [1, 2, 3, 4, 5, 6, 7]);
 
         $placeholder = @file_get_contents($this->projectDir . self::PLACEHOLDER);
@@ -138,6 +163,27 @@ final class ImportAwinEventsCommand extends Command
         $io->writeln('  ' . ($counts === [] ? 'nada' : implode(' · ', array_map(fn ($k, $v) => "{$k}: {$v}", array_keys($counts), $counts))));
 
         return Command::SUCCESS;
+    }
+
+    /** El feed a un fichero temporal, descomprimido si viene en gzip. */
+    private function download(string $url): ?string
+    {
+        $body = $this->web->get($url, self::MAX_FEED_BYTES, 120);
+        if ($body === null) {
+            return null;
+        }
+        if (str_starts_with($body, "\x1f\x8b")) {
+            $body = gzdecode($body);
+            if ($body === false) {
+                return null;
+            }
+        }
+
+        $path = tempnam(sys_get_temp_dir(), 'awin');
+        file_put_contents($path, $body);
+        register_shutdown_function(static fn () => @unlink($path));
+
+        return $path;
     }
 
     /** @return array<string, true> ids de El Corte Inglés ya importados (también los descartados) */

@@ -24,6 +24,10 @@ parameters:
     # Es el mismo enlace de Branch que usa la web para ofrecer la descarga.
     env(APP_LINK_URL): 'https://links.goveo.app/1GHor7ffjWb'
 
+    # URL de descarga del feed de El Corte Inglés en Awin (Toolbox → Create-a-Feed),
+    # para `goveo:events:import-awin` sin argumento. Lleva la clave de la cuenta.
+    env(AWIN_ECI_FEED_URL): ''
+
     env(GOOGLE_ALLOWED_AUDIENCES): ''
     env(APPLE_ALLOWED_AUDIENCES): ''
 
