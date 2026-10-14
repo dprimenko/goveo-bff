@@ -29,6 +29,16 @@ abstract class TribeEventsSource implements EventSource
         return 'Madrid';
     }
 
+    /**
+     * El municipio de la sala, que es la ciudad del evento y en la que se busca
+     * su negocio: la agenda (`city()`) es Madrid también para un teatro de la
+     * región, que es con lo que la lanza el cron.
+     */
+    protected function municipality(): string
+    {
+        return $this->city();
+    }
+
     /** La web, sin barra final: `https://salariviera.com`. */
     abstract protected function site(): string;
 
@@ -95,7 +105,7 @@ abstract class TribeEventsSource implements EventSource
                     title: $title,
                     start: $start,
                     end: $end,
-                    city: $this->city(),
+                    city: $this->municipality(),
                     venueName: $venue['name'],
                     latitude: $venue['lat'],
                     longitude: $venue['lng'],
@@ -129,7 +139,7 @@ abstract class TribeEventsSource implements EventSource
             source: $this->name(),
             externalId: 'venue',
             name: $venue['name'],
-            city: $this->city(),
+            city: $this->municipality(),
             categorySlug: $venue['category'],
             latitude: $venue['lat'],
             longitude: $venue['lng'],

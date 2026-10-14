@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\EventScraping\Infrastructure\Source;
 
+use App\EventScraping\Application\KidsKind;
 use App\EventScraping\Domain\ScrapedEvent;
 use App\EventScraping\Domain\ScrapedVenue;
 
@@ -122,23 +123,12 @@ abstract class MunicipalJsonLdSource extends JsonLdEventSource
     }
 
     /**
-     * Tipo para lo que es de niños, o nulo: «infantil», «familiar», una edad
-     * recomendada baja, títeres, cuentacuentos.
+     * Tipo para lo que es de niños, o nulo (ver `KidsKind`).
      *
      * @return array{0: string, 1: string}|null
      */
     protected function kids(string $text): ?array
     {
-        $text = mb_strtolower($text);
-        if (!preg_match('/infantil|familiar|en familia|beb[eé]s|ni[nñ]os|peques|t[ií]teres|marionetas|cuentacuentos|a partir de [1-9] a[nñ]os|de [0-9] a 1?[0-9] a[nñ]os/u', $text)) {
-            return null;
-        }
-
-        return match (true) {
-            (bool) preg_match('/cuentacuentos|cuentos?\b/u', $text)                 => ['events-kids', 'events-kids-storytelling'],
-            (bool) preg_match('/\btaller/u', $text)                                 => ['events-kids', 'events-kids-workshops'],
-            (bool) preg_match('/teatro|t[ií]teres|marionetas|circo|magia|musical/u', $text) => ['events-kids', 'events-kids-theater'],
-            default                                                                  => ['events-kids', 'events-kids-family-plans'],
-        };
+        return KidsKind::of($text);
     }
 }

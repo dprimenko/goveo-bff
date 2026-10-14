@@ -17,7 +17,9 @@ final class Html
         $doc = new \DOMDocument();
         // Sin la declaración, libxml lee el documento como Latin-1 y las tildes
         // salen rotas.
-        @$doc->loadHTML('<?xml encoding="UTF-8">' . $html, \LIBXML_NOERROR | \LIBXML_NOWARNING);
+        // Un byte nulo corta el documento ahí, sin error: Boadilla lleva uno a
+        // mitad de página y sólo se leía lo de antes (el lateral).
+        @$doc->loadHTML('<?xml encoding="UTF-8">' . str_replace("\0", '', $html), \LIBXML_NOERROR | \LIBXML_NOWARNING);
 
         return new \DOMXPath($doc);
     }

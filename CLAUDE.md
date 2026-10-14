@@ -1746,12 +1746,21 @@ la Red de Teatros fallaron en producción y desde local respondían bien).
 | `wurlitzer`, `intruso-bar` | fichas con datos estructurados; JSON de su propio backend (~2,5 MB) | El cartel del Wurlitzer caduca a las 24 h: sirve porque se descarga en la pasada. |
 | `zielo`, `zoo-madrid`, `museo-ilusiones`, `tren-felipe-ii`, `tren-de-la-fresa` | talleres y actividades con fecha, no la atracción | Todo a Niños. Fechas en texto: frágiles. |
 | `shoko`, `specka`, `mondo-disko`, `fabrik` | Shopify, datos estructurados, HTML, API propia | Fabrik está en Humanes y la terraza de Mondo en Alcorcón: van con su municipio, pero son de la agenda de Madrid (`city()`), que es con lo que las lanza el cron. |
+| `alpedrete`, `villalbilla`, `moralzarzal`, `boadilla` | agendas municipales, **sólo lo de niños** (base `MunicipalAgendaSource`): iCal; API de The Events Calendar; RSS + datos estructurados del mes (Modern Events Calendar); listado infantil + iCal de cada ficha | Del Excel de niños (14-10-2026). Sin dar de alta salas: a la Agenda de su municipio, o al negocio si ya existe. Villalbilla trae caracteres de control en el JSON. El RSS de Moralzarzal ignora `?paged=` (siempre los diez próximos). Boadilla lleva un byte nulo en la página (lo quita `Html::xpath`). |
+| `teatro-escorial` | API de The Events Calendar | Toda la cartelera; `municipality()` de `TribeEventsSource` pone el evento en San Lorenzo de El Escorial. |
 
 Añadir una sala es añadir una clase que implemente `EventSource`: se registra sola por la etiqueta.
 Hay dos bases para no leer maquetas: **`JsonLdEventSource`** (webs con datos `schema.org/Event`, lo
 que lee Google) y **`TribeEventsSource`** (WordPress con The Events Calendar); con ellas una sala
 es sólo su configuración —dónde, qué sala, qué tipo—. Las coordenadas de las salas se sacaron una
 vez con la geocodificación de Google y van fijas en cada clase.
+
+Las **agendas de ayuntamiento** van por **`MunicipalAgendaSource`**: lo mezclan todo (plenos, talleres
+de mayores, la feria taurina), así que sólo entra lo que [`KidsKind`](src/EventScraping/Application/KidsKind.php)
+reconoce como infantil —por el título y la categoría; la descripción, sólo si la web no da categoría,
+porque la de una charla para padres habla de niños sin serlo—. Lo que es por internet («Online») no
+entra. iCal, con [`ICal`](src/EventScraping/Infrastructure/ICal.php) (Siroco, Sala El Sol y
+Fundación Telefónica llevan aún su copia).
 
 - **Lo ya importado se alarga, no se duplica**: si la fuente da un fin posterior al guardado (un
   espectáculo que prorroga, uno diario sin fin anunciado), la pasada le alarga `ended_at`. Sólo
@@ -1774,7 +1783,8 @@ vez con la geocodificación de Google y van fijas en cada clase.
   está en Fourvenues), Gabana (carteles fijos por día de la semana, sin fechas), Cadavra (sin cartel
   ni hora en su web: está en RA y DICE). Del Excel de octubre (04-10-2026): La Casa Encendida, La
   Fiambrera y Mercado de Diseño (antibots), Getafe (su web no manda el certificado intermedio de la
-  FNMT: haría falta añadirlo a la imagen; su teatro entra por la Red), atracciones permanentes sin
+  FNMT: haría falta añadirlo a la imagen; su teatro entra por la Red. ⚠️ El Teatro Auditorio de Alcobendas,
+  igual con DigiCert), atracciones permanentes sin
   actividades con fecha (IKONO, Museo de la Luz, Nomad, Sweet Space, WAH, SENSAS, escape rooms,
   Faunia, Micropolix…), webs cerradas o inexistentes (una docena entre colectivos, talleres y
   librerías) y agendas que sólo están en PDF o Instagram (Red Itiner, Mad Improv). **No se leen
