@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace App\Tests\Backoffice;
 
 use App\Backoffice\Application\ReviewQueueNotifier;
+use App\Business\Domain\Business;
 use App\GeoStories\Domain\GeoStory;
 use Doctrine\DBAL\Connection;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Symfony\Component\Mailer\Envelope;
 use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\Mime\RawMessage;
 
 /**
@@ -66,15 +68,68 @@ final class ReviewQueueNotifierTest extends TestCase
         self::assertSame(0, $mailer->sent);
     }
 
-    private function notifier(MailerInterface $mailer, string $address = 'hola@goveo.app'): ReviewQueueNotifier
+    public function testANewBusinessSaysWhichPlanItChose(): void
     {
+        // Para validar un alta hay que saber qué ha contratado: no se mira
+        // igual una ficha gratuita que una que ha pagado un año.
+        $mailer = new SpyMailer();
+        $db     = $this->createStub(Connection::class);
+        $db->method('fetchAssociative')->willReturn(
+            ['name' => 'PREMIUM · Semestral', 'amount_cents' => 18900, 'promo' => 'FERIA26'],
+        );
+
+        $this->notifier($mailer, db: $db)->businessPendingReview($this->business());
+
+        self::assertStringContainsString('Tarifa:    PREMIUM · Semestral, 189,00 € (código FERIA26)', $mailer->text);
+    }
+
+    public function testAFreePlanSaysSo(): void
+    {
+        $mailer = new SpyMailer();
+        $db     = $this->createStub(Connection::class);
+        $db->method('fetchAssociative')->willReturn(['name' => 'FREE · Mensual', 'amount_cents' => 0, 'promo' => null]);
+
+        $this->notifier($mailer, db: $db)->businessPendingReview($this->business());
+
+        self::assertStringContainsString('Tarifa:    FREE · Mensual, gratis', $mailer->text);
+    }
+
+    public function testTheNoticeGoesOutEvenIfThePlanCannotBeRead(): void
+    {
+        // Un alta cobrada no puede quedarse sin aviso por no saber la tarifa.
+        $mailer = new SpyMailer();
+        $db     = $this->createStub(Connection::class);
+        $db->method('fetchAssociative')->willThrowException(new \RuntimeException('sin base'));
+
+        $this->notifier($mailer, db: $db)->businessPendingReview($this->business());
+
+        self::assertSame(1, $mailer->sent);
+        self::assertStringContainsString('Tarifa:    —', $mailer->text);
+    }
+
+    private function notifier(
+        MailerInterface $mailer,
+        string $address = 'hola@goveo.app',
+        ?Connection $db = null,
+    ): ReviewQueueNotifier {
         return new ReviewQueueNotifier(
             $mailer,
-            $this->createStub(Connection::class),
+            $db ?? $this->createStub(Connection::class),
             new NullLogger(),
             'noreply@goveo.app',
             $address,
             'https://admin.goveo.app',
+        );
+    }
+
+    private function business(): Business
+    {
+        return new Business(
+            id: 'negocio-1',
+            slug: 'la-tienda',
+            categoryId: 'categoria-1',
+            creatorId: 'usuario-1',
+            name: 'La Tienda',
         );
     }
 
@@ -94,9 +149,11 @@ final class ReviewQueueNotifierTest extends TestCase
 final class SpyMailer implements MailerInterface
 {
     public int $sent = 0;
+    public string $text = '';
 
     public function send(RawMessage $message, ?Envelope $envelope = null): void
     {
         ++$this->sent;
+        $this->text = $message instanceof Email ? (string) $message->getTextBody() : '';
     }
 }

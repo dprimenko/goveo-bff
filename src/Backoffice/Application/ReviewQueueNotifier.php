@@ -59,6 +59,7 @@ final class ReviewQueueNotifier
                 'Ha entrado un negocio nuevo en la cola de validación.',
                 '',
                 sprintf('Negocio:   %s', $business->getName() ?? '(sin nombre)'),
+                sprintf('Tarifa:    %s', $this->planSummary($business->getId()) ?? '—'),
                 sprintf('Enlace:    %s', $business->getSlug()),
                 sprintf('Dirección: %s', $meta['address'] ?? '—'),
                 sprintf('Teléfono:  %s', $meta['public_phone'] ?? ($billing['phone'] ?? '—')),
@@ -241,6 +242,52 @@ final class ReviewQueueNotifier
         }
 
         return null;
+    }
+
+    /**
+     * La tarifa que ha elegido, con lo que paga: «PREMIUM · Semestral, 189,00 €».
+     *
+     * Se saca de la suscripción y no de quien avisa porque al aviso se llega por
+     * dos caminos —el alta gratuita y el webhook de Stripe— y sólo el primero
+     * tiene la tarifa a mano. Lo que paga es el importe de la suscripción, que
+     * con un código promocional no es el de la tarifa; si lo lleva, se dice cuál.
+     *
+     * La más reciente sin cancelar: la gratuita que tuviera antes se cancela al
+     * pagar la nueva. Un fallo aquí deja «—», nunca el correo sin mandar.
+     */
+    private function planSummary(string $businessId): ?string
+    {
+        try {
+            $row = $this->db->fetchAssociative(
+                <<<'SQL'
+                    SELECT p.name, COALESCE(s.amount_cents, p.amount_cents) AS amount_cents, pc.code AS promo
+                      FROM business_subscriptions s
+                      JOIN billing_plans p ON p.id = s.billing_plan_id
+                      LEFT JOIN promo_codes pc ON pc.id = s.promo_code_id
+                     WHERE s.business_id = ? AND s.status <> 'cancelled'
+                     ORDER BY s.created_at DESC
+                     LIMIT 1
+                    SQL,
+                [$businessId],
+            );
+        } catch (\Throwable $e) {
+            $this->logger->warning('Aviso de negocio sin tarifa: {message}', ['message' => $e->getMessage()]);
+
+            return null;
+        }
+
+        if ($row === false) {
+            return null;
+        }
+
+        $amount = (int) $row['amount_cents'];
+
+        return sprintf(
+            '%s, %s%s',
+            $row['name'],
+            $amount === 0 ? 'gratis' : number_format($amount / 100, 2, ',', '.') . ' €',
+            $row['promo'] !== null ? sprintf(' (código %s)', $row['promo']) : '',
+        );
     }
 
     /** @param string[] $lines */
